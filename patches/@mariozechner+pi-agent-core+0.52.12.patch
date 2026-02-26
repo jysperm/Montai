@@ -1,0 +1,19 @@
+diff --git a/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts b/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
+index b6fe44b..619e32c 100644
+--- a/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
++++ b/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
+@@ -1,4 +1,4 @@
+-import type { AssistantMessageEvent, ImageContent, Message, Model, SimpleStreamOptions, streamSimple, TextContent, Tool, ToolResultMessage } from "@mariozechner/pi-ai";
++import type { AssistantMessageEvent, FileContent, ImageContent, Message, Model, SimpleStreamOptions, streamSimple, TextContent, Tool, ToolResultMessage } from "@mariozechner/pi-ai";
+ import type { Static, TSchema } from "@sinclair/typebox";
+ /** Stream function - can return sync or Promise for async config lookup */
+ export type StreamFn = (...args: Parameters<typeof streamSimple>) => ReturnType<typeof streamSimple> | Promise<ReturnType<typeof streamSimple>>;
+@@ -119,7 +119,7 @@ export interface AgentState {
+     error?: string;
+ }
+ export interface AgentToolResult<T> {
+-    content: (TextContent | ImageContent)[];
++    content: (TextContent | ImageContent | FileContent)[];
+     details: T;
+ }
+ export type AgentToolUpdateCallback<T = any> = (partialResult: AgentToolResult<T>) => void;

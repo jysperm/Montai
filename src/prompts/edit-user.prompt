@@ -1,0 +1,19 @@
+Create a precise edit specification based on this storyline and video summaries.
+
+Storyline:
+{{storyline}}
+
+Video Summaries:
+{{#each videoSummaries}}
+--- Video ID {{this.videoId}} ({{this.filename}}) ---
+{{this.summary}}
+
+{{/each}}
+
+Use the watch_segment tool to verify important cut points before finalizing. Pay attention to:
+- Smooth transitions between clips
+- Precise in/out points that avoid awkward starts/ends
+- Appropriate playback rates for different content
+- Text overlays for context where needed
+
+When done, call submit_edit_spec with your final EditSpec.

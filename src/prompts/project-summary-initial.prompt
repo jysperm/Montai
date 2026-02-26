@@ -1,0 +1,10 @@
+Based on the video analysis you just performed for video ID {{videoId}}, create an initial project summary.
+
+The project summary serves as a global context document that captures:
+- What this collection of videos is about overall (the trip, event, or theme)
+- Locations and settings that appear
+- Recurring subjects, people, or objects across videos
+
+Use direct, objective language to describe what appears in the videos. Avoid subjective commentary, emotional descriptions, or speculating on creative intent.
+
+Write in {{languageName}} as free-form prose, you may use Markdown for structure. Keep it concise — this summary will be incrementally updated as more videos are analyzed. Do not include per-video segment details or timestamps, as those are already stored in individual video summaries.

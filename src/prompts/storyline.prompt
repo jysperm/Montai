@@ -1,0 +1,42 @@
+You are a professional video editor creating a storyline for a vlog.
+
+Respond in {{languageName}} for all descriptive text fields.
+
+Project Summary:
+{{projectSummary}}
+
+Individual Video Summaries:
+{{#each videoSummaries}}
+--- Video ID {{this.videoId}} ---
+{{this.summary}}
+
+{{/each}}
+{{#if hint}}
+Additional instruction from the user: {{hint}}
+{{/if}}
+
+Create a storyline that weaves together the best moments from all videos into a compelling narrative. Return JSON:
+
+{
+  "title": "Title for the final video",
+  "description": "Brief description of the narrative arc",
+  "style": "The editing style (e.g. fast-paced, cinematic, documentary)",
+  "acts": [
+    {
+      "name": "Act name (e.g. Opening, Discovery, Climax, Ending)",
+      "description": "What this act covers",
+      "clips": [
+        {
+          "videoId": 1,
+          "startTime": "MM:SS",
+          "endTime": "MM:SS",
+          "purpose": "Why this clip is included here",
+          "narration": "Optional suggested narration or text overlay"
+        }
+      ]
+    }
+  ],
+  "estimatedDurationSeconds": 180
+}
+
+Select the best moments, create a natural flow, and suggest a total duration appropriate for a vlog (typically 3-10 minutes).

@@ -1,0 +1,170 @@
+diff --git a/node_modules/drizzle-kit/api.js b/node_modules/drizzle-kit/api.js
+index 3aafc5b..8ad97c4 100644
+--- a/node_modules/drizzle-kit/api.js
++++ b/node_modules/drizzle-kit/api.js
+@@ -17356,7 +17356,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17382,7 +17382,7 @@ var init_statementCombiner = __esm({
+           }
+           if (statementsForTable2 && (columnIsPartOfForeignKey || columnPk)) {
+             if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+               const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+               if (wasRename) {
+                 newStatements[tableName2].push(...preparedStatements);
+@@ -17416,7 +17416,7 @@ var init_statementCombiner = __esm({
+           }
+           if (statement.isMulticolumn) {
+             if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+               const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+               if (wasRename) {
+                 newStatements[tableName2].push(...preparedStatements);
+@@ -17440,7 +17440,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17459,7 +17459,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17497,7 +17497,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17516,7 +17516,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17541,7 +17541,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+diff --git a/node_modules/drizzle-kit/api.mjs b/node_modules/drizzle-kit/api.mjs
+index ff8e047..1afdc08 100644
+--- a/node_modules/drizzle-kit/api.mjs
++++ b/node_modules/drizzle-kit/api.mjs
+@@ -17362,7 +17362,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17388,7 +17388,7 @@ var init_statementCombiner = __esm({
+           }
+           if (statementsForTable2 && (columnIsPartOfForeignKey || columnPk)) {
+             if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+               const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+               if (wasRename) {
+                 newStatements[tableName2].push(...preparedStatements);
+@@ -17422,7 +17422,7 @@ var init_statementCombiner = __esm({
+           }
+           if (statement.isMulticolumn) {
+             if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++              const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+               const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+               if (wasRename) {
+                 newStatements[tableName2].push(...preparedStatements);
+@@ -17446,7 +17446,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17465,7 +17465,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareLibSQLRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17503,7 +17503,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17522,7 +17522,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17547,7 +17547,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSQLiteRecreateTable(json2.tables[tableName2], action);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17623,7 +17623,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSingleStoreRecreateTable(json2.tables[tableName2]);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);
+@@ -17642,7 +17642,7 @@ var init_statementCombiner = __esm({
+             continue;
+           }
+           if (!statementsForTable2.some(({ type }) => type === "recreate_table")) {
+-            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table");
++            const wasRename = statementsForTable2.some(({ type }) => type === "rename_table" || type === "alter_table_rename_column");
+             const preparedStatements = prepareSingleStoreRecreateTable(json2.tables[tableName2]);
+             if (wasRename) {
+               newStatements[tableName2].push(...preparedStatements);

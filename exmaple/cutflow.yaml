@@ -1,0 +1,12 @@
+videos:
+  - .
+intermediateLanguage: zh
+output:
+  resolution: 1080p
+  fps: 50
+models:
+  analyze: gemini-3-flash-preview
+  storyline: gemini-3-pro-preview
+  edit: gemini-3-pro-preview
+effects:
+  languages: [zh, en]

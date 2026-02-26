@@ -1,0 +1,172 @@
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js b/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
+index 0bf2b89..4639fbf 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
+@@ -71,6 +71,8 @@ const fromClaudeCodeName = (name, tools) => {
+  * Convert content blocks to Anthropic API format
+  */
+ function convertContentBlocks(content) {
++    // Filter out file content (Google-specific)
++    content = content.filter((c) => c.type !== "file");
+     // If only text blocks, return as concatenated string for simplicity
+     const hasImages = content.some((c) => c.type === "image");
+     if (!hasImages) {
+@@ -527,7 +529,7 @@ function convertMessages(messages, model, isOAuthToken, cacheControl) {
+                 }
+             }
+             else {
+-                const blocks = msg.content.map((item) => {
++                const blocks = msg.content.filter((item) => item.type !== "file").map((item) => {
+                     if (item.type === "text") {
+                         return {
+                             type: "text",
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
+index 8886935..bdcb45c 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
+@@ -81,6 +81,21 @@ export function convertMessages(model, context) {
+                     if (item.type === "text") {
+                         return { text: sanitizeSurrogates(item.text) };
+                     }
++                    else if (item.type === "file") {
++                        const part = {
++                            fileData: {
++                                fileUri: item.uri,
++                                mimeType: item.mimeType,
++                            },
++                        };
++                        if (item.videoMetadata) {
++                            part.videoMetadata = {
++                                startOffset: item.videoMetadata.startOffset,
++                                endOffset: item.videoMetadata.endOffset,
++                            };
++                        }
++                        return part;
++                    }
+                     else {
+                         return {
+                             inlineData: {
+@@ -141,7 +156,7 @@ export function convertMessages(model, context) {
+                     // convert unsigned function calls to text to avoid API validation errors.
+                     // We include a note telling the model this is historical context to prevent mimicry.
+                     const isGemini3 = model.id.toLowerCase().includes("gemini-3");
+-                    if (isGemini3 && !thoughtSignature) {
++                    if (isGemini3 && !thoughtSignature && !isSameProviderAndModel) {
+                         const argsStr = JSON.stringify(block.arguments ?? {}, null, 2);
+                         parts.push({
+                             text: `[Historical context: a different model called tool "${block.name}" with arguments: ${argsStr}. Do not mimic this format - use proper function calling.]`,
+@@ -170,12 +185,13 @@ export function convertMessages(model, context) {
+             });
+         }
+         else if (msg.role === "toolResult") {
+-            // Extract text and image content
++            // Extract text, image, and file content
+             const textContent = msg.content.filter((c) => c.type === "text");
+             const textResult = textContent.map((c) => c.text).join("\n");
+             const imageContent = model.input.includes("image")
+                 ? msg.content.filter((c) => c.type === "image")
+                 : [];
++            const fileContent = msg.content.filter((c) => c.type === "file");
+             const hasText = textResult.length > 0;
+             const hasImages = imageContent.length > 0;
+             // Gemini 3 supports multimodal function responses with images nested inside functionResponse.parts
+@@ -219,6 +235,35 @@ export function convertMessages(model, context) {
+                     parts: [{ text: "Tool result image:" }, ...imageParts],
+                 });
+             }
++            // Add file references (e.g. Gemini File API videos) after function response
++            if (fileContent.length > 0) {
++                const fileParts = fileContent.map((fileBlock) => {
++                    const part = {
++                        fileData: {
++                            fileUri: fileBlock.uri,
++                            mimeType: fileBlock.mimeType,
++                        },
++                    };
++                    if (fileBlock.videoMetadata) {
++                        part.videoMetadata = {
++                            startOffset: fileBlock.videoMetadata.startOffset,
++                            endOffset: fileBlock.videoMetadata.endOffset,
++                        };
++                    }
++                    return part;
++                });
++                // Append file parts to the last user turn (which has the functionResponse)
++                const lastContent = contents[contents.length - 1];
++                if (lastContent?.role === "user") {
++                    lastContent.parts.push(...fileParts);
++                }
++                else {
++                    contents.push({
++                        role: "user",
++                        parts: fileParts,
++                    });
++                }
++            }
+         }
+     }
+     return contents;
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
+index 8c97431..cf079ae 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
+@@ -445,7 +445,7 @@ export function convertMessages(model, context, compat) {
+                 });
+             }
+             else {
+-                const content = msg.content.map((item) => {
++                const content = msg.content.filter((item) => item.type !== "file").map((item) => {
+                     if (item.type === "text") {
+                         return {
+                             type: "text",
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
+index 00c5801..bf04117 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
+@@ -61,7 +61,7 @@ export function convertResponsesMessages(model, context, allowedToolCallProvider
+                 });
+             }
+             else {
+-                const content = msg.content.map((item) => {
++                const content = msg.content.filter((item) => item.type !== "file").map((item) => {
+                     if (item.type === "text") {
+                         return {
+                             type: "input_text",
+diff --git a/node_modules/@mariozechner/pi-ai/dist/types.d.ts b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
+index 4227403..5247330 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/types.d.ts
++++ b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
+@@ -82,6 +82,15 @@ export interface ImageContent {
+     data: string;
+     mimeType: string;
+ }
++export interface FileContent {
++    type: "file";
++    uri: string;
++    mimeType: string;
++    videoMetadata?: {
++        startOffset: string;
++        endOffset: string;
++    };
++}
+ export interface ToolCall {
+     type: "toolCall";
+     id: string;
+@@ -106,7 +115,7 @@ export interface Usage {
+ export type StopReason = "stop" | "length" | "toolUse" | "error" | "aborted";
+ export interface UserMessage {
+     role: "user";
+-    content: string | (TextContent | ImageContent)[];
++    content: string | (TextContent | ImageContent | FileContent)[];
+     timestamp: number;
+ }
+ export interface AssistantMessage {
+@@ -124,7 +133,7 @@ export interface ToolResultMessage<TDetails = any> {
+     role: "toolResult";
+     toolCallId: string;
+     toolName: string;
+-    content: (TextContent | ImageContent)[];
++    content: (TextContent | ImageContent | FileContent)[];
+     details?: TDetails;
+     isError: boolean;
+     timestamp: number;
