@@ -1,4 +1,4 @@
-Create a precise edit specification based on this storyline and video summaries.
+Create a precise timeline based on this storyline and video summaries.
 
 Storyline:
 {{storyline}}
@@ -16,4 +16,4 @@ Use the watch_segment tool to verify important cut points before finalizing. Pay
 - Appropriate playback rates for different content
 - Text overlays for context where needed
 
-When done, call submit_edit_spec with your final EditSpec.
+When done, call submit_timeline with your final Timeline.

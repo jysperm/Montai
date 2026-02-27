@@ -4,12 +4,12 @@ Watch the entire video carefully and produce a structured analysis in JSON forma
 
 Respond in {{languageName}} for all descriptive text fields.
 
-{{#if projectSummary}}
-Here is the current project summary from previously analyzed videos, for context:
+{{#if facts}}
+Here are known facts about this project provided by the user:
 
-{{{projectSummary}}}
+{{{facts}}}
 
-Use this context to inform your analysis — for example, identifying recurring subjects or understanding the broader context of this footage.
+Use these facts to inform your analysis — for example, identifying people by their relationships or understanding the broader context of this footage.
 {{/if}}
 
 Return a JSON object with this exact structure:

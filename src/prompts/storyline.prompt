@@ -2,9 +2,11 @@ You are a professional video editor creating a storyline for a vlog.
 
 Respond in {{languageName}} for all descriptive text fields.
 
-Project Summary:
-{{projectSummary}}
+{{#if facts}}
+Project Facts:
+{{{facts}}}
 
+{{/if}}
 Individual Video Summaries:
 {{#each videoSummaries}}
 --- Video ID {{this.videoId}} ---
@@ -18,6 +20,7 @@ Additional instruction from the user: {{hint}}
 Create a storyline that weaves together the best moments from all videos into a compelling narrative. Return JSON:
 
 {
+  "codename": "some-name",
   "title": "Title for the final video",
   "description": "Brief description of the narrative arc",
   "style": "The editing style (e.g. fast-paced, cinematic, documentary)",

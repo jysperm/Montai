@@ -1,14 +1,14 @@
 import { mkdirSync, linkSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { resolve, basename } from 'path';
-import type { EditSpec } from '../schemas/edit-spec.js';
+import type { Timeline } from '../schemas/timeline.js';
 
-export function preparePublicDir(spec: EditSpec): string {
+export function preparePublicDir(timeline: Timeline): string {
   const publicDir = resolve('.cutflow/public');
   mkdirSync(publicDir, { recursive: true });
 
   const seen = new Set<string>();
 
-  for (const clip of spec.clips) {
+  for (const clip of timeline.clips) {
     const filename = basename(clip.sourceFile);
     if (seen.has(filename)) continue;
     seen.add(filename);
@@ -23,10 +23,10 @@ export function preparePublicDir(spec: EditSpec): string {
     linkSync(absoluteSource, linkPath);
   }
 
-  // Write editSpec.json for studio fallback
+  // Write timeline JSON for studio fallback (loaded by Root.tsx when no --props provided)
   writeFileSync(
-    resolve(publicDir, 'editSpec.json'),
-    JSON.stringify(spec, null, 2),
+    resolve(publicDir, 'timeline.json'),
+    JSON.stringify(timeline, null, 2),
   );
 
   return publicDir;

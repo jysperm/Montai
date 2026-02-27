@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { getDb } from '../db/index.js';
-import { videoSummaries, projectSummary, storylines } from '../db/schema.js';
+import { videoSummaries, projectContext, storylines } from '../db/schema.js';
 import { loadProjectConfig, serializeVideoSummary } from '../utils/project.js';
 import { storylinePrompt } from '../prompts/index.js';
 import { getModel, complete, type TextContent, type AssistantMessage } from '@mariozechner/pi-ai';
@@ -28,22 +28,18 @@ export async function storylineCommand(options: { hint?: string }) {
   const config = loadProjectConfig();
   const db = getDb();
 
-  const summary = db.select().from(projectSummary).get();
-  if (!summary) {
-    console.log(chalk.red('No project summary found. Run "cutflow analyze" first.'));
-    return;
-  }
-
   const allSummaries = db.select().from(videoSummaries).all();
   if (allSummaries.length === 0) {
     console.log(chalk.red('No video summaries found. Run "cutflow analyze" first.'));
     return;
   }
 
+  const context = db.select().from(projectContext).get();
+
   const spinner = ora('Generating storyline...').start();
 
   const prompt = storylinePrompt(
-    summary.content,
+    context?.facts ?? null,
     allSummaries.map((s) => ({ videoId: s.videoId, summary: serializeVideoSummary(s) })),
     options.hint ?? '',
     config.intermediateLanguage
@@ -66,17 +62,20 @@ export async function storylineCommand(options: { hint?: string }) {
   const storylineText = extractJson(getTextContent(result));
 
   let title = 'Untitled Storyline';
+  let codename = 'untitled';
 
   try {
     const parsed = JSON.parse(storylineText);
     title = parsed.title ?? title;
+    codename = parsed.codename ?? codename;
   } catch {
-    // keep default title
+    // keep defaults
   }
 
   const row = db
     .insert(storylines)
     .values({
+      codename,
       title,
       content: storylineText,
       createdAt: new Date().toISOString(),
@@ -84,7 +83,7 @@ export async function storylineCommand(options: { hint?: string }) {
     .returning()
     .get();
 
-  spinner.succeed(`Storyline created: "${title}" (ID: ${row.id})`);
+  spinner.succeed(`Storyline created: "${title}" (${codename})`);
 
   try {
     const parsed = JSON.parse(storylineText);

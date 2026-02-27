@@ -6,7 +6,7 @@ export const TransitionSchema = z.object({
   direction: z.enum(['from-left', 'from-right', 'from-top', 'from-bottom']).optional(),
 });
 
-export const EditClipSchema = z.object({
+export const TimelineClipSchema = z.object({
   clipId: z.string(),
   videoId: z.number(),
   sourceFile: z.string(),
@@ -25,29 +25,16 @@ export const TextOverlaySchema = z.object({
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 
-export const EditSpecSchema = z.object({
+export const TimelineSchema = z.object({
   name: z.string(),
   fps: z.number(),
   width: z.number(),
   height: z.number(),
-  clips: z.array(EditClipSchema),
+  clips: z.array(TimelineClipSchema),
   textOverlays: z.array(TextOverlaySchema).default([]),
-  titleCard: z
-    .object({
-      text: z.string(),
-      subtitle: z.string().optional(),
-      durationSeconds: z.number(),
-    })
-    .optional(),
-  endCard: z
-    .object({
-      text: z.string(),
-      durationSeconds: z.number(),
-    })
-    .optional(),
 });
 
 export type Transition = z.infer<typeof TransitionSchema>;
-export type EditClip = z.infer<typeof EditClipSchema>;
+export type TimelineClip = z.infer<typeof TimelineClipSchema>;
 export type TextOverlay = z.infer<typeof TextOverlaySchema>;
-export type EditSpec = z.infer<typeof EditSpecSchema>;
+export type Timeline = z.infer<typeof TimelineSchema>;

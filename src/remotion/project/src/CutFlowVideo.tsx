@@ -1,6 +1,6 @@
 import React from 'react';
 import { AbsoluteFill, OffthreadVideo, Sequence, staticFile } from 'remotion';
-import { TransitionSeries, linearTiming } from '@remotion/transitions';
+import { TransitionSeries, linearTiming, type TransitionPresentation } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
 import { wipe } from '@remotion/transitions/wipe';
@@ -24,15 +24,14 @@ interface TextOverlay {
   style: 'title' | 'subtitle' | 'caption';
 }
 
-export interface EditSpecProps {
+export interface TimelineProps {
+  [key: string]: unknown;
   name: string;
   fps: number;
   width: number;
   height: number;
   clips: EditClip[];
   textOverlays: TextOverlay[];
-  titleCard?: { text: string; subtitle?: string; durationSeconds: number };
-  endCard?: { text: string; durationSeconds: number };
 }
 
 const positionStyles = {
@@ -53,7 +52,7 @@ const textStyles = {
   },
 } as const;
 
-function getTransition(type: string, direction?: string) {
+function getTransition(type: string, direction?: string): TransitionPresentation<Record<string, unknown>> | null {
   const dir = direction as
     | 'from-left'
     | 'from-right'
@@ -62,11 +61,11 @@ function getTransition(type: string, direction?: string) {
     | undefined;
   switch (type) {
     case 'fade':
-      return fade();
+      return fade() as TransitionPresentation<Record<string, unknown>>;
     case 'slide':
-      return slide({ direction: dir });
+      return slide({ direction: dir }) as TransitionPresentation<Record<string, unknown>>;
     case 'wipe':
-      return wipe({ direction: dir });
+      return wipe({ direction: dir }) as TransitionPresentation<Record<string, unknown>>;
     default:
       return null;
   }
@@ -77,13 +76,9 @@ function getSourcePath(sourceFile: string): string {
   return staticFile(filename);
 }
 
-export function calculateTotalFrames(spec: EditSpecProps): number {
+export function calculateTotalFrames(spec: TimelineProps): number {
   let total = 0;
   const { fps } = spec;
-
-  if (spec.titleCard) {
-    total += Math.round(spec.titleCard.durationSeconds * fps);
-  }
 
   for (const clip of spec.clips) {
     const clipDuration =
@@ -97,44 +92,15 @@ export function calculateTotalFrames(spec: EditSpecProps): number {
     }
   }
 
-  if (spec.endCard) {
-    total += Math.round(spec.endCard.durationSeconds * fps);
-  }
-
   return Math.max(total, 1);
 }
 
-export const CutFlowVideo: React.FC<EditSpecProps> = (props) => {
-  const { fps, clips, textOverlays, titleCard, endCard } = props;
+export const CutFlowVideo: React.FC<TimelineProps> = (props) => {
+  const { fps, clips, textOverlays } = props;
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
       <TransitionSeries>
-        {titleCard && (
-          <TransitionSeries.Sequence
-            durationInFrames={Math.round(titleCard.durationSeconds * fps)}
-          >
-            <AbsoluteFill
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                justifyContent: 'center',
-                color: 'white',
-              }}
-            >
-              <div style={{ fontSize: 72, fontWeight: 'bold' }}>
-                {titleCard.text}
-              </div>
-              {titleCard.subtitle && (
-                <div style={{ fontSize: 36, marginTop: 16, opacity: 0.8 }}>
-                  {titleCard.subtitle}
-                </div>
-              )}
-            </AbsoluteFill>
-          </TransitionSeries.Sequence>
-        )}
-
         {clips.map((clip) => {
           const durationFrames = Math.round(
             ((clip.endTimeSeconds - clip.startTimeSeconds) /
@@ -171,29 +137,6 @@ export const CutFlowVideo: React.FC<EditSpecProps> = (props) => {
             </TransitionSeries.Sequence>,
           ].filter(Boolean);
         })}
-
-        {endCard && (
-          <>
-            <TransitionSeries.Transition
-              presentation={fade()}
-              timing={linearTiming({ durationInFrames: 15 })}
-            />
-            <TransitionSeries.Sequence
-              durationInFrames={Math.round(endCard.durationSeconds * fps)}
-            >
-              <AbsoluteFill
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'white',
-                }}
-              >
-                <div style={{ fontSize: 48 }}>{endCard.text}</div>
-              </AbsoluteFill>
-            </TransitionSeries.Sequence>
-          </>
-        )}
       </TransitionSeries>
 
       {textOverlays.map((overlay, i) => {

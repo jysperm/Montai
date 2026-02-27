@@ -1,5 +1,5 @@
 import { basename } from 'path';
-import type { EditSpec, EditClip, TextOverlay } from '../schemas/edit-spec.js';
+import type { Timeline, TimelineClip, TextOverlay } from '../schemas/timeline.js';
 
 function toRational(seconds: number, fps: number): string {
   const frames = Math.round(seconds * fps);
@@ -19,7 +19,7 @@ const TITLE_EFFECT_ID = 'r2';
 const TITLE_EFFECT_UID =
   '.../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti';
 
-function getAssetId(clip: EditClip, clips: EditClip[]): string {
+function getAssetId(clip: TimelineClip, clips: TimelineClip[]): string {
   const filename = basename(clip.sourceFile);
   const seen = new Set<string>();
   let index = 0;
@@ -135,7 +135,7 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 }
 
 export function generateFcpxml(
-  spec: EditSpec,
+  spec: Timeline,
   videoMeta?: Map<string, VideoFormatInfo>,
 ): string {
   const { fps, width, height } = spec;
@@ -153,8 +153,7 @@ export function generateFcpxml(
 
   // r1 is always the sequence/output format
   // Title effect uses TITLE_EFFECT_ID (r2), so per-asset formats start after that
-  const needsTitleEffect =
-    spec.titleCard != null || spec.endCard != null || spec.textOverlays.length > 0;
+  const needsTitleEffect = spec.textOverlays.length > 0;
   if (needsTitleEffect) formatIndex = 3; // r2 is taken by title effect
 
   function getOrCreateFormat(meta: VideoFormatInfo): string {
@@ -226,31 +225,6 @@ export function generateFcpxml(
   let offset = 0;
   const I = '                    '; // base indent for spine children
 
-  // Title card: gap with connected title text
-  if (spec.titleCard) {
-    const dur = spec.titleCard.durationSeconds;
-    const offsetR = toRational(offset, fps);
-    const durationR = toRational(dur, fps);
-
-    const innerLines = [
-      makeTitleXml(spec.titleCard.text, nextTs(), 72, '0/1s', durationR, I + '    ', 1),
-    ];
-    if (spec.titleCard.subtitle) {
-      innerLines.push(
-        makeTitleXml(spec.titleCard.subtitle, nextTs(), 36, '0/1s', durationR, I + '    ', 2),
-      );
-    }
-
-    spine.push(
-      [
-        `${I}<gap name="Title Card" offset="${offsetR}" duration="${durationR}" start="0/1s">`,
-        ...innerLines,
-        `${I}</gap>`,
-      ].join('\n')
-    );
-    offset += dur;
-  }
-
   // Video clips with transitions
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
@@ -284,22 +258,6 @@ export function generateFcpxml(
       `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(offset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}" tcFormat="NDF" />`
     );
     offset += clipDuration;
-  }
-
-  // End card: gap with connected title text
-  if (spec.endCard) {
-    const dur = spec.endCard.durationSeconds;
-    const offsetR = toRational(offset, fps);
-    const durationR = toRational(dur, fps);
-
-    spine.push(
-      [
-        `${I}<gap name="End Card" offset="${offsetR}" duration="${durationR}" start="0/1s">`,
-        makeTitleXml(spec.endCard.text, nextTs(), 48, '0/1s', durationR, I + '    ', 1),
-        `${I}</gap>`,
-      ].join('\n')
-    );
-    offset += dur;
   }
 
   // Text overlays as connected titles (lane 1)

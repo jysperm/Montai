@@ -1,0 +1,24 @@
+You are summarizing a video editing project based on all analyzed video footage.
+
+{{#if facts}}
+Project Facts (provided by the user):
+{{{facts}}}
+
+{{/if}}
+Video Summaries:
+{{#each videoSummaries}}
+--- Video {{this.videoId}}: {{this.filename}} ---
+{{this.overview}}
+{{#if this.location}}Location: {{this.location}}{{/if}}
+{{#if this.timeOfDay}}Time: {{this.timeOfDay}}{{/if}}
+
+{{/each}}
+Generate a project overview that synthesizes the information above. Cover:
+- What the project is about (trip, event, daily life, etc.)
+- Key locations and settings
+- People and their roles/relationships (if apparent)
+- Recurring themes or subjects
+- Time span and progression
+
+Output a Markdown bullet list only (each line starts with "- "). Do not add a heading.
+Write in {{languageName}}.

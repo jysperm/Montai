@@ -1,12 +1,8 @@
-import type { EditSpec } from '../schemas/edit-spec.js';
+import type { Timeline } from '../schemas/timeline.js';
 
-export function calculateTotalFrames(spec: EditSpec): number {
+export function calculateTotalFrames(spec: Timeline): number {
   let total = 0;
   const { fps } = spec;
-
-  if (spec.titleCard) {
-    total += Math.round(spec.titleCard.durationSeconds * fps);
-  }
 
   for (const clip of spec.clips) {
     const clipDuration =
@@ -18,10 +14,6 @@ export function calculateTotalFrames(spec: EditSpec): number {
         total -= transitionFrames;
       }
     }
-  }
-
-  if (spec.endCard) {
-    total += Math.round(spec.endCard.durationSeconds * fps);
   }
 
   return Math.max(total, 1);

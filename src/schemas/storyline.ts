@@ -9,6 +9,7 @@ export const StorylineClipSchema = z.object({
 });
 
 export const StorylineSchema = z.object({
+  codename: z.string(),
   title: z.string(),
   description: z.string(),
   style: z.string(),

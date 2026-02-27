@@ -33,20 +33,23 @@ export const videoSummaries = sqliteTable('video_summaries', {
   technicalNotes: text('technical_notes'),
 });
 
-export const projectSummary = sqliteTable('project_summary', {
+export const projectContext = sqliteTable('project_context', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  content: text('content').notNull(),
+  facts: text('facts').notNull(),
+  generatedOverview: text('generated_overview'),
+  generatedOverviewStale: integer('generated_overview_stale', { mode: 'boolean' }),
   updatedAt: text('updated_at').notNull(),
 });
 
 export const storylines = sqliteTable('storylines', {
   id: integer('id').primaryKey({ autoIncrement: true }),
+  codename: text('codename').notNull().unique(),
   title: text('title').notNull(),
   content: text('content').notNull(),
   createdAt: text('created_at').notNull(),
 });
 
-export const editSpecs = sqliteTable('edit_specs', {
+export const timelines = sqliteTable('timelines', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull(),
   storylineId: integer('storyline_id')

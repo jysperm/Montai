@@ -13,11 +13,11 @@ function loadTemplate(name: string): HandlebarsTemplateDelegate {
 
 const templates = {
   videoAnalysis: loadTemplate('video-analysis'),
-  projectSummaryInitial: loadTemplate('project-summary-initial'),
-  projectSummaryUpdate: loadTemplate('project-summary-update'),
   storyline: loadTemplate('storyline'),
   editSystem: loadTemplate('edit-system'),
   editUser: loadTemplate('edit-user'),
+  mergeFacts: loadTemplate('merge-facts'),
+  projectOverview: loadTemplate('project-overview'),
 };
 
 const languageNames: Record<string, string> = {
@@ -30,41 +30,49 @@ function langName(language: string): string {
   return languageNames[language] ?? language;
 }
 
-export function videoAnalysisPrompt(intermediateLanguage: string, projectSummary?: string | null): string {
-  return templates.videoAnalysis({ languageName: langName(intermediateLanguage), projectSummary: projectSummary || null });
-}
-
-export function projectSummaryPrompt(
-  existingSummary: string | null,
-  videoId: number,
-  intermediateLanguage: string,
-): string {
-  const languageName = langName(intermediateLanguage);
-  if (!existingSummary) {
-    return templates.projectSummaryInitial({ videoId, languageName });
-  }
-  return templates.projectSummaryUpdate({ existingSummary, videoId, languageName });
+export function videoAnalysisPrompt(intermediateLanguage: string, facts?: string | null): string {
+  return templates.videoAnalysis({ languageName: langName(intermediateLanguage), facts: facts || null });
 }
 
 export function storylinePrompt(
-  projectSummary: string,
+  facts: string | null,
   videoSummaries: { videoId: number; summary: string }[],
   hint: string,
   intermediateLanguage: string,
 ): string {
   return templates.storyline({
-    projectSummary,
+    facts,
     videoSummaries,
     hint,
     languageName: langName(intermediateLanguage),
   });
 }
 
-export function editSpecSystemPrompt(intermediateLanguage: string): string {
+export function mergeFactsPrompt(existingFacts: string | null, newFact: string, intermediateLanguage: string): string {
+  return templates.mergeFacts({
+    existingFacts: existingFacts || null,
+    newFact,
+    languageName: langName(intermediateLanguage),
+  });
+}
+
+export function projectOverviewPrompt(
+  facts: string | null,
+  videoSummaries: { videoId: number; filename: string; overview: string; location: string | null; timeOfDay: string | null }[],
+  intermediateLanguage: string,
+): string {
+  return templates.projectOverview({
+    facts: facts || null,
+    videoSummaries,
+    languageName: langName(intermediateLanguage),
+  });
+}
+
+export function timelineSystemPrompt(intermediateLanguage: string): string {
   return templates.editSystem({ languageName: langName(intermediateLanguage) });
 }
 
-export function editSpecUserPrompt(
+export function timelineUserPrompt(
   storyline: string,
   videoSummaries: { videoId: number; filename: string; summary: string }[],
 ): string {

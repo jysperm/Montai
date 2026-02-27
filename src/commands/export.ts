@@ -3,8 +3,8 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { basename } from 'path';
 import { eq, desc } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
-import { editSpecs, videos } from '../db/schema.js';
-import type { EditSpec } from '../schemas/edit-spec.js';
+import { timelines, videos } from '../db/schema.js';
+import type { Timeline } from '../schemas/timeline.js';
 import { generateFcpxml, type VideoFormatInfo } from '../fcpxml/generate.js';
 
 export async function exportCommand(name?: string) {
@@ -12,23 +12,23 @@ export async function exportCommand(name?: string) {
 
   let specRow;
   if (name) {
-    specRow = db.select().from(editSpecs).where(eq(editSpecs.name, name)).get();
+    specRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
   } else {
-    specRow = db.select().from(editSpecs).orderBy(desc(editSpecs.id)).get();
+    specRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
   }
 
   if (!specRow) {
     console.log(
       chalk.red(
         name
-          ? `Edit spec "${name}" not found.`
-          : 'No edit specs found. Run "cutflow edit" first.',
+          ? `Timeline "${name}" not found.`
+          : 'No timelines found. Run "cutflow edit" first.',
       ),
     );
     return;
   }
 
-  const spec = JSON.parse(specRow.spec) as EditSpec;
+  const spec = JSON.parse(specRow.spec) as Timeline;
 
   const videoMeta = new Map<string, VideoFormatInfo>();
   for (const clip of spec.clips) {

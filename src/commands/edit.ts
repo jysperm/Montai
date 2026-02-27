@@ -10,17 +10,17 @@ import {
   videos,
   videoSummaries,
   storylines,
-  editSpecs,
+  timelines,
 } from '../db/schema.js';
 import { loadProjectConfig, serializeVideoSummary } from '../utils/project.js';
 import { resolveResolution } from '../schemas/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import {
-  editSpecSystemPrompt,
-  editSpecUserPrompt,
+  timelineSystemPrompt,
+  timelineUserPrompt,
 } from '../prompts/index.js';
-import { EditSpecSchema, type EditSpec } from '../schemas/edit-spec.js';
+import { TimelineSchema, type Timeline } from '../schemas/timeline.js';
 
 const MAX_VIDEO_FILES_PER_TURN = 10;
 const MAX_VIDEO_FILES_IN_CONTEXT = 10;
@@ -143,17 +143,26 @@ export async function editCommand(options: { storyline?: string }) {
   const config = loadProjectConfig();
   const db = getDb();
 
-  // Find storyline
+  // Find storyline by ID or codename
   let storyline;
   if (options.storyline) {
     const id = parseInt(options.storyline, 10);
-    storyline = db
-      .select()
-      .from(storylines)
-      .where(eq(storylines.id, id))
-      .get();
+    if (!isNaN(id) && String(id) === options.storyline) {
+      storyline = db
+        .select()
+        .from(storylines)
+        .where(eq(storylines.id, id))
+        .get();
+    }
     if (!storyline) {
-      console.log(chalk.red(`Storyline with ID ${options.storyline} not found.`));
+      storyline = db
+        .select()
+        .from(storylines)
+        .where(eq(storylines.codename, options.storyline))
+        .get();
+    }
+    if (!storyline) {
+      console.log(chalk.red(`Storyline "${options.storyline}" not found.`));
       return;
     }
   } else {
@@ -170,7 +179,7 @@ export async function editCommand(options: { storyline?: string }) {
     }
   }
 
-  console.log(chalk.blue(`Using storyline: "${storyline.title}" (ID: ${storyline.id})`));
+  console.log(chalk.blue(`Using storyline: "${storyline.title}" (${storyline.codename})`));
 
   const allVideos = db.select().from(videos).all();
   const allSummaries = db.select().from(videoSummaries).all();
@@ -189,7 +198,7 @@ export async function editCommand(options: { storyline?: string }) {
   console.log(chalk.blue(`Starting edit agent (${config.models.edit})...`));
   const spinner = ora('Edit agent starting...').start();
 
-  let finalEditSpec: EditSpec | null = null as EditSpec | null;
+  let finalTimeline: Timeline | null = null as Timeline | null;
 
   // Track watch_segment calls per turn
   let watchCountThisTurn = 0;
@@ -276,19 +285,19 @@ export async function editCommand(options: { storyline?: string }) {
     },
   };
 
-  const submitEditSpecTool = {
-    name: 'submit_edit_spec',
-    label: 'Submit Edit Spec',
+  const submitTimelineTool = {
+    name: 'submit_timeline',
+    label: 'Submit Timeline',
     description:
-      'Submit the final edit specification. Call this when you are satisfied with the edit. The editSpec must be a complete JSON object following the EditSpec format.',
+      'Submit the final timeline. Call this when you are satisfied with the edit. The timeline must be a complete JSON object following the Timeline format.',
     parameters: Type.Object({
-      editSpec: Type.Any({ description: 'The complete EditSpec JSON object' }),
+      timeline: Type.Any({ description: 'The complete Timeline JSON object' }),
     }),
     async execute(
       _toolCallId: string,
-      params: { editSpec: unknown },
+      params: { timeline: unknown },
     ) {
-      const specData = params.editSpec as Record<string, unknown>;
+      const specData = params.timeline as Record<string, unknown>;
 
       // Fill in sourceFile from video data
       if (Array.isArray(specData.clips)) {
@@ -303,14 +312,14 @@ export async function editCommand(options: { storyline?: string }) {
       }
 
       try {
-        finalEditSpec = EditSpecSchema.parse(specData);
+        finalTimeline = TimelineSchema.parse(specData);
       } catch {
-        finalEditSpec = specData as unknown as EditSpec;
+        finalTimeline = specData as unknown as Timeline;
       }
 
       const textContent: TextContent = {
         type: 'text' as const,
-        text: 'Edit spec submitted successfully. The edit is complete.',
+        text: 'Timeline submitted successfully. The edit is complete.',
       };
       return { content: [textContent], details: {} };
     },
@@ -318,14 +327,14 @@ export async function editCommand(options: { storyline?: string }) {
 
   const agent = new Agent({
     initialState: {
-      systemPrompt: editSpecSystemPrompt(config.intermediateLanguage),
+      systemPrompt: timelineSystemPrompt(config.intermediateLanguage),
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(messages)),
   });
 
-  agent.setTools([watchSegmentTool, getVideoSummaryTool, submitEditSpecTool]);
+  agent.setTools([watchSegmentTool, getVideoSummaryTool, submitTimelineTool]);
 
   let turn = 0;
   let totalCost = 0;
@@ -394,63 +403,63 @@ export async function editCommand(options: { storyline?: string }) {
   });
 
   await agent.prompt(
-    editSpecUserPrompt(storyline.content, videoSummaryData)
+    timelineUserPrompt(storyline.content, videoSummaryData)
   );
   await agent.waitForIdle();
 
   spinner.stop();
   console.log(chalk.dim(`\nTotal agent cost: $${totalCost < 0.01 ? totalCost.toFixed(4) : totalCost.toFixed(2)}`));
 
-  if (!finalEditSpec) {
-    console.log(chalk.red('Failed to generate edit spec.'));
+  if (!finalTimeline) {
+    console.log(chalk.red('Failed to generate timeline.'));
     return;
   }
 
-  console.log(chalk.green('Edit spec generated'));
+  console.log(chalk.green('Timeline generated'));
 
   // Fill in defaults from config
   const res = resolveResolution(config.output.resolution);
-  finalEditSpec.fps = finalEditSpec.fps || config.output.fps;
-  finalEditSpec.width = finalEditSpec.width || res.width;
-  finalEditSpec.height = finalEditSpec.height || res.height;
+  finalTimeline.fps = finalTimeline.fps || config.output.fps;
+  finalTimeline.width = finalTimeline.width || res.width;
+  finalTimeline.height = finalTimeline.height || res.height;
 
   // Set default name if missing
-  if (!finalEditSpec.name) {
-    finalEditSpec.name = storyline.title
+  if (!finalTimeline.name) {
+    finalTimeline.name = storyline.title
       .toLowerCase()
       .replace(/[^a-z0-9]+/g, '-')
       .replace(/^-|-$/g, '') || 'default';
   }
 
   // Map sourceFile paths to absolute paths
-  for (const clip of finalEditSpec.clips) {
+  for (const clip of finalTimeline.clips) {
     const video = allVideos.find((v) => v.id === clip.videoId);
     if (video) {
       clip.sourceFile = video.path;
     }
   }
 
-  // Store edit spec in database
+  // Store timeline in database
   const result = db
-    .insert(editSpecs)
+    .insert(timelines)
     .values({
-      name: finalEditSpec.name,
+      name: finalTimeline.name,
       storylineId: storyline.id,
-      spec: JSON.stringify(finalEditSpec),
+      spec: JSON.stringify(finalTimeline),
       createdAt: new Date().toISOString(),
     })
     .returning()
     .get();
 
-  console.log(chalk.green(`Edit spec saved (ID: ${result.id})`));
+  console.log(chalk.green(`Timeline saved (ID: ${result.id})`));
 
   console.log(
     chalk.green(
-      `\nEdit complete! ${finalEditSpec.clips.length} clips, ` +
-        `${finalEditSpec.textOverlays.length} overlays`
+      `\nEdit complete! ${finalTimeline.clips.length} clips, ` +
+        `${finalTimeline.textOverlays.length} overlays`
     )
   );
-  console.log(chalk.cyan(`  Preview:  cutflow remotion studio ${finalEditSpec.name}`));
-  console.log(chalk.cyan(`  Render:   cutflow remotion render ${finalEditSpec.name}`));
-  console.log(chalk.cyan(`  Export:   cutflow export ${finalEditSpec.name}`));
+  console.log(chalk.cyan(`  Preview:  cutflow remotion studio ${finalTimeline.name}`));
+  console.log(chalk.cyan(`  Render:   cutflow remotion render ${finalTimeline.name}`));
+  console.log(chalk.cyan(`  Export:   cutflow export ${finalTimeline.name}`));
 }

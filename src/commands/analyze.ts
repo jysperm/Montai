@@ -1,14 +1,14 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { eq, isNull } from 'drizzle-orm';
+import { asc, eq, isNull } from 'drizzle-orm';
 import { getDb, initDb } from '../db/index.js';
-import { videos, videoSummaries, projectSummary } from '../db/schema.js';
+import { videos, videoSummaries, projectContext } from '../db/schema.js';
 import { loadProjectConfig, resolveVideoFiles, getVideoFilename } from '../utils/project.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { statSync } from 'fs';
 import { uploadVideoToGemini } from '../gemini/upload.js';
-import { videoAnalysisPrompt, projectSummaryPrompt } from '../prompts/index.js';
+import { videoAnalysisPrompt, mergeFactsPrompt, projectOverviewPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { getModel, complete, type FileContent, type TextContent, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 
@@ -51,6 +51,64 @@ function extractJson(text: string): string {
   // Strip markdown code fences if present
   const fenced = text.match(/```(?:json)?\s*\n?([\s\S]*?)```/);
   return fenced ? fenced[1].trim() : text.trim();
+}
+
+class AsyncQueue<T> {
+  private queue: T[] = [];
+  private processing = false;
+  private processor: (item: T) => Promise<void>;
+  private resolveWhenDrained?: () => void;
+  private itemCount = 0;
+  private doneCount = 0;
+  private sealed = false;
+
+  constructor(processor: (item: T) => Promise<void>) {
+    this.processor = processor;
+  }
+
+  enqueue(item: T): void {
+    this.itemCount++;
+    this.queue.push(item);
+    void this.processNext();
+  }
+
+  seal(): void {
+    this.sealed = true;
+    this.checkDrained();
+  }
+
+  drain(): Promise<void> {
+    return new Promise<void>((resolve) => {
+      this.resolveWhenDrained = resolve;
+      this.checkDrained();
+    });
+  }
+
+  private async processNext(): Promise<void> {
+    if (this.processing || this.queue.length === 0) return;
+    this.processing = true;
+    const item = this.queue.shift()!;
+    try {
+      await this.processor(item);
+    } finally {
+      this.doneCount++;
+      this.processing = false;
+      this.checkDrained();
+      void this.processNext();
+    }
+  }
+
+  private checkDrained(): void {
+    if (
+      this.sealed &&
+      this.doneCount === this.itemCount &&
+      this.queue.length === 0 &&
+      !this.processing &&
+      this.resolveWhenDrained
+    ) {
+      this.resolveWhenDrained();
+    }
+  }
 }
 
 function showVideoSummary(db: ReturnType<typeof getDb>, filename: string): void {
@@ -116,9 +174,175 @@ function showVideoSummary(db: ReturnType<typeof getDb>, filename: string): void 
   console.log();
 }
 
-export async function analyzeCommand(options: { reRun?: string; show?: string }) {
+function formatDurationHuman(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = seconds % 60;
+  if (m > 0) return `${m}m${s}s`;
+  return `${s}s`;
+}
+
+function parseTimeToSeconds(time: string): number {
+  const parts = time.split(':').map(Number);
+  if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
+  if (parts.length === 2) return parts[0] * 60 + parts[1];
+  return parts[0] ?? 0;
+}
+
+function listVideos(db: ReturnType<typeof getDb>): void {
+  const allVideos = db.select().from(videos).orderBy(asc(videos.filename)).all();
+
+  if (allVideos.length === 0) {
+    console.log(chalk.yellow('No videos in database.'));
+    return;
+  }
+
+  for (const video of allVideos) {
+    const meta: string[] = [];
+    if (video.width && video.height) meta.push(`${video.width}×${video.height}`);
+    if (video.fpsNum && video.fpsDen) meta.push(`${(video.fpsNum / video.fpsDen).toFixed(2)}fps`);
+    if (video.durationSeconds) meta.push(formatDurationHuman(video.durationSeconds));
+
+    console.log(chalk.cyan(`${video.id}. ${video.filename}`) + (meta.length ? chalk.dim(` (${meta.join(', ')})`) : ''));
+
+    const summary = db
+      .select()
+      .from(videoSummaries)
+      .where(eq(videoSummaries.videoId, video.id))
+      .get();
+
+    if (!summary) {
+      console.log(chalk.dim('   (not analyzed)\n'));
+      continue;
+    }
+
+    const tags: string[] = [];
+
+    if (summary.timeOfDay) tags.push(summary.timeOfDay);
+
+    // Calculate highlights percentage
+    if (video.durationSeconds) {
+      const highlights = JSON.parse(summary.highlights) as Array<{ startTime: string; endTime: string }>;
+      if (highlights.length > 0) {
+        let highlightSeconds = 0;
+        for (const hl of highlights) {
+          highlightSeconds += parseTimeToSeconds(hl.endTime) - parseTimeToSeconds(hl.startTime);
+        }
+        const pct = Math.round((highlightSeconds / video.durationSeconds) * 100);
+        tags.push(`highlights: ${pct}%`);
+      }
+    }
+
+    if (tags.length > 0) {
+      console.log(`   ${tags.join(chalk.dim(' | '))}`);
+    }
+
+    console.log(chalk.dim(`   ${summary.overview.replace(/\n/g, ' ')}`));
+    console.log();
+  }
+}
+
+export async function analyzeCommand(options: { reRun?: string; show?: string; list?: boolean; addFact?: string; project?: boolean }) {
   const config = loadProjectConfig();
   const db = await initDb();
+
+  if (options.addFact) {
+    const existing = db.select().from(projectContext).get();
+    const prompt = mergeFactsPrompt(existing?.facts ?? null, options.addFact, config.intermediateLanguage);
+
+    const model = getModel('google', config.models.analyze as Parameters<typeof getModel>[1]);
+    const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const spinner = ora('Merging fact...').start();
+
+    const result = await complete(model, {
+      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }],
+    }, { apiKey });
+    assertComplete(result);
+    const mergedFacts = getTextContent(result).trim();
+
+    if (existing) {
+      db.update(projectContext)
+        .set({ facts: mergedFacts, updatedAt: new Date().toISOString() })
+        .where(eq(projectContext.id, existing.id))
+        .run();
+    } else {
+      db.insert(projectContext)
+        .values({ facts: mergedFacts, updatedAt: new Date().toISOString() })
+        .run();
+    }
+
+    // Invalidate generated overview when facts change
+    if (existing) {
+      db.update(projectContext)
+        .set({ generatedOverviewStale: true })
+        .where(eq(projectContext.id, existing.id))
+        .run();
+    }
+
+    spinner.succeed('Fact added');
+    console.log(chalk.dim(mergedFacts));
+    return;
+  }
+
+  if (options.project) {
+    const existing = db.select().from(projectContext).get();
+
+    if (existing?.generatedOverview && !existing.generatedOverviewStale) {
+      console.log(chalk.bold('Project Overview') + chalk.dim(' (cached)'));
+      console.log(existing.generatedOverview);
+      return;
+    }
+
+    // Gather all video summaries
+    const allSummaries = db
+      .select({
+        videoId: videoSummaries.videoId,
+        filename: videos.filename,
+        overview: videoSummaries.overview,
+        location: videoSummaries.location,
+        timeOfDay: videoSummaries.timeOfDay,
+      })
+      .from(videoSummaries)
+      .innerJoin(videos, eq(videoSummaries.videoId, videos.id))
+      .orderBy(asc(videos.filename))
+      .all();
+
+    if (allSummaries.length === 0) {
+      console.log(chalk.yellow('No video summaries yet. Run `cutflow analyze` first.'));
+      return;
+    }
+
+    const prompt = projectOverviewPrompt(existing?.facts ?? null, allSummaries, config.intermediateLanguage);
+    const model = getModel('google', config.models.analyze as Parameters<typeof getModel>[1]);
+    const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+    const spinner = ora('Generating project overview...').start();
+
+    const result = await complete(model, {
+      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }],
+    }, { apiKey });
+    assertComplete(result);
+    const overview = getTextContent(result).trim();
+
+    if (existing) {
+      db.update(projectContext)
+        .set({ generatedOverview: overview, generatedOverviewStale: false, updatedAt: new Date().toISOString() })
+        .where(eq(projectContext.id, existing.id))
+        .run();
+    } else {
+      db.insert(projectContext)
+        .values({ facts: '', generatedOverview: overview, generatedOverviewStale: false, updatedAt: new Date().toISOString() })
+        .run();
+    }
+
+    spinner.succeed('Project overview generated');
+    console.log(chalk.bold('Project Overview'));
+    console.log(overview);
+    return;
+  }
+
+  if (options.list) {
+    listVideos(db);
+    return;
+  }
 
   if (options.show) {
     showVideoSummary(db, options.show);
@@ -224,12 +448,13 @@ export async function analyzeCommand(options: { reRun?: string; show?: string })
       return;
     }
   } else {
-    // Left join video_summaries to find unanalyzed
+    // Left join video_summaries to find unanalyzed, ordered by filename for consistent shooting-order processing
     videosToAnalyze = db
       .select({ id: videos.id, filename: videos.filename, path: videos.path, md5: videos.md5, durationSeconds: videos.durationSeconds })
       .from(videos)
       .leftJoin(videoSummaries, eq(videos.id, videoSummaries.videoId))
       .where(isNull(videoSummaries.id))
+      .orderBy(asc(videos.filename))
       .all();
   }
 
@@ -243,39 +468,54 @@ export async function analyzeCommand(options: { reRun?: string; show?: string })
   let totalCost = 0;
   let failed = 0;
 
-  for (const video of videosToAnalyze) {
-    console.log(chalk.cyan(`\n--- ${video.filename} (ID: ${video.id}) ---`));
+  // Pipeline state tracking
+  const pipelineState: { transcoding: string | null; uploading: string | null; analyzing: string | null } = {
+    transcoding: null,
+    uploading: null,
+    analyzing: null,
+  };
+  const spinner = ora();
 
-    let spinner = ora();
+  function updateSpinner(): void {
+    const parts: string[] = [];
+    if (pipelineState.transcoding) parts.push(`Transcoding: ${pipelineState.transcoding}`);
+    if (pipelineState.uploading) parts.push(`Uploading: ${pipelineState.uploading}`);
+    if (pipelineState.analyzing) parts.push(`Analyzing: ${pipelineState.analyzing}`);
+    if (parts.length > 0) {
+      spinner.text = parts.join(chalk.dim(' | '));
+      if (!spinner.isSpinning) spinner.start();
+    } else if (spinner.isSpinning) {
+      spinner.stop();
+    }
+  }
+
+  function logLine(message: string): void {
+    if (spinner.isSpinning) {
+      spinner.clear();
+    }
+    console.log(message);
+    if (spinner.isSpinning) {
+      spinner.render();
+    }
+  }
+
+  type VideoItem = typeof videosToAnalyze[number];
+
+  // Stage 3: Analyze (defined first since Stage 2 references it)
+  const analyzeQueue = new AsyncQueue<{ video: VideoItem; fileUri: string }>(async ({ video, fileUri }) => {
+    pipelineState.analyzing = video.filename;
+    updateSpinner();
 
     try {
-      // Step 1: Transcode for upload
-      spinner = ora('Transcoding video...').start();
-      let t0 = Date.now();
-      const transcoded = await transcodeForUpload(video.id, video.path);
-      const transcodedSize = formatFileSize(statSync(transcoded.path).size);
-      if (transcoded.cached) {
-        spinner.succeed(`Transcoded (${transcodedSize}, cached)`);
-      } else {
-        spinner.succeed(`Transcoded (${transcodedSize}, ${formatDuration(Date.now() - t0)})`);
-      }
-
-      // Step 2: Upload to Gemini
-      spinner = ora('Uploading to Gemini...').start();
-      t0 = Date.now();
-      const fileUri = await uploadVideoToGemini(video.id, transcoded.path);
-      spinner.succeed(`Uploaded to Gemini (${formatDuration(Date.now() - t0)})`);
-
       const fileContent: FileContent = {
         type: 'file',
         uri: fileUri,
         mimeType: 'video/mp4',
       };
 
-      // Build conversation messages incrementally across steps
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      const currentProjectSummary = db.select().from(projectSummary).get();
-      const analysisPrompt = videoAnalysisPrompt(config.intermediateLanguage, currentProjectSummary?.content);
+      const currentContext = db.select().from(projectContext).get();
+      const analysisPrompt = videoAnalysisPrompt(config.intermediateLanguage, currentContext?.facts);
 
       const messages: Message[] = [
         {
@@ -285,26 +525,21 @@ export async function analyzeCommand(options: { reRun?: string; show?: string })
         },
       ];
 
-      // Step 3: Analyze video
-      spinner = ora('Analyzing video content...').start();
-      t0 = Date.now();
+      // Video analysis
+      const t0 = Date.now();
       const analysisResult = await complete(model, { messages }, { apiKey });
-
       assertComplete(analysisResult);
       const analysisText = getTextContent(analysisResult);
       totalCost += analysisResult.usage.cost.total;
       const analysisCacheRate = formatCacheRate(analysisResult.usage);
-      spinner.succeed(`Video analysis complete (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)}, ${config.models.analyze}${analysisCacheRate ? `, ${analysisCacheRate}` : ''})`);
+      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)}, ${config.models.analyze}${analysisCacheRate ? `, ${analysisCacheRate}` : ''})`));
 
-      // Append assistant response to conversation (text only, drop tool calls etc.)
-      messages.push({ ...analysisResult, content: [{ type: 'text', text: analysisText }] });
-
-      // Step 4: Parse and store video summary
+      // Parse and store video summary
       let parsedAnalysis: Record<string, unknown>;
       try {
         parsedAnalysis = JSON.parse(extractJson(analysisText));
       } catch {
-        console.log(chalk.yellow('Warning: Could not parse analysis JSON, storing raw text'));
+        logLine(chalk.yellow(`  Warning: Could not parse analysis JSON for ${video.filename}, storing raw text`));
         parsedAnalysis = { overview: analysisText };
       }
 
@@ -334,54 +569,79 @@ export async function analyzeCommand(options: { reRun?: string; show?: string })
           .run();
       }
 
-      // Step 5: Update project summary (multi-turn, extending the conversation)
-      spinner = ora('Updating project summary...').start();
-      t0 = Date.now();
-      const latestProjectSummary = db.select().from(projectSummary).get();
-      const summaryPromptText = projectSummaryPrompt(
-        latestProjectSummary?.content ?? null,
-        video.id,
-        config.intermediateLanguage
-      );
-
-      messages.push({
-        role: 'user',
-        content: [{ type: 'text', text: summaryPromptText }],
-        timestamp: Date.now(),
-      });
-
-      const summaryResult = await complete(model, { messages }, { apiKey });
-
-      assertComplete(summaryResult);
-      const updatedSummaryText = getTextContent(summaryResult);
-      totalCost += summaryResult.usage.cost.total;
-
-      if (latestProjectSummary) {
-        db.update(projectSummary)
-          .set({
-            content: updatedSummaryText,
-            updatedAt: new Date().toISOString(),
-          })
-          .where(eq(projectSummary.id, latestProjectSummary.id))
-          .run();
-      } else {
-        db.insert(projectSummary)
-          .values({
-            content: updatedSummaryText,
-            updatedAt: new Date().toISOString(),
-          })
+      // Invalidate generated overview when video summaries change
+      const currentCtx = db.select().from(projectContext).get();
+      if (currentCtx) {
+        db.update(projectContext)
+          .set({ generatedOverviewStale: true })
+          .where(eq(projectContext.id, currentCtx.id))
           .run();
       }
 
-      const summaryCacheRate = formatCacheRate(summaryResult.usage);
-      spinner.succeed(`Project summary updated (${formatDuration(Date.now() - t0)}, ${formatCost(summaryResult.usage.cost.total)}, ${config.models.analyze}${summaryCacheRate ? `, ${summaryCacheRate}` : ''})`);
-
-      console.log(chalk.green(`Completed analysis for ${video.filename}`));
     } catch (err) {
-      spinner.fail(`Failed to analyze ${video.filename}: ${err instanceof Error ? err.message : err}`);
+      logLine(chalk.red(`  ✗ Failed to analyze ${video.filename}: ${err instanceof Error ? err.message : err}`));
       failed++;
+    } finally {
+      pipelineState.analyzing = null;
+      updateSpinner();
     }
+  });
+
+  // Stage 2: Upload
+  const uploadQueue = new AsyncQueue<{ video: VideoItem; transcodedPath: string }>(async ({ video, transcodedPath }) => {
+    pipelineState.uploading = video.filename;
+    updateSpinner();
+
+    try {
+      const t0 = Date.now();
+      const fileUri = await uploadVideoToGemini(video.id, transcodedPath);
+      logLine(chalk.green(`  ✓ Uploaded ${video.filename} (${formatDuration(Date.now() - t0)})`));
+      analyzeQueue.enqueue({ video, fileUri });
+    } catch (err) {
+      logLine(chalk.red(`  ✗ Failed to upload ${video.filename}: ${err instanceof Error ? err.message : err}`));
+      failed++;
+    } finally {
+      pipelineState.uploading = null;
+      updateSpinner();
+    }
+  });
+
+  // Stage 1: Transcode
+  const transcodeQueue = new AsyncQueue<{ video: VideoItem }>(async ({ video }) => {
+    pipelineState.transcoding = video.filename;
+    updateSpinner();
+
+    try {
+      const t0 = Date.now();
+      const transcoded = await transcodeForUpload(video.id, video.path);
+      const transcodedSize = formatFileSize(statSync(transcoded.path).size);
+      if (transcoded.cached) {
+        logLine(chalk.green(`  ✓ Transcoded ${video.filename} (cached, ${transcodedSize})`));
+      } else {
+        logLine(chalk.green(`  ✓ Transcoded ${video.filename} (${formatDuration(Date.now() - t0)}, ${transcodedSize})`));
+      }
+      uploadQueue.enqueue({ video, transcodedPath: transcoded.path });
+    } catch (err) {
+      logLine(chalk.red(`  ✗ Failed to transcode ${video.filename}: ${err instanceof Error ? err.message : err}`));
+      failed++;
+    } finally {
+      pipelineState.transcoding = null;
+      updateSpinner();
+    }
+  });
+
+  // Start the pipeline: enqueue all videos to transcode stage
+  for (const video of videosToAnalyze) {
+    transcodeQueue.enqueue({ video });
   }
+  transcodeQueue.seal();
+
+  // Chain stage sealing: when one stage drains, seal the next
+  transcodeQueue.drain().then(() => uploadQueue.seal());
+  uploadQueue.drain().then(() => analyzeQueue.seal());
+
+  await analyzeQueue.drain();
+  spinner.stop();
 
   if (failed > 0) {
     console.log(chalk.yellow(`\nAnalysis complete with ${failed} failure(s), total cost: ${formatCost(totalCost)}. Re-run to retry failed videos.`));
