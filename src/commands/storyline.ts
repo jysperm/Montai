@@ -24,6 +24,16 @@ function extractJson(text: string): string {
   return fenced ? fenced[1].trim() : text.trim();
 }
 
+function formatDuration(ms: number): string {
+  if (ms < 1000) return `${ms}ms`;
+  return `${(ms / 1000).toFixed(1)}s`;
+}
+
+function formatCost(cost: number): string {
+  if (cost < 0.01) return `$${cost.toFixed(4)}`;
+  return `$${cost.toFixed(2)}`;
+}
+
 export async function storylineCommand(options: { hint?: string }) {
   const config = loadProjectConfig();
   const db = getDb();
@@ -48,6 +58,7 @@ export async function storylineCommand(options: { hint?: string }) {
   const model = getModel('google', config.models.storyline as Parameters<typeof getModel>[1]);
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
+  const t0 = Date.now();
   const result = await complete(model, {
     messages: [
       {
@@ -59,47 +70,41 @@ export async function storylineCommand(options: { hint?: string }) {
   }, { apiKey });
 
   assertComplete(result);
+  const elapsed = Date.now() - t0;
+  const cost = result.usage.cost.total;
   const storylineText = extractJson(getTextContent(result));
 
-  let title = 'Untitled Storyline';
-  let codename = 'untitled';
-
+  let parsed: Record<string, unknown>;
   try {
-    const parsed = JSON.parse(storylineText);
-    title = parsed.title ?? title;
-    codename = parsed.codename ?? codename;
+    parsed = JSON.parse(storylineText);
   } catch {
-    // keep defaults
+    parsed = {};
   }
 
-  const row = db
-    .insert(storylines)
+  const title = typeof parsed.title === 'string' ? parsed.title : 'Untitled Storyline';
+  const codename = typeof parsed.codename === 'string' ? parsed.codename : 'untitled';
+  const narrative = typeof parsed.narrative === 'string' ? parsed.narrative : storylineText;
+  const estimatedDurationSeconds = typeof parsed.estimatedDurationSeconds === 'number' ? parsed.estimatedDurationSeconds : null;
+
+  db.insert(storylines)
     .values({
       codename,
       title,
-      content: storylineText,
+      narrative,
+      estimatedDurationSeconds,
       createdAt: new Date().toISOString(),
     })
     .returning()
     .get();
 
-  spinner.succeed(`Storyline created: "${title}" (${codename})`);
+  spinner.succeed(`Storyline created: "${title}" (${codename}) (${formatDuration(elapsed)}, ${formatCost(cost)})`);
 
-  try {
-    const parsed = JSON.parse(storylineText);
-    if (parsed.acts) {
-      console.log(chalk.cyan('\nActs:'));
-      for (const act of parsed.acts) {
-        console.log(`  ${chalk.bold(act.name)}: ${act.description}`);
-        console.log(`    Clips: ${act.clips?.length ?? 0}`);
-      }
-    }
-    if (parsed.estimatedDurationSeconds) {
-      const mins = Math.floor(parsed.estimatedDurationSeconds / 60);
-      const secs = parsed.estimatedDurationSeconds % 60;
-      console.log(chalk.cyan(`\nEstimated duration: ${mins}m ${secs}s`));
-    }
-  } catch {
-    // non-critical
+  console.log(chalk.cyan('\nNarrative:'));
+  console.log(narrative);
+
+  if (estimatedDurationSeconds) {
+    const mins = Math.floor(estimatedDurationSeconds / 60);
+    const secs = estimatedDurationSeconds % 60;
+    console.log(chalk.cyan(`\nEstimated duration: ${mins}m ${secs}s`));
   }
 }

@@ -45,7 +45,8 @@ export const storylines = sqliteTable('storylines', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   codename: text('codename').notNull().unique(),
   title: text('title').notNull(),
-  content: text('content').notNull(),
+  narrative: text('narrative').notNull(),
+  estimatedDurationSeconds: integer('estimated_duration_seconds'),
   createdAt: text('created_at').notNull(),
 });
 

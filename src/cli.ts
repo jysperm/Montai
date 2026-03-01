@@ -11,29 +11,29 @@ import { exportCommand } from './commands/export.js';
 function printFullHelp(program: Command) {
   console.log(`${chalk.bold('cutflow')} — AI-powered vlog auto-editing CLI\n`);
 
-  function printCommands(commands: readonly Command[], prefix: string) {
+  function printCommands(commands: readonly Command[], indent: number) {
+    const pad = ' '.repeat(indent);
     for (const cmd of commands) {
       if (cmd.name() === 'help') continue;
-      const fullName = prefix ? `${prefix} ${cmd.name()}` : cmd.name();
       const args = cmd.registeredArguments
         .map((a) => (a.required ? `<${a.name()}>` : `[${a.name()}]`))
         .join(' ');
-      const usage = args ? `${fullName} ${args}` : fullName;
-      console.log(`  ${chalk.cyan(usage)}`);
-      console.log(`    ${cmd.description()}`);
+      const usage = args ? `${cmd.name()} ${args}` : cmd.name();
+      console.log(`${pad}${chalk.cyan(usage)}  ${cmd.description()}`);
       for (const opt of cmd.options) {
-        console.log(`    ${chalk.dim(opt.flags)}  ${opt.description}`);
+        console.log(`${pad}  ${chalk.dim(opt.flags)}  ${opt.description}`);
       }
       const subs = cmd.commands.filter((c) => c.name() !== 'help');
       if (subs.length > 0) {
-        printCommands(subs, fullName);
+        console.log();
+        printCommands(subs, indent + 2);
       } else {
         console.log();
       }
     }
   }
 
-  printCommands(program.commands, '');
+  printCommands(program.commands, 2);
 }
 
 const program = new Command();
@@ -48,7 +48,7 @@ program
 program
   .command('analyze')
   .description(
-    'Analyze videos: upload to Gemini, generate summaries'
+    'Transcode, upload and analyze videos'
   )
   .option('--re-run <filename>', 'Re-analyze a specific video by filename, overwriting existing summary')
   .option('--show <filename>', 'Show the stored summary for a video by filename')

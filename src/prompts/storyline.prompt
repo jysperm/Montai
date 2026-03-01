@@ -1,6 +1,6 @@
-You are a professional video editor creating a storyline for a vlog.
+You are creating a storyline for a vlog edit.
 
-Respond in {{languageName}} for all descriptive text fields.
+Respond in {{languageName}} for all text fields.
 
 {{#if facts}}
 Project Facts:
@@ -17,29 +17,24 @@ Individual Video Summaries:
 Additional instruction from the user: {{hint}}
 {{/if}}
 
-Create a storyline that weaves together the best moments from all videos into a compelling narrative. Return JSON:
+Write a storyline that picks the best moments from these videos and arranges them into a cohesive edit. Return JSON with a free-form markdown `narrative` field:
 
 {
-  "codename": "some-name",
+  "codename": "short-kebab-case-name",
   "title": "Title for the final video",
-  "description": "Brief description of the narrative arc",
-  "style": "The editing style (e.g. fast-paced, cinematic, documentary)",
-  "acts": [
-    {
-      "name": "Act name (e.g. Opening, Discovery, Climax, Ending)",
-      "description": "What this act covers",
-      "clips": [
-        {
-          "videoId": 1,
-          "startTime": "MM:SS",
-          "endTime": "MM:SS",
-          "purpose": "Why this clip is included here",
-          "narration": "Optional suggested narration or text overlay"
-        }
-      ]
-    }
-  ],
-  "estimatedDurationSeconds": 180
+  "estimatedDurationSeconds": 180,
+  "narrative": "Free-form markdown describing the story..."
 }
 
-Select the best moments, create a natural flow, and suggest a total duration appropriate for a vlog (typically 3-10 minutes).
+Guidelines for the `narrative` field:
+- Write in plain, practical language. No literary flourishes or dramatic prose.
+- Reference videos by their ID (e.g. "Video 3", "Video 12") so the editor knows which clips to use.
+- Describe the flow: what the video opens with, how it progresses, what it ends on.
+- Mention mood, pacing, and any music/style direction if relevant.
+- Focus on which clips to use and the story/mood rather than exact timestamps or subtitle text, but include specific details when the narrative calls for it.
+- Scale the narrative detail to match the target video length — a 2-minute edit needs a short overview, a 10-minute edit needs more structure.
+
+For `estimatedDurationSeconds`: think carefully about how much usable content exists across all the videos. A longer estimate needs enough good material to fill it. Match the duration to the actual volume of interesting content available.
+
+Example narrative style:
+"Open with the wide establishing shots from Video 5 — the lake at sunset sets the mood. Cut to the hiking footage from Video 2 and Video 7, mixing close-ups of the trail with wider landscape shots. Keep the pacing relaxed here.\n\nMiddle section picks up energy: the market scenes from Video 12 and Video 14 have good crowd atmosphere and food close-ups. Use the conversation clips from Video 13 as a breather between the busier shots.\n\nEnd with the night scenes from Video 20. The lantern lighting gives a natural closing feel. Keep the ending short — don't drag it out."

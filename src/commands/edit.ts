@@ -403,7 +403,7 @@ export async function editCommand(options: { storyline?: string }) {
   });
 
   await agent.prompt(
-    timelineUserPrompt(storyline.content, videoSummaryData)
+    timelineUserPrompt(storyline.narrative, videoSummaryData)
   );
   await agent.waitForIdle();
 
