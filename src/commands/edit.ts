@@ -13,14 +13,13 @@ import {
   timelines,
 } from '../db/schema.js';
 import { loadProjectConfig, serializeVideoSummary } from '../utils/project.js';
-import { resolveResolution } from '../schemas/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import {
   timelineSystemPrompt,
   timelineUserPrompt,
 } from '../prompts/index.js';
-import { TimelineSchema, type Timeline } from '../schemas/timeline.js';
+import { LLMTimelineSchema, expandTimeline, type LLMTimeline } from '../schemas/timeline.js';
 
 const MAX_VIDEO_FILES_PER_TURN = 10;
 const MAX_VIDEO_FILES_IN_CONTEXT = 10;
@@ -198,7 +197,7 @@ export async function editCommand(options: { storyline?: string }) {
   console.log(chalk.blue(`Starting edit agent (${config.models.edit})...`));
   const spinner = ora('Edit agent starting...').start();
 
-  let finalTimeline: Timeline | null = null as Timeline | null;
+  let llmTimeline: LLMTimeline | null = null;
 
   // Track watch_segment calls per turn
   let watchCountThisTurn = 0;
@@ -297,25 +296,18 @@ export async function editCommand(options: { storyline?: string }) {
       _toolCallId: string,
       params: { timeline: unknown },
     ) {
-      const specData = params.timeline as Record<string, unknown>;
-
-      // Fill in sourceFile from video data
-      if (Array.isArray(specData.clips)) {
-        for (const clip of specData.clips as Array<Record<string, unknown>>) {
-          if (!clip.sourceFile) {
-            const video = allVideos.find(
-              (v) => v.id === (clip.videoId as number)
-            );
-            if (video) clip.sourceFile = video.filename;
-          }
-        }
-      }
-
       try {
-        finalTimeline = TimelineSchema.parse(specData);
-      } catch {
-        finalTimeline = specData as unknown as Timeline;
+        llmTimeline = LLMTimelineSchema.parse(params.timeline);
+      } catch (err) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Timeline validation failed: ${err}`,
+        };
+        return { content: [errorText], details: {}, isError: true };
       }
+
+      // Stop the agent loop — no need for another LLM turn after successful submission
+      agent.abort();
 
       const textContent: TextContent = {
         type: 'text' as const,
@@ -410,34 +402,14 @@ export async function editCommand(options: { storyline?: string }) {
   spinner.stop();
   console.log(chalk.dim(`\nTotal agent cost: $${totalCost < 0.01 ? totalCost.toFixed(4) : totalCost.toFixed(2)}`));
 
-  if (!finalTimeline) {
+  if (!llmTimeline) {
     console.log(chalk.red('Failed to generate timeline.'));
     return;
   }
 
   console.log(chalk.green('Timeline generated'));
 
-  // Fill in defaults from config
-  const res = resolveResolution(config.output.resolution);
-  finalTimeline.fps = finalTimeline.fps || config.output.fps;
-  finalTimeline.width = finalTimeline.width || res.width;
-  finalTimeline.height = finalTimeline.height || res.height;
-
-  // Set default name if missing
-  if (!finalTimeline.name) {
-    finalTimeline.name = storyline.title
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '-')
-      .replace(/^-|-$/g, '') || 'default';
-  }
-
-  // Map sourceFile paths to absolute paths
-  for (const clip of finalTimeline.clips) {
-    const video = allVideos.find((v) => v.id === clip.videoId);
-    if (video) {
-      clip.sourceFile = video.path;
-    }
-  }
+  const finalTimeline = expandTimeline(llmTimeline, config, storyline, allVideos);
 
   // Store timeline in database
   const result = db

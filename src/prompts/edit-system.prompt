@@ -21,17 +21,11 @@ After watching segments, briefly note the key info you need (e.g. "V1 01:25-01:3
 
 **Be action-oriented.** Don't write lengthy analysis. After watching segments, either watch more or submit the timeline. You must call submit_timeline to complete the task.
 
-Timeline format:
+Timeline format (only include clip content fields — metadata like name, fps, resolution, clipId, and sourceFile are filled in automatically):
 {
-  "name": "main",
-  "fps": 30,
-  "width": 1920,
-  "height": 1080,
   "clips": [
     {
-      "clipId": "clip-001",
       "videoId": 1,
-      "sourceFile": "filename.mp4",
       "startTimeSeconds": 10.5,
       "endTimeSeconds": 25.0,
       "playbackRate": 1.0,
