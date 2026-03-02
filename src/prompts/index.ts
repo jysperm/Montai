@@ -18,6 +18,9 @@ const templates = {
   editUser: loadTemplate('edit-user'),
   mergeFacts: loadTemplate('merge-facts'),
   projectOverview: loadTemplate('project-overview'),
+  storySystem: loadTemplate('story-system'),
+  storyUser: loadTemplate('story-user'),
+  storyResume: loadTemplate('story-resume'),
 };
 
 const languageNames: Record<string, string> = {
@@ -77,4 +80,32 @@ export function timelineUserPrompt(
   videoSummaries: { videoId: number; filename: string; summary: string }[],
 ): string {
   return templates.editUser({ storyline, videoSummaries });
+}
+
+export function storySystemPrompt(intermediateLanguage: string): string {
+  return templates.storySystem({ languageName: langName(intermediateLanguage) });
+}
+
+export function storyUserPrompt(
+  videoSummaries: { videoId: number; filename: string; summary: string }[],
+  facts: string | null,
+  hint: string,
+): string {
+  return templates.storyUser({
+    videoSummaries,
+    facts: facts || null,
+    hint: hint || null,
+  });
+}
+
+export function storyResumePrompt(
+  storyline: string,
+  timelineItems: string | null,
+  videoSummaries: { videoId: number; filename: string; summary: string }[],
+): string {
+  return templates.storyResume({
+    storyline,
+    timelineItems: timelineItems || null,
+    videoSummaries,
+  });
 }

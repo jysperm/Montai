@@ -1,0 +1,23 @@
+We are resuming work on an existing story edit. Here is the current state:
+
+## Current Storyline
+
+{{{storyline}}}
+
+{{#if timelineItems}}
+## Current Timeline Items
+
+```json
+{{{timelineItems}}}
+```
+{{/if}}
+
+## Video Summaries
+
+{{#each videoSummaries}}
+--- Video ID {{this.videoId}} ({{this.filename}}) ---
+{{this.summary}}
+
+{{/each}}
+
+Summarize the current state briefly and ask what I'd like to change or improve.

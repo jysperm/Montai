@@ -3,34 +3,54 @@ import { execSync } from 'child_process';
 import { mkdirSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { getDb } from '../db/index.js';
-import { timelines } from '../db/schema.js';
+import { timelines, stories } from '../db/schema.js';
 import type { Timeline } from '../schemas/timeline.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 
 export async function renderCommand(name?: string) {
   const db = getDb();
 
-  let specRow;
+  let specJson: string | undefined;
   if (name) {
-    specRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
+    const timelineRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
+    if (timelineRow) {
+      specJson = timelineRow.spec;
+    } else {
+      const storyRow = db.select().from(stories).where(eq(stories.name, name)).get();
+      if (storyRow?.timeline) {
+        specJson = storyRow.timeline;
+      }
+    }
   } else {
-    specRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
+    const timelineRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
+    if (timelineRow) {
+      specJson = timelineRow.spec;
+    } else {
+      const storyRow = db.select({ timeline: stories.timeline })
+        .from(stories)
+        .where(sql`${stories.timeline} IS NOT NULL`)
+        .orderBy(desc(stories.id))
+        .get();
+      if (storyRow?.timeline) {
+        specJson = storyRow.timeline;
+      }
+    }
   }
 
-  if (!specRow) {
+  if (!specJson) {
     console.log(
       chalk.red(
         name
-          ? `Timeline "${name}" not found. Run "cutflow edit" first.`
-          : 'No timelines found. Run "cutflow edit" first.',
+          ? `Timeline "${name}" not found. Run "cutflow edit" or "cutflow story" first.`
+          : 'No timelines found. Run "cutflow edit" or "cutflow story" first.',
       ),
     );
     return;
   }
 
-  const spec = JSON.parse(specRow.spec) as Timeline;
+  const spec = JSON.parse(specJson) as Timeline;
 
   // Prepare public dir with video hard links
   const publicDir = preparePublicDir(spec);

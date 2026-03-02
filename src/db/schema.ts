@@ -60,6 +60,16 @@ export const timelines = sqliteTable('timelines', {
   createdAt: text('created_at').notNull(),
 });
 
+export const stories = sqliteTable('stories', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  name: text('name').notNull().unique(),
+  title: text('title').notNull(),
+  storyline: text('storyline'),
+  timeline: text('timeline'),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
 export const geminiFiles = sqliteTable('gemini_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   videoId: integer('video_id')

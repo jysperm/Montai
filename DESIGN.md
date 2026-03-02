@@ -51,6 +51,7 @@ SQLite database (`cutflow.db`) in the project directory. Schema managed via Driz
 - **project_context** — User-provided facts about the project (markdown bullet list), managed via `cutflow analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `cutflow analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
 - **storylines** — Generated narrative structures (JSON), each with a unique `codename` (e.g. `night-market`) for CLI reference
 - **timelines** — Concrete editing instructions (JSON), each with a unique `name` per project
+- **stories** — Interactive story sessions (`cutflow story`), storing both storyline narrative and expanded Timeline JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session.
 - **gemini_files** — Cached Gemini File API references for uploaded videos
 
 ## Pipeline
@@ -91,19 +92,35 @@ Uses LLM function calling with tools:
 
 Outputs Timeline to `.cutflow/specs/<name>.json` and FCPXML file.
 
+### Story (`cutflow story [name]`)
+
+Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
+
+Uses an agent loop with tools:
+- `update_storyline(name, title, narrative)` — Save/update the storyline
+- `update_timeline(index, deleteCount, items)` — Update timeline using splice semantics
+- `watch_segment(videoId, startSeconds, endSeconds)` — Re-watch a video segment
+- `get_video_summary(videoId)` — Retrieve stored summary
+
+The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into the standard Timeline format for downstream consumption.
+
+Sessions can be resumed: `cutflow story <name>` restores the current storyline and timeline state.
+
 ### 4. Render (`cutflow render [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against CutFlow's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`.
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against CutFlow's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`. Looks in both `timelines` table (from `cutflow edit`) and `stories` table (from `cutflow story`).
 
 ### 5. Studio (`cutflow studio [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against CutFlow's built-in static Remotion project with `--public-dir`.
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against CutFlow's built-in static Remotion project with `--public-dir`. Looks in both `timelines` and `stories` tables.
 
 ## Timeline Data Model
 
 The Timeline is the shared intermediate representation consumed by both Remotion and FCPXML generators.
 
 A project can produce multiple Timelines (multiple output videos). Each Timeline has a unique `name` used as an identifier and output filename. Each render/studio invocation operates on a single Timeline, passed to the static Remotion project via `--props`.
+
+The LLM outputs a lean `LLMTimeline` (clips + textOverlays only), which is expanded into a full `Timeline` via `expandTimeline()`. Derived fields (`name`, `fps`, `width`, `height`, `clipId`, `sourceFile`) are filled in from the project config, storyline, and video database — not produced by the LLM.
 
 ```typescript
 Timeline {

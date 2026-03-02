@@ -1,34 +1,54 @@
 import chalk from 'chalk';
 import { writeFileSync, mkdirSync } from 'fs';
 import { basename } from 'path';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, sql } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
-import { timelines, videos } from '../db/schema.js';
+import { timelines, stories, videos } from '../db/schema.js';
 import type { Timeline } from '../schemas/timeline.js';
 import { generateFcpxml, type VideoFormatInfo } from '../fcpxml/generate.js';
 
 export async function exportCommand(name?: string) {
   const db = await initDb();
 
-  let specRow;
+  let specJson: string | undefined;
   if (name) {
-    specRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
+    const timelineRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
+    if (timelineRow) {
+      specJson = timelineRow.spec;
+    } else {
+      const storyRow = db.select().from(stories).where(eq(stories.name, name)).get();
+      if (storyRow?.timeline) {
+        specJson = storyRow.timeline;
+      }
+    }
   } else {
-    specRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
+    const timelineRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
+    if (timelineRow) {
+      specJson = timelineRow.spec;
+    } else {
+      const storyRow = db.select({ timeline: stories.timeline })
+        .from(stories)
+        .where(sql`${stories.timeline} IS NOT NULL`)
+        .orderBy(desc(stories.id))
+        .get();
+      if (storyRow?.timeline) {
+        specJson = storyRow.timeline;
+      }
+    }
   }
 
-  if (!specRow) {
+  if (!specJson) {
     console.log(
       chalk.red(
         name
           ? `Timeline "${name}" not found.`
-          : 'No timelines found. Run "cutflow edit" first.',
+          : 'No timelines found. Run "cutflow edit" or "cutflow story" first.',
       ),
     );
     return;
   }
 
-  const spec = JSON.parse(specRow.spec) as Timeline;
+  const spec = JSON.parse(specJson) as Timeline;
 
   const videoMeta = new Map<string, VideoFormatInfo>();
   for (const clip of spec.clips) {

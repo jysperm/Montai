@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import { analyzeCommand } from './commands/analyze.js';
 import { storylineCommand } from './commands/storyline.js';
 import { editCommand } from './commands/edit.js';
+import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
 import { studioCommand } from './commands/studio.js';
 import { exportCommand } from './commands/export.js';
@@ -70,6 +71,14 @@ program
   .action(editCommand);
 
 program
+  .command('story [name]')
+  .description('Interactive storyline + timeline editing session')
+  .option('--new', 'Force create a new story')
+  .option('--list', 'List all stories')
+  .option('--hint <text>', 'Initial direction hint for new story')
+  .action(storyCommand);
+
+program
   .command('export [name]')
   .description('Export FCPXML from a timeline. Omit name for latest.')
   .action(exportCommand);
@@ -97,4 +106,4 @@ program.action(() => {
   printFullHelp(program);
 });
 
-program.parse();
+await program.parseAsync();
