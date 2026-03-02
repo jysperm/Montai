@@ -3,7 +3,7 @@ import { resolve, basename } from 'path';
 import type { Timeline } from '../schemas/timeline.js';
 
 export function preparePublicDir(timeline: Timeline): string {
-  const publicDir = resolve('.cutflow/public');
+  const publicDir = resolve('.montai/public');
   mkdirSync(publicDir, { recursive: true });
 
   const seen = new Set<string>();

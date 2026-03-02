@@ -15,7 +15,7 @@ function expandTilde(filepath: string): string {
   return filepath;
 }
 
-export function loadProjectConfig(configPath = 'cutflow.yaml'): ProjectConfig {
+export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
   const raw = readFileSync(configPath, 'utf-8');
   const parsed = parseYaml(raw);
   return ProjectConfigSchema.parse(parsed);

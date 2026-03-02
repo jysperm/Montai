@@ -40,7 +40,7 @@ export async function storylineCommand(options: { hint?: string }) {
 
   const allSummaries = db.select().from(videoSummaries).all();
   if (allSummaries.length === 0) {
-    console.log(chalk.red('No video summaries found. Run "cutflow analyze" first.'));
+    console.log(chalk.red('No video summaries found. Run "montai analyze" first.'));
     return;
   }
 

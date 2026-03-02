@@ -1,21 +1,21 @@
-# CutFlow
+# Montai
 
-AI-powered vlog auto-editing CLI tool. Analyzes raw footage with Gemini, generates storylines, and produces edited videos via FCPXML or Remotion.
+AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs.
 
 ## Install
 
 ```bash
-git clone https://github.com/jysperm/CutFlow.git
-cd CutFlow
+git clone https://github.com/jysperm/Montai.git
+cd Montai
 npm ci
 npm link
 ```
 
-This makes the `cutflow` command available globally. Requires `ffmpeg` and `ffprobe` on PATH. A [Gemini API key](https://aistudio.google.com/apikeys) is needed (set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable).
+This makes the `montai` command available globally. Requires `ffmpeg` and `ffprobe` on PATH. A [Gemini API key](https://aistudio.google.com/apikeys) is needed (set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable).
 
 ## Quick Start
 
-1. Create a project directory with your video files and a `cutflow.yaml`:
+1. Create a project directory with your video files and a `montai.yaml`:
 
 ```yaml
 videos:
@@ -34,22 +34,22 @@ models:
 
 ```bash
 # Analyze all videos (uploads to Gemini, generates per-video summaries)
-cutflow analyze
+montai analyze
 
 # Add project context facts to improve analysis and editing
-cutflow analyze --add-fact "This is a trip to Tokyo with my family"
+montai analyze --add-fact "This is a trip to Tokyo with my family"
 
 # View AI-generated project overview (synthesizes all video summaries + facts)
-cutflow analyze --project
+montai analyze --project
 
 # Generate a storyline from the summaries
-cutflow storyline
+montai storyline
 
 # Generate timeline and FCPXML via agent loop
-cutflow edit
+montai edit
 
 # Export FCPXML for Final Cut Pro
-cutflow export
+montai export
 ```
 
 ### Remotion Preview & Render
@@ -58,13 +58,13 @@ You can also preview and render the timeline directly via Remotion:
 
 ```bash
 # Open Remotion Studio to preview the edit
-cutflow remotion studio
+montai remotion studio
 
 # Render the final video
-cutflow remotion render
+montai remotion render
 ```
 
-Both commands use the latest timeline by default, or pass a name to specify one (e.g. `cutflow remotion render my-edit`).
+Both commands use the latest timeline by default, or pass a name to specify one (e.g. `montai remotion render my-edit`).
 
 ## Commands
 
@@ -85,9 +85,9 @@ Both commands use the latest timeline by default, or pass a name to specify one 
 
 ```
 my-vlog-project/
-  cutflow.yaml          # Project config
-  cutflow.db            # SQLite database (auto-created)
-  .cutflow/             # Cache (transcoded videos, specs)
+  montai.yaml          # Project config
+  montai.db            # SQLite database (auto-created)
+  .montai/             # Cache (transcoded videos, specs)
   output/               # Rendered videos
   fcpxml/               # Generated FCPXML files
 ```

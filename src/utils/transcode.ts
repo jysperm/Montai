@@ -2,7 +2,7 @@ import { spawn } from 'child_process';
 import { existsSync, mkdirSync, statSync, renameSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 
-const TRANSCODE_DIR = '.cutflow/transcoded';
+const TRANSCODE_DIR = '.montai/transcoded';
 
 function getTranscodedPath(videoId: number): string {
   return join(TRANSCODE_DIR, `${videoId}.mp4`);
@@ -17,7 +17,7 @@ function isTranscodedFresh(transcodedPath: string, sourcePath: string): boolean 
 
 /**
  * Transcode video to 1 FPS, 720p, 8-bit color for Gemini upload.
- * Caches the result in .cutflow/transcoded/{videoId}.mp4.
+ * Caches the result in .montai/transcoded/{videoId}.mp4.
  *
  * Uses async spawn so that SIGINT/SIGTSTP are handled properly
  * (the event loop stays free to process signals).

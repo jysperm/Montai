@@ -1,22 +1,22 @@
-# CutFlow
+# Montai
 
-CutFlow is an AI-powered vlog auto-editing CLI tool. It takes raw vlog footage, uses LLM multimodal video understanding to analyze content, generates storylines, and produces edited videos via Remotion and FCPXML.
+AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs.
 
 ## Architecture Overview
 
-CutFlow is a local TypeScript CLI tool, it operates on a user project directory containing a `cutflow.yaml` config file.
+Montai is a local TypeScript CLI tool, it operates on a user project directory containing a `montai.yaml` config file.
 
 ### Key Design Decisions
 
-- **YAML config**: User create the `cutflow.yaml` file to describe the project
+- **YAML config**: User create the `montai.yaml` file to describe the project
 - **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
-- **Dual output**: `edit` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside CutFlow
-- **Static Remotion project**: The Remotion project lives inside CutFlow's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
+- **Dual output**: `edit` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
+- **Static Remotion project**: The Remotion project lives inside Montai's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
 - **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storyline narratives). Only outputs that are consumed programmatically (e.g. VideoSummary, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
 
 ## Project Configuration
 
-Users create a `cutflow.yaml` in their project directory:
+Users create a `montai.yaml` in their project directory:
 
 ```yaml
 videos:
@@ -36,47 +36,47 @@ effects:
 
 `intermediateLanguage` controls the language used by the LLM for all generated text: video analysis descriptions, project facts, storyline narratives, and timeline text content (titles, captions). Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls subtitle/caption language variants in the final output.
 
-Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `cutflow.yaml` alongside the video files and using `.` to reference the current directory.
+Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
-All generated files (`cutflow.db`, `.cutflow/`, `output/`, `fcpxml/`) are located relative to the directory containing `cutflow.yaml` (the project directory).
+All generated files (`montai.db`, `.montai/`, `output/`, `fcpxml/`) are located relative to the directory containing `montai.yaml` (the project directory).
 
 ## Database Design
 
-SQLite database (`cutflow.db`) in the project directory. Schema managed via Drizzle ORM with `pushSQLiteSchema` (auto-sync at runtime).
+SQLite database (`montai.db`) in the project directory. Schema managed via Drizzle ORM with `pushSQLiteSchema` (auto-sync at runtime).
 
 ### Tables
 
 - **videos** — Discovered video files (whether analyzed is determined by joining video_summaries)
 - **video_summaries** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
-- **project_context** — User-provided facts about the project (markdown bullet list), managed via `cutflow analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `cutflow analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
+- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
 - **storylines** — Generated narrative structures (JSON), each with a unique `codename` (e.g. `night-market`) for CLI reference
 - **timelines** — Concrete editing instructions (JSON), each with a unique `name` per project
-- **stories** — Interactive story sessions (`cutflow story`), storing both storyline narrative and expanded Timeline JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session.
+- **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and expanded Timeline JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session.
 - **gemini_files** — Cached Gemini File API references for uploaded videos
 
 ## Pipeline
 
-### 1. Analyze (`cutflow analyze`)
+### 1. Analyze (`montai analyze`)
 
 Runs a 3-stage concurrent pipeline where each stage processes one video at a time, but different stages run in parallel on different videos:
 
-1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.cutflow/transcoded/` and reused until the source file changes.
+1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.montai/transcoded/` and reused until the source file changes.
 2. **Upload** — Upload transcoded video to LLM File API (or reuse cached ref if still active in `gemini_files` table).
 3. **Analyze** — Send video + prompt to get structured VideoSummary JSON, store in `video_summaries`. If project facts exist (from `--add-fact`), they are included as context in the analysis prompt.
 
 While video N is being analyzed, video N+1 can be uploading, and video N+2 can be transcoding.
 
-Additionally, `cutflow analyze --add-fact <text>` adds a user-provided fact to the project context. An LLM merges the new fact into the existing facts list, deduplicating and resolving contradictions.
+Additionally, `montai analyze --add-fact <text>` adds a user-provided fact to the project context. An LLM merges the new fact into the existing facts list, deduplicating and resolving contradictions.
 
-`cutflow analyze --project` shows an AI-generated project overview that synthesizes all video summaries and user facts into a bullet list describing what the project is about, key locations, people, themes, and time span. The overview is cached and automatically regenerated when facts or video summaries change.
+`montai analyze --project` shows an AI-generated project overview that synthesizes all video summaries and user facts into a bullet list describing what the project is about, key locations, people, themes, and time span. The overview is cached and automatically regenerated when facts or video summaries change.
 
 Supports resume: skips videos that already have a row in `video_summaries` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 
-### 2. Storyline (`cutflow storyline`)
+### 2. Storyline (`montai storyline`)
 
 Text-only LLM call. Sends all video summaries (and project facts if available) to receive structured Storyline JSON defining the narrative arc and clip selection.
 
-### 3. Edit (`cutflow edit`)
+### 3. Edit (`montai edit`)
 
 Runs as an **agent loop** where the model iteratively builds the Timeline:
 
@@ -90,9 +90,9 @@ Uses LLM function calling with tools:
 - `watch_segment(videoId, startSeconds, endSeconds)` — Re-watch a video segment
 - `get_video_summary(videoId)` — Retrieve stored summary
 
-Outputs Timeline to `.cutflow/specs/<name>.json` and FCPXML file.
+Outputs Timeline to `.montai/specs/<name>.json` and FCPXML file.
 
-### Story (`cutflow story [name]`)
+### Story (`montai story [name]`)
 
 Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
 
@@ -104,15 +104,15 @@ Uses an agent loop with tools:
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into the standard Timeline format for downstream consumption.
 
-Sessions can be resumed: `cutflow story <name>` restores the current storyline and timeline state.
+Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state.
 
-### 4. Render (`cutflow render [name]`)
+### 4. Render (`montai render [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against CutFlow's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`. Looks in both `timelines` table (from `cutflow edit`) and `stories` table (from `cutflow story`).
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`. Looks in both `timelines` table (from `montai edit`) and `stories` table (from `montai story`).
 
-### 5. Studio (`cutflow studio [name]`)
+### 5. Studio (`montai studio [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against CutFlow's built-in static Remotion project with `--public-dir`. Looks in both `timelines` and `stories` tables.
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Looks in both `timelines` and `stories` tables.
 
 ## Timeline Data Model
 
@@ -158,13 +158,13 @@ TextOverlay {
 
 ## Remotion Output
 
-CutFlow includes a static Remotion project at `src/remotion/project/` (inside CutFlow's own source tree). This project is **never modified at runtime** — all dynamic data is passed via CLI flags:
+Montai includes a static Remotion project at `src/remotion/project/` (inside Montai's own source tree). This project is **never modified at runtime** — all dynamic data is passed via CLI flags:
 
-- **Single Composition** (`CutFlow`): Uses `calculateMetadata` to compute duration/dimensions from the Timeline
+- **Single Composition** (`Montai`): Uses `calculateMetadata` to compute duration/dimensions from the Timeline
 - **Render mode**: Timeline passed via `--props=<path>`, video files served via `--public-dir=<path>`
 - **Studio mode**: Timeline fetched from `staticFile('timeline.json')` when props are empty, video files served via `--public-dir=<path>`
-- **Public dir**: `render`/`studio` commands create `.cutflow/public/` with hard links to source video files and an `timeline.json` copy
-- **Dependencies**: Remotion, React, and transition packages are CutFlow's own dependencies — no separate install needed
+- **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and an `timeline.json` copy
+- **Dependencies**: Remotion, React, and transition packages are Montai's own dependencies — no separate install needed
 
 ## FCPXML Output
 
@@ -193,7 +193,7 @@ The `watch_segment` tool returns `FileContent` with `videoMetadata` (startOffset
 
 ### Supported Models
 
-Configurable per-stage via `models` in `cutflow.yaml`.
+Configurable per-stage via `models` in `montai.yaml`.
 
 | Stage | Video Input | Default | Supported Models |
 |-------|------------|---------|-----------------|
@@ -207,17 +207,17 @@ Gemini file references are cached in the database with 48-hour expiry tracking.
 
 ```
 my-vlog-project/
-  cutflow.yaml                  # User-authored
-  cutflow.db                    # SQLite (auto-created)
-  .cutflow/                     # Cache directory (in project directory)
+  montai.yaml                  # User-authored
+  montai.db                    # SQLite (auto-created)
+  .montai/                     # Cache directory (in project directory)
     transcoded/                 # Preprocessed video files
     specs/
-      <name>.json               # Timeline JSON (written by `cutflow edit`)
+      <name>.json               # Timeline JSON (written by `montai edit`)
     public/                     # Hard links to source video files + timeline.json
       timeline.json             # Copy of timeline for Remotion Studio fallback
       video1.mp4                # Hard link to source video
   output/
-    <name>.mp4                  # Generated by `cutflow render`
+    <name>.mp4                  # Generated by `montai render`
   fcpxml/
-    <name>.fcpxml               # Generated by `cutflow edit` (per Timeline)
+    <name>.fcpxml               # Generated by `montai edit` (per Timeline)
 ```

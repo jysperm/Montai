@@ -1,12 +1,12 @@
 import type { AnyZodObject } from 'zod';
 import { Composition, staticFile } from 'remotion';
-import { CutFlowVideo, calculateTotalFrames, type TimelineProps } from './CutFlowVideo';
+import { MontaiVideo, calculateTotalFrames, type TimelineProps } from './MontaiVideo';
 
 export const RemotionRoot = () => {
   return (
     <Composition<AnyZodObject, TimelineProps>
-      id="CutFlow"
-      component={CutFlowVideo}
+      id="Montai"
+      component={MontaiVideo}
       // Placeholders required by Remotion; overridden by calculateMetadata at runtime
       durationInFrames={1}
       fps={30}

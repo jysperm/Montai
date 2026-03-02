@@ -307,7 +307,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       .all();
 
     if (allSummaries.length === 0) {
-      console.log(chalk.yellow('No video summaries yet. Run `cutflow analyze` first.'));
+      console.log(chalk.yellow('No video summaries yet. Run `montai analyze` first.'));
       return;
     }
 
@@ -351,7 +351,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
   const videoFiles = resolveVideoFiles(config);
   if (videoFiles.length === 0) {
-    console.log(chalk.red('No video files found. Check your cutflow.yaml paths.'));
+    console.log(chalk.red('No video files found. Check your montai.yaml paths.'));
     return;
   }
 

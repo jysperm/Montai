@@ -43,8 +43,8 @@ export async function renderCommand(name?: string) {
     console.log(
       chalk.red(
         name
-          ? `Timeline "${name}" not found. Run "cutflow edit" or "cutflow story" first.`
-          : 'No timelines found. Run "cutflow edit" or "cutflow story" first.',
+          ? `Timeline "${name}" not found. Run "montai edit" or "montai story" first.`
+          : 'No timelines found. Run "montai edit" or "montai story" first.',
       ),
     );
     return;
@@ -56,7 +56,7 @@ export async function renderCommand(name?: string) {
   const publicDir = preparePublicDir(spec);
 
   // Write spec for --props flag
-  const specPath = resolve('.cutflow/specs', `${spec.name}.json`);
+  const specPath = resolve('.montai/specs', `${spec.name}.json`);
   mkdirSync(dirname(specPath), { recursive: true });
   writeFileSync(specPath, JSON.stringify(spec, null, 2));
 
@@ -75,7 +75,7 @@ export async function renderCommand(name?: string) {
 
   try {
     execSync(
-      `npx remotion render src/index.tsx CutFlow "${outputPath}" --props="${specPath}" --public-dir="${publicDir}"`,
+      `npx remotion render src/index.tsx Montai "${outputPath}" --props="${specPath}" --public-dir="${publicDir}"`,
       {
         cwd: remotionProjectDir,
         stdio: 'inherit',

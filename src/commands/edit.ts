@@ -58,7 +58,7 @@ export async function editCommand(options: { storyline?: string }) {
       .get();
     if (!storyline) {
       console.log(
-        chalk.red('No storylines found. Run "cutflow storyline" first.')
+        chalk.red('No storylines found. Run "montai storyline" first.')
       );
       return;
     }
@@ -317,7 +317,7 @@ export async function editCommand(options: { storyline?: string }) {
         `${finalTimeline.textOverlays.length} overlays`
     )
   );
-  console.log(chalk.cyan(`  Preview:  cutflow remotion studio ${finalTimeline.name}`));
-  console.log(chalk.cyan(`  Render:   cutflow remotion render ${finalTimeline.name}`));
-  console.log(chalk.cyan(`  Export:   cutflow export ${finalTimeline.name}`));
+  console.log(chalk.cyan(`  Preview:  montai remotion studio ${finalTimeline.name}`));
+  console.log(chalk.cyan(`  Render:   montai remotion render ${finalTimeline.name}`));
+  console.log(chalk.cyan(`  Export:   montai export ${finalTimeline.name}`));
 }

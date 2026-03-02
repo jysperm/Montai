@@ -10,7 +10,7 @@ import { studioCommand } from './commands/studio.js';
 import { exportCommand } from './commands/export.js';
 
 function printFullHelp(program: Command) {
-  console.log(`${chalk.bold('cutflow')} — AI-powered vlog auto-editing CLI\n`);
+  console.log(`${chalk.bold('montai')} — AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
 
   function printCommands(commands: readonly Command[], indent: number) {
     const pad = ' '.repeat(indent);
@@ -40,8 +40,8 @@ function printFullHelp(program: Command) {
 const program = new Command();
 
 program
-  .name('cutflow')
-  .description('AI-powered vlog auto-editing CLI')
+  .name('montai')
+  .description('AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs')
   .version('0.1.0')
   .addHelpCommand(false)
   .helpOption(false);

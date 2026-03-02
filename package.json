@@ -1,12 +1,12 @@
 {
-  "name": "cutflow",
+  "name": "montai",
   "version": "0.1.0",
   "type": "module",
   "bin": {
-    "cutflow": "./src/cli.ts"
+    "montai": "./src/cli.ts"
   },
   "scripts": {
-    "cutflow": "tsx src/cli.ts",
+    "montai": "tsx src/cli.ts",
     "postinstall": "patch-package"
   },
   "dependencies": {

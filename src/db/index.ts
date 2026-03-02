@@ -15,14 +15,14 @@ function createDb(dbPath: string) {
   return drizzle(sqlite, { schema });
 }
 
-export function getDb(dbPath = './cutflow.db') {
+export function getDb(dbPath = './montai.db') {
   if (!db) {
     db = createDb(dbPath);
   }
   return db;
 }
 
-export async function initDb(dbPath = './cutflow.db') {
+export async function initDb(dbPath = './montai.db') {
   const instance = getDb(dbPath);
   const { statementsToExecute } = await pushSQLiteSchema(schema, instance as any);
   for (let statement of statementsToExecute) {
@@ -33,4 +33,4 @@ export async function initDb(dbPath = './cutflow.db') {
   return instance;
 }
 
-export type CutFlowDb = ReturnType<typeof getDb>;
+export type MontaiDb = ReturnType<typeof getDb>;

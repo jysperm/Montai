@@ -95,7 +95,7 @@ export function calculateTotalFrames(spec: TimelineProps): number {
   return Math.max(total, 1);
 }
 
-export const CutFlowVideo: React.FC<TimelineProps> = (props) => {
+export const MontaiVideo: React.FC<TimelineProps> = (props) => {
   const { fps, clips, textOverlays } = props;
 
   return (

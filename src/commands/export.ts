@@ -42,7 +42,7 @@ export async function exportCommand(name?: string) {
       chalk.red(
         name
           ? `Timeline "${name}" not found.`
-          : 'No timelines found. Run "cutflow edit" or "cutflow story" first.',
+          : 'No timelines found. Run "montai edit" or "montai story" first.',
       ),
     );
     return;

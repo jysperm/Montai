@@ -41,8 +41,8 @@ export async function studioCommand(name?: string) {
     console.log(
       chalk.red(
         name
-          ? `Timeline "${name}" not found. Run "cutflow edit" or "cutflow story" first.`
-          : 'No timelines found. Run "cutflow edit" or "cutflow story" first.',
+          ? `Timeline "${name}" not found. Run "montai edit" or "montai story" first.`
+          : 'No timelines found. Run "montai edit" or "montai story" first.',
       ),
     );
     return;

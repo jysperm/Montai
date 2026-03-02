@@ -42,7 +42,7 @@ export async function storyCommand(
   if (options.list) {
     const allStories = db.select().from(stories).orderBy(desc(stories.id)).all();
     if (allStories.length === 0) {
-      console.log(chalk.dim('No stories yet. Run "cutflow story" to create one.'));
+      console.log(chalk.dim('No stories yet. Run "montai story" to create one.'));
     } else {
       for (const s of allStories) {
         const hasTimeline = s.timeline ? chalk.green('timeline') : chalk.dim('no timeline');
@@ -57,7 +57,7 @@ export async function storyCommand(
   const allSummaries = db.select().from(videoSummaries).all();
 
   if (allSummaries.length === 0) {
-    console.log(chalk.red('No video summaries found. Run "cutflow analyze" first.'));
+    console.log(chalk.red('No video summaries found. Run "montai analyze" first.'));
     return;
   }
 
@@ -474,11 +474,11 @@ export async function storyCommand(
     if (finalStory) {
       console.log(chalk.green(`Story saved: "${finalStory.title}" (${finalStory.name})`));
       if (finalStory.timeline) {
-        console.log(chalk.cyan(`  Preview:  cutflow remotion studio ${finalStory.name}`));
-        console.log(chalk.cyan(`  Render:   cutflow remotion render ${finalStory.name}`));
-        console.log(chalk.cyan(`  Export:   cutflow export ${finalStory.name}`));
+        console.log(chalk.cyan(`  Preview:  montai remotion studio ${finalStory.name}`));
+        console.log(chalk.cyan(`  Render:   montai remotion render ${finalStory.name}`));
+        console.log(chalk.cyan(`  Export:   montai export ${finalStory.name}`));
       }
-      console.log(chalk.cyan(`  Resume:   cutflow story ${finalStory.name}`));
+      console.log(chalk.cyan(`  Resume:   montai story ${finalStory.name}`));
     }
   }
 }

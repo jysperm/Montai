@@ -288,7 +288,7 @@ ${allFormatLines.join('\n')}${needsTitleEffect ? `\n        <effect id="${TITLE_
 ${assetLines.join('\n')}
     </resources>
     <library>
-        <event name="CutFlow Export">
+        <event name="Montai Export">
             <project name="${escapeXml(spec.name)}">
                 <sequence format="r1" duration="${totalDuration}" tcStart="0/1s" tcFormat="NDF">
                     <spine>
