@@ -25,9 +25,8 @@ output:
   resolution: 1080p
   fps: 50
 models:
-  analyze: gemini-3-flash-preview
-  storyline: gemini-3-pro-preview
-  edit: gemini-3-pro-preview
+  analysis: gemini-3-flash-preview
+  editing: gemini-3-pro-preview
 ```
 
 2. Run the pipeline:
@@ -42,11 +41,8 @@ montai analyze --add-fact "This is a trip to Tokyo with my family"
 # View AI-generated project overview (synthesizes all video summaries + facts)
 montai analyze --project
 
-# Generate a storyline from the summaries
-montai storyline
-
-# Generate timeline and FCPXML via agent loop
-montai edit
+# Interactive story session — generates storyline and timeline conversationally
+montai story
 
 # Export FCPXML for Final Cut Pro
 montai export
@@ -75,8 +71,10 @@ Both commands use the latest timeline by default, or pass a name to specify one 
 | `analyze --project` | Show AI-generated project overview (regenerates if stale) |
 | `analyze --list` | List all videos and their analysis status |
 | `analyze --show <filename>` | Show the stored summary for a video |
-| `storyline` | Generate a narrative storyline from all video summaries |
-| `edit` | Run an agent loop to produce a timeline |
+| `story [name]` | Interactive storyline + timeline editing session |
+| `story --new` | Force create a new story |
+| `story --list` | List all stories |
+| `story --hint <text>` | Initial direction hint for new story |
 | `export [name]` | Export FCPXML from a timeline (omit name for latest) |
 | `remotion render [name]` | Render video via Remotion |
 | `remotion studio [name]` | Open Remotion Studio for preview |

@@ -1,5 +1,11 @@
 We are resuming work on an existing story edit. Here is the current state:
 
+{{#if facts}}
+## Project Facts
+
+{{{facts}}}
+
+{{/if}}
 ## Current Storyline
 
 {{{storyline}}}

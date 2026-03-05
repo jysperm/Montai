@@ -13,9 +13,6 @@ function loadTemplate(name: string): HandlebarsTemplateDelegate {
 
 const templates = {
   videoAnalysis: loadTemplate('video-analysis'),
-  storyline: loadTemplate('storyline'),
-  editSystem: loadTemplate('edit-system'),
-  editUser: loadTemplate('edit-user'),
   mergeFacts: loadTemplate('merge-facts'),
   projectOverview: loadTemplate('project-overview'),
   storySystem: loadTemplate('story-system'),
@@ -29,26 +26,20 @@ const languageNames: Record<string, string> = {
   en: 'English',
 };
 
-function langName(language: string): string {
+export function langName(language: string): string {
   return languageNames[language] ?? language;
+}
+
+function formatOverlayLanguageInstruction(languages: string[]): string {
+  const names = languages.map(langName);
+  if (names.length === 1) {
+    return `Write all overlay text (titles, captions, subtitles) in ${names[0]}.`;
+  }
+  return `Write all overlay text (titles, captions, subtitles) in ${names.join(' and ')}. Each overlay should include all languages.`;
 }
 
 export function videoAnalysisPrompt(intermediateLanguage: string, facts?: string | null): string {
   return templates.videoAnalysis({ languageName: langName(intermediateLanguage), facts: facts || null });
-}
-
-export function storylinePrompt(
-  facts: string | null,
-  videoSummaries: { videoId: number; summary: string }[],
-  hint: string,
-  intermediateLanguage: string,
-): string {
-  return templates.storyline({
-    facts,
-    videoSummaries,
-    hint,
-    languageName: langName(intermediateLanguage),
-  });
 }
 
 export function mergeFactsPrompt(existingFacts: string | null, newFact: string, intermediateLanguage: string): string {
@@ -71,19 +62,11 @@ export function projectOverviewPrompt(
   });
 }
 
-export function timelineSystemPrompt(intermediateLanguage: string): string {
-  return templates.editSystem({ languageName: langName(intermediateLanguage) });
-}
-
-export function timelineUserPrompt(
-  storyline: string,
-  videoSummaries: { videoId: number; filename: string; summary: string }[],
-): string {
-  return templates.editUser({ storyline, videoSummaries });
-}
-
-export function storySystemPrompt(intermediateLanguage: string): string {
-  return templates.storySystem({ languageName: langName(intermediateLanguage) });
+export function storySystemPrompt(intermediateLanguage: string, overlayLanguages: string[]): string {
+  return templates.storySystem({
+    languageName: langName(intermediateLanguage),
+    overlayLanguageInstruction: formatOverlayLanguageInstruction(overlayLanguages),
+  });
 }
 
 export function storyUserPrompt(
@@ -102,10 +85,12 @@ export function storyResumePrompt(
   storyline: string,
   timelineItems: string | null,
   videoSummaries: { videoId: number; filename: string; summary: string }[],
+  facts: string | null,
 ): string {
   return templates.storyResume({
     storyline,
     timelineItems: timelineItems || null,
     videoSummaries,
+    facts: facts || null,
   });
 }

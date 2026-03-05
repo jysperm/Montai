@@ -107,6 +107,11 @@ export function expandStoryTimeline(
       const startClipIdx = overlay.startClip;
       const endClipIdx = overlay.endClip ?? overlay.startClip;
 
+      if (startClipIdx >= clipItems.length || endClipIdx >= clipItems.length) {
+        console.warn(`Warning: overlay "${overlay.text}" references invalid clip index (startClip=${startClipIdx}, endClip=${endClipIdx}, total clips=${clipItems.length}), skipping`);
+        return null;
+      }
+
       // Resolve start time
       let startTime: number;
       if (overlay.startOffset >= 0) {
@@ -132,7 +137,8 @@ export function expandStoryTimeline(
         position: overlay.position,
         style: overlay.style,
       };
-    });
+    })
+    .filter((o): o is NonNullable<typeof o> => o !== null);
 
   return {
     name: storyName,

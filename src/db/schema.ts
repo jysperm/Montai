@@ -41,25 +41,6 @@ export const projectContext = sqliteTable('project_context', {
   updatedAt: text('updated_at').notNull(),
 });
 
-export const storylines = sqliteTable('storylines', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  codename: text('codename').notNull().unique(),
-  title: text('title').notNull(),
-  narrative: text('narrative').notNull(),
-  estimatedDurationSeconds: integer('estimated_duration_seconds'),
-  createdAt: text('created_at').notNull(),
-});
-
-export const timelines = sqliteTable('timelines', {
-  id: integer('id').primaryKey({ autoIncrement: true }),
-  name: text('name').notNull(),
-  storylineId: integer('storyline_id')
-    .notNull()
-    .references(() => storylines.id),
-  spec: text('spec').notNull(),
-  createdAt: text('created_at').notNull(),
-});
-
 export const stories = sqliteTable('stories', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   name: text('name').notNull().unique(),

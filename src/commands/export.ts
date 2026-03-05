@@ -3,7 +3,7 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { basename } from 'path';
 import { eq, desc, sql } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
-import { timelines, stories, videos } from '../db/schema.js';
+import { stories, videos } from '../db/schema.js';
 import type { Timeline } from '../schemas/timeline.js';
 import { generateFcpxml, type VideoFormatInfo } from '../fcpxml/generate.js';
 
@@ -12,28 +12,18 @@ export async function exportCommand(name?: string) {
 
   let specJson: string | undefined;
   if (name) {
-    const timelineRow = db.select().from(timelines).where(eq(timelines.name, name)).get();
-    if (timelineRow) {
-      specJson = timelineRow.spec;
-    } else {
-      const storyRow = db.select().from(stories).where(eq(stories.name, name)).get();
-      if (storyRow?.timeline) {
-        specJson = storyRow.timeline;
-      }
+    const storyRow = db.select().from(stories).where(eq(stories.name, name)).get();
+    if (storyRow?.timeline) {
+      specJson = storyRow.timeline;
     }
   } else {
-    const timelineRow = db.select().from(timelines).orderBy(desc(timelines.id)).get();
-    if (timelineRow) {
-      specJson = timelineRow.spec;
-    } else {
-      const storyRow = db.select({ timeline: stories.timeline })
-        .from(stories)
-        .where(sql`${stories.timeline} IS NOT NULL`)
-        .orderBy(desc(stories.id))
-        .get();
-      if (storyRow?.timeline) {
-        specJson = storyRow.timeline;
-      }
+    const storyRow = db.select({ timeline: stories.timeline })
+      .from(stories)
+      .where(sql`${stories.timeline} IS NOT NULL`)
+      .orderBy(desc(stories.id))
+      .get();
+    if (storyRow?.timeline) {
+      specJson = storyRow.timeline;
     }
   }
 
@@ -42,7 +32,7 @@ export async function exportCommand(name?: string) {
       chalk.red(
         name
           ? `Timeline "${name}" not found.`
-          : 'No timelines found. Run "montai edit" or "montai story" first.',
+          : 'No timelines found. Run "montai story" first.',
       ),
     );
     return;

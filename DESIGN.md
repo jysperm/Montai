@@ -10,9 +10,13 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 
 - **YAML config**: User create the `montai.yaml` file to describe the project
 - **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
-- **Dual output**: `edit` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
+- **Dual output**: `export` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
 - **Static Remotion project**: The Remotion project lives inside Montai's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
 - **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storyline narratives). Only outputs that are consumed programmatically (e.g. VideoSummary, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
+
+### Historical Note
+
+Earlier versions had separate `storyline` and `edit` commands — `storyline` generated a narrative in a single LLM call, and `edit` ran a non-interactive agent loop to produce a timeline from that storyline. These were replaced by the unified interactive `story` command which handles both storyline and timeline in a single conversational session.
 
 ## Project Configuration
 
@@ -27,14 +31,13 @@ output:
   resolution: 1080p             # 720p | 1080p | 1440p | 4k
   fps: 50
 models:
-  analyze: gemini-3-flash-preview       # Per-video analysis
-  storyline: gemini-3-pro-preview       # Storyline generation
-  edit: gemini-3-pro-preview            # Edit spec agent loop
+  analysis: gemini-3-flash-preview       # Per-video analysis
+  editing: gemini-3-pro-preview         # Story agent loop
 effects:
   languages: [zh, en]           # Subtitle / caption languages
 ```
 
-`intermediateLanguage` controls the language used by the LLM for all generated text: video analysis descriptions, project facts, storyline narratives, and timeline text content (titles, captions). Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls subtitle/caption language variants in the final output.
+`intermediateLanguage` controls the language used for all internal text: video analysis summaries, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
 Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
@@ -49,8 +52,6 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **videos** — Discovered video files (whether analyzed is determined by joining video_summaries)
 - **video_summaries** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
 - **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
-- **storylines** — Generated narrative structures (JSON), each with a unique `codename` (e.g. `night-market`) for CLI reference
-- **timelines** — Concrete editing instructions (JSON), each with a unique `name` per project
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and expanded Timeline JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session.
 - **gemini_files** — Cached Gemini File API references for uploaded videos
 
@@ -72,27 +73,7 @@ Additionally, `montai analyze --add-fact <text>` adds a user-provided fact to th
 
 Supports resume: skips videos that already have a row in `video_summaries` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 
-### 2. Storyline (`montai storyline`)
-
-Text-only LLM call. Sends all video summaries (and project facts if available) to receive structured Storyline JSON defining the narrative arc and clip selection.
-
-### 3. Edit (`montai edit`)
-
-Runs as an **agent loop** where the model iteratively builds the Timeline:
-
-1. Start with storyline + video summaries
-2. Draft an initial Timeline
-3. Model can request to re-watch specific video segments (via LLM File API with `videoMetadata` start/end offsets)
-4. Model updates Timeline based on what it sees
-5. Loop terminates when model returns final Timeline or max iterations reached
-
-Uses LLM function calling with tools:
-- `watch_segment(videoId, startSeconds, endSeconds)` — Re-watch a video segment
-- `get_video_summary(videoId)` — Retrieve stored summary
-
-Outputs Timeline to `.montai/specs/<name>.json` and FCPXML file.
-
-### Story (`montai story [name]`)
+### 2. Story (`montai story [name]`)
 
 Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
 
@@ -106,13 +87,17 @@ The timeline uses a unified items array with clip-anchored positioning (startCli
 
 Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state.
 
-### 4. Render (`montai render [name]`)
+### 3. Render (`montai remotion render [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`. Looks in both `timelines` table (from `montai edit`) and `stories` table (from `montai story`).
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`.
 
-### 5. Studio (`montai studio [name]`)
+### 4. Studio (`montai remotion studio [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Looks in both `timelines` and `stories` tables.
+Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`.
+
+### 5. Export (`montai export [name]`)
+
+Generates FCPXML 1.11 format from a Timeline. Output goes to `fcpxml/<name>.fcpxml`.
 
 ## Timeline Data Model
 
@@ -120,11 +105,49 @@ The Timeline is the shared intermediate representation consumed by both Remotion
 
 A project can produce multiple Timelines (multiple output videos). Each Timeline has a unique `name` used as an identifier and output filename. Each render/studio invocation operates on a single Timeline, passed to the static Remotion project via `--props`.
 
-The LLM outputs a lean `LLMTimeline` (clips + textOverlays only), which is expanded into a full `Timeline` via `expandTimeline()`. Derived fields (`name`, `fps`, `width`, `height`, `clipId`, `sourceFile`) are filled in from the project config, storyline, and video database — not produced by the LLM.
+### Story Timeline Items
+
+The LLM works with a unified items array containing three item types:
+
+```typescript
+StoryClipItem {
+  type: 'clip'
+  videoId: number
+  startTimeSeconds: number
+  endTimeSeconds: number
+  playbackRate: number         // default 1
+  volume: number               // default 1
+  transition: Transition       // default none
+}
+
+StoryOverlayItem {
+  type: 'overlay'
+  text: string
+  startClip: number            // 0-based clip index
+  startOffset: number          // seconds from clip start (negative = from end)
+  endClip?: number             // defaults to startClip
+  endOffset: number            // seconds from clip end (0 = clip end, positive = from start)
+  position: 'top' | 'center' | 'bottom'
+  style: 'title' | 'subtitle' | 'caption'
+}
+
+StoryAudioItem {
+  type: 'audio'
+  startClip: number
+  startOffset: number
+  endClip?: number
+  endOffset: number
+  sourceFile?: string
+  description?: string
+  volume: number
+}
+```
+
+These are expanded via `expandStoryTimeline()` into the standard Timeline format:
 
 ```typescript
 Timeline {
-  name: string            // Unique identifier, used as output filename
+  name: string
   fps: number
   width: number
   height: number
@@ -140,9 +163,9 @@ TimelineClip {
   endTimeSeconds: number
   playbackRate: number
   volume: number
-  transition: {               // Transition from previous clip into this clip
+  transition: {
     type: 'none' | 'fade' | 'slide' | 'wipe'
-    direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'  // For slide/wipe
+    direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'
     durationSeconds: number
   }
 }
@@ -175,7 +198,7 @@ Generates FCPXML 1.11 format XML. Maps clips to `<asset-clip>`, transitions to `
 Uses Gemini 3 preview models (gemini-3-flash-preview, gemini-3-pro-preview) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
 
 - **pi-ai**: Unified LLM abstraction, patched to support `FileContent` type for Gemini File API references (`fileData` + `videoMetadata`)
-- **pi-agent-core**: Agent loop orchestration for the `edit` command, with tool execution and automatic conversation management
+- **pi-agent-core**: Agent loop orchestration for the `story` command, with tool execution and automatic conversation management
 - **@google/genai**: Used directly for File API upload/polling only
 
 ### Video Processing
@@ -197,9 +220,8 @@ Configurable per-stage via `models` in `montai.yaml`.
 
 | Stage | Video Input | Default | Supported Models |
 |-------|------------|---------|-----------------|
-| analyze | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3-pro-preview |
-| storyline | No | gemini-3-pro-preview | gemini-3-flash-preview, gemini-3-pro-preview |
-| edit | Yes | gemini-3-pro-preview | gemini-3-flash-preview, gemini-3-pro-preview |
+| analysis | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3-pro-preview |
+| editing | Yes | gemini-3-pro-preview | gemini-3-flash-preview, gemini-3-pro-preview |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.
 
@@ -211,13 +233,11 @@ my-vlog-project/
   montai.db                    # SQLite (auto-created)
   .montai/                     # Cache directory (in project directory)
     transcoded/                 # Preprocessed video files
-    specs/
-      <name>.json               # Timeline JSON (written by `montai edit`)
     public/                     # Hard links to source video files + timeline.json
       timeline.json             # Copy of timeline for Remotion Studio fallback
       video1.mp4                # Hard link to source video
   output/
-    <name>.mp4                  # Generated by `montai render`
+    <name>.mp4                  # Generated by `montai remotion render`
   fcpxml/
-    <name>.fcpxml               # Generated by `montai edit` (per Timeline)
+    <name>.fcpxml               # Generated by `montai export`
 ```

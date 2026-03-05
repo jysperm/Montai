@@ -13,6 +13,7 @@ import {
   stories,
 } from '../db/schema.js';
 import { loadProjectConfig, serializeVideoSummary } from '../utils/project.js';
+import { langName } from '../prompts/index.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import {
@@ -97,7 +98,7 @@ export async function storyCommand(
   }
 
   // Set up agent
-  const model = getModel('google', config.models.edit as Parameters<typeof getModel>[1]);
+  const model = getModel('google', config.models.editing as Parameters<typeof getModel>[1]);
   const spinner = ora({ text: 'Thinking...', discardStdin: false }).start();
 
   // In-memory state
@@ -114,11 +115,11 @@ export async function storyCommand(
   const updateStorylineTool = {
     name: 'update_storyline',
     label: 'Update Storyline',
-    description: 'Save the current storyline. First call creates the story, subsequent calls update it.',
+    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${langName(config.intermediateLanguage)}.`,
     parameters: Type.Object({
       name: Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival")' }),
-      title: Type.String({ description: 'Human-readable title for the video' }),
-      narrative: Type.String({ description: 'Free-form markdown describing the edit plan' }),
+      title: Type.String({ description: `Human-readable title for the video, in ${langName(config.intermediateLanguage)}` }),
+      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${langName(config.intermediateLanguage)}` }),
     }),
     async execute(
       _toolCallId: string,
@@ -161,7 +162,7 @@ export async function storyCommand(
   const updateTimelineTool = {
     name: 'update_timeline',
     label: 'Update Timeline',
-    description: 'Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement.',
+    description: `Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement. Overlay text must be in ${config.effects.languages.map(langName).join(' and ')}.`,
     parameters: Type.Object({
       index: Type.Number({ description: 'Position to start modifying' }),
       deleteCount: Type.Number({ description: 'Number of items to remove (-1 = all from index)' }),
@@ -185,8 +186,24 @@ export async function storyCommand(
         }
       }
 
+      // Validate overlay clip references against current clip count
+      const allItems = spliceTimelineItems(currentItems, params.index, params.deleteCount, newItems);
+      const clipCount = allItems.filter((i) => i.type === 'clip').length;
+      for (const item of allItems) {
+        if (item.type === 'overlay') {
+          const endClip = item.endClip ?? item.startClip;
+          if (item.startClip >= clipCount || endClip >= clipCount) {
+            const errorText: TextContent = {
+              type: 'text' as const,
+              text: `Error: overlay "${item.text}" references clip index ${item.startClip}/${endClip} but there are only ${clipCount} clips (0-${clipCount - 1}). Fix the startClip/endClip values.`,
+            };
+            return { content: [errorText], details: {}, isError: true };
+          }
+        }
+      }
+
       // Apply splice
-      currentItems = spliceTimelineItems(currentItems, params.index, params.deleteCount, newItems);
+      currentItems = allItems;
 
       // Expand and store
       if (!currentStoryId) {
@@ -208,11 +225,11 @@ export async function storyCommand(
         .where(eq(stories.id, currentStoryId))
         .run();
 
-      const clipCount = currentItems.filter((i) => i.type === 'clip').length;
+      const finalClipCount = currentItems.filter((i) => i.type === 'clip').length;
       const overlayCount = currentItems.filter((i) => i.type === 'overlay').length;
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Timeline updated: ${currentItems.length} items (${clipCount} clips, ${overlayCount} overlays)`,
+        text: `Timeline updated: ${currentItems.length} items (${finalClipCount} clips, ${overlayCount} overlays)`,
       };
       return { content: [textContent], details: {} };
     },
@@ -309,7 +326,7 @@ export async function storyCommand(
   // Create agent
   const agent = new Agent({
     initialState: {
-      systemPrompt: storySystemPrompt(config.intermediateLanguage),
+      systemPrompt: storySystemPrompt(config.intermediateLanguage, config.effects.languages),
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -402,6 +419,7 @@ export async function storyCommand(
       story.storyline,
       timelineItemsJson,
       videoSummaryData,
+      facts,
     );
   } else {
     // New story

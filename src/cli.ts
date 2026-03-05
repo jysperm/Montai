@@ -2,8 +2,6 @@
 import chalk from 'chalk';
 import { Command } from 'commander';
 import { analyzeCommand } from './commands/analyze.js';
-import { storylineCommand } from './commands/storyline.js';
-import { editCommand } from './commands/edit.js';
 import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
 import { studioCommand } from './commands/studio.js';
@@ -57,18 +55,6 @@ program
   .option('--add-fact <text>', 'Add a project fact (AI merges into existing facts)')
   .option('--project', 'Show AI-generated project overview (regenerates if stale)')
   .action(analyzeCommand);
-
-program
-  .command('storyline')
-  .description('Generate a storyline from video summaries')
-  .option('--hint <text>', 'Additional instruction for storyline generation')
-  .action(storylineCommand);
-
-program
-  .command('edit')
-  .description('Generate timeline with agent loop')
-  .option('--storyline <id-or-codename>', 'Use a specific storyline by ID or codename')
-  .action(editCommand);
 
 program
   .command('story [name]')

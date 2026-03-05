@@ -249,7 +249,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     const existing = db.select().from(projectContext).get();
     const prompt = mergeFactsPrompt(existing?.facts ?? null, options.addFact, config.intermediateLanguage);
 
-    const model = getModel('google', config.models.analyze as Parameters<typeof getModel>[1]);
+    const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Merging fact...').start();
 
@@ -312,7 +312,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     }
 
     const prompt = projectOverviewPrompt(existing?.facts ?? null, allSummaries, config.intermediateLanguage);
-    const model = getModel('google', config.models.analyze as Parameters<typeof getModel>[1]);
+    const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Generating project overview...').start();
 
@@ -464,7 +464,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
   }
 
   console.log(chalk.blue(`Analyzing ${videosToAnalyze.length} video(s)...`));
-  const model = getModel('google', config.models.analyze as Parameters<typeof getModel>[1]);
+  const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
   let totalCost = 0;
   let failed = 0;
 
@@ -532,7 +532,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       const analysisText = getTextContent(analysisResult);
       totalCost += analysisResult.usage.cost.total;
       const analysisCacheRate = formatCacheRate(analysisResult.usage);
-      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)}, ${config.models.analyze}${analysisCacheRate ? `, ${analysisCacheRate}` : ''})`));
+      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)}, ${config.models.analysis}${analysisCacheRate ? `, ${analysisCacheRate}` : ''})`));
 
       // Parse and store video summary
       let parsedAnalysis: Record<string, unknown>;

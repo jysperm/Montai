@@ -19,9 +19,8 @@ export const OutputSchema = z.object({
 });
 
 export const ModelsSchema = z.object({
-  analyze: z.string().default('gemini-3-flash-preview'),
-  storyline: z.string().default('gemini-3-pro-preview'),
-  edit: z.string().default('gemini-3-pro-preview'),
+  analysis: z.string().default('gemini-3-flash-preview'),
+  editing: z.string().default('gemini-3-pro-preview'),
 });
 
 export const EffectsSchema = z.object({

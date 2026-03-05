@@ -1,4 +1,4 @@
-import { readFileSync, statSync, readdirSync } from 'fs';
+import { readFileSync, statSync, readdirSync, existsSync } from 'fs';
 import { resolve, extname, basename, join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
@@ -16,7 +16,13 @@ function expandTilde(filepath: string): string {
 }
 
 export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
-  const raw = readFileSync(configPath, 'utf-8');
+  const resolvedPath = resolve(configPath);
+  if (!existsSync(resolvedPath)) {
+    console.error(`Error: Config file not found: ${resolvedPath}`);
+    console.error('Run "montai init" to create a montai.yaml, or run this command from a Montai project directory.');
+    process.exit(1);
+  }
+  const raw = readFileSync(resolvedPath, 'utf-8');
   const parsed = parseYaml(raw);
   return ProjectConfigSchema.parse(parsed);
 }

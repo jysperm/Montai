@@ -20,6 +20,12 @@ export function preparePublicDir(timeline: Timeline): string {
       unlinkSync(linkPath);
     }
 
+    if (!existsSync(absoluteSource)) {
+      console.error(`Error: Video file not found: ${absoluteSource}`);
+      console.error('The stored timeline may contain outdated paths. Try re-running "montai story" to regenerate the timeline.');
+      process.exit(1);
+    }
+
     linkSync(absoluteSource, linkPath);
   }
 
