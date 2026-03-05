@@ -1,9 +1,9 @@
 import { z } from 'zod';
 import type { ProjectConfig } from './project.js';
 import { resolveResolution } from './project.js';
-import { TransitionSchema, type Timeline } from './timeline.js';
+import { TransitionSchema, type ExpandedTimeline } from './timeline.js';
 
-export const StoryClipItemSchema = z.object({
+export const ClipItemSchema = z.object({
   type: z.literal('clip'),
   videoId: z.number(),
   startTimeSeconds: z.number(),
@@ -13,7 +13,7 @@ export const StoryClipItemSchema = z.object({
   transition: TransitionSchema.default({ type: 'none', durationSeconds: 0 }),
 });
 
-export const StoryOverlayItemSchema = z.object({
+export const OverlayItemSchema = z.object({
   type: z.literal('overlay'),
   text: z.string(),
   startClip: z.number().int().min(0),
@@ -24,7 +24,7 @@ export const StoryOverlayItemSchema = z.object({
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 
-export const StoryAudioItemSchema = z.object({
+export const AudioItemSchema = z.object({
   type: z.literal('audio'),
   startClip: z.number().int().min(0),
   startOffset: z.number().default(0),
@@ -35,35 +35,30 @@ export const StoryAudioItemSchema = z.object({
   volume: z.number().default(1),
 });
 
-export const StoryTimelineItemSchema = z.discriminatedUnion('type', [
-  StoryClipItemSchema,
-  StoryOverlayItemSchema,
-  StoryAudioItemSchema,
+export const TimelineItemSchema = z.discriminatedUnion('type', [
+  ClipItemSchema,
+  OverlayItemSchema,
+  AudioItemSchema,
 ]);
 
-export const StoryTimelineSchema = z.object({
-  items: z.array(StoryTimelineItemSchema),
-});
-
-export type StoryClipItem = z.infer<typeof StoryClipItemSchema>;
-export type StoryOverlayItem = z.infer<typeof StoryOverlayItemSchema>;
-export type StoryAudioItem = z.infer<typeof StoryAudioItemSchema>;
-export type StoryTimelineItem = z.infer<typeof StoryTimelineItemSchema>;
-export type StoryTimeline = z.infer<typeof StoryTimelineSchema>;
+export type ClipItem = z.infer<typeof ClipItemSchema>;
+export type OverlayItem = z.infer<typeof OverlayItemSchema>;
+export type AudioItem = z.infer<typeof AudioItemSchema>;
+export type TimelineItem = z.infer<typeof TimelineItemSchema>;
 
 /**
- * Convert unified story timeline items → old Timeline format for downstream (Remotion/FCPXML).
+ * Expand raw TimelineItems into ExpandedTimeline format for downstream consumption (Remotion/FCPXML).
  */
-export function expandStoryTimeline(
-  items: StoryTimelineItem[],
+export function expandTimeline(
+  items: TimelineItem[],
   config: ProjectConfig,
   storyName: string,
   videos: { id: number; path: string }[],
-): Timeline {
+): ExpandedTimeline {
   const res = resolveResolution(config.output.resolution);
 
   // Extract clip items in order
-  const clipItems = items.filter((item): item is StoryClipItem => item.type === 'clip');
+  const clipItems = items.filter((item): item is ClipItem => item.type === 'clip');
 
   // Compute cumulative clip start times (accounting for playbackRate and transitions)
   const clipStartTimes: number[] = [];
@@ -102,7 +97,7 @@ export function expandStoryTimeline(
 
   // Build text overlays from overlay items
   const textOverlays = items
-    .filter((item): item is StoryOverlayItem => item.type === 'overlay')
+    .filter((item): item is OverlayItem => item.type === 'overlay')
     .map((overlay) => {
       const startClipIdx = overlay.startClip;
       const endClipIdx = overlay.endClip ?? overlay.startClip;
@@ -156,11 +151,11 @@ export function expandStoryTimeline(
  * then insert `newItems` at that position. Use deleteCount=-1 to delete all from index.
  */
 export function spliceTimelineItems(
-  currentItems: StoryTimelineItem[],
+  currentItems: TimelineItem[],
   index: number,
   deleteCount: number,
-  newItems: StoryTimelineItem[] = [],
-): StoryTimelineItem[] {
+  newItems: TimelineItem[] = [],
+): TimelineItem[] {
   const items = [...currentItems];
 
   // Handle deleteCount=-1 as "delete all from index"

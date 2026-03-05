@@ -1,5 +1,5 @@
 import { basename } from 'path';
-import type { Timeline, TimelineClip, TextOverlay } from '../schemas/timeline.js';
+import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
 
 function toRational(seconds: number, fps: number): string {
   const frames = Math.round(seconds * fps);
@@ -19,7 +19,7 @@ const TITLE_EFFECT_ID = 'r2';
 const TITLE_EFFECT_UID =
   '.../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti';
 
-function getAssetId(clip: TimelineClip, clips: TimelineClip[]): string {
+function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
   const filename = basename(clip.sourceFile);
   const seen = new Set<string>();
   let index = 0;
@@ -135,7 +135,7 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 }
 
 export function generateFcpxml(
-  spec: Timeline,
+  spec: ExpandedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
 ): string {
   const { fps, width, height } = spec;

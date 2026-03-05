@@ -6,7 +6,7 @@ export const TransitionSchema = z.object({
   direction: z.enum(['from-left', 'from-right', 'from-top', 'from-bottom']).optional(),
 });
 
-export const TimelineClipSchema = z.object({
+export const ExpandedClipSchema = z.object({
   clipId: z.string(),
   videoId: z.number(),
   sourceFile: z.string(),
@@ -17,7 +17,7 @@ export const TimelineClipSchema = z.object({
   transition: TransitionSchema.default({ type: 'none', durationSeconds: 0 }),
 });
 
-export const TextOverlaySchema = z.object({
+export const ExpandedOverlaySchema = z.object({
   text: z.string(),
   startTimeSeconds: z.number(),
   endTimeSeconds: z.number(),
@@ -25,16 +25,16 @@ export const TextOverlaySchema = z.object({
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 
-export const TimelineSchema = z.object({
+export const ExpandedTimelineSchema = z.object({
   name: z.string(),
   fps: z.number(),
   width: z.number(),
   height: z.number(),
-  clips: z.array(TimelineClipSchema),
-  textOverlays: z.array(TextOverlaySchema).default([]),
+  clips: z.array(ExpandedClipSchema),
+  textOverlays: z.array(ExpandedOverlaySchema).default([]),
 });
 
 export type Transition = z.infer<typeof TransitionSchema>;
-export type TimelineClip = z.infer<typeof TimelineClipSchema>;
-export type TextOverlay = z.infer<typeof TextOverlaySchema>;
-export type Timeline = z.infer<typeof TimelineSchema>;
+export type ExpandedClip = z.infer<typeof ExpandedClipSchema>;
+export type ExpandedOverlay = z.infer<typeof ExpandedOverlaySchema>;
+export type ExpandedTimeline = z.infer<typeof ExpandedTimelineSchema>;

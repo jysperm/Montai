@@ -3,8 +3,13 @@ import { resolve, extname, basename, join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
 import { ProjectConfigSchema, type ProjectConfig } from '../schemas/project.js';
-import type { videoSummaries } from '../db/schema.js';
+import chalk from 'chalk';
+import { eq, desc, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
+import type { MontaiDb } from '../db/index.js';
+import { stories, videos, videoSummaries } from '../db/schema.js';
+import { expandTimeline, type TimelineItem } from '../schemas/timeline-items.js';
+import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
 
@@ -60,6 +65,46 @@ export function getVideoFilename(filepath: string): string {
 }
 
 type VideoSummaryRow = InferSelectModel<typeof videoSummaries>;
+
+/**
+ * Load timelines from the database, expanding raw TimelineItems into ExpandedTimeline format.
+ * If name is given, loads that single story; otherwise loads all stories with timelines.
+ * Returns null and prints an error if no timelines are found.
+ */
+export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?: string): ExpandedTimeline[] | null {
+  let storyRows: { name: string; timeline: string }[];
+  if (name) {
+    const row = db.select({ name: stories.name, timeline: stories.timeline }).from(stories).where(eq(stories.name, name)).get();
+    if (row?.timeline) {
+      storyRows = [{ name: row.name, timeline: row.timeline }];
+    } else {
+      storyRows = [];
+    }
+  } else {
+    storyRows = db.select({ name: stories.name, timeline: stories.timeline })
+      .from(stories)
+      .where(sql`${stories.timeline} IS NOT NULL`)
+      .orderBy(desc(stories.id))
+      .all() as { name: string; timeline: string }[];
+  }
+
+  if (storyRows.length === 0) {
+    console.log(
+      chalk.red(
+        name
+          ? `Timeline "${name}" not found. Run "montai story" first.`
+          : 'No timelines found. Run "montai story" first.',
+      ),
+    );
+    return null;
+  }
+
+  const allVideos = db.select().from(videos).all();
+  return storyRows.map(r => {
+    const items = JSON.parse(r.timeline) as TimelineItem[];
+    return expandTimeline(items, config, r.name, allVideos);
+  });
+}
 
 export function serializeVideoSummary(row: VideoSummaryRow): string {
   return JSON.stringify({

@@ -22,11 +22,10 @@ import {
   storyResumePrompt,
 } from '../prompts/index.js';
 import {
-  StoryTimelineItemSchema,
-  expandStoryTimeline,
+  TimelineItemSchema,
   spliceTimelineItems,
-  type StoryTimelineItem,
-} from '../schemas/story-timeline.js';
+  type TimelineItem,
+} from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
 import { z } from 'zod';
 
@@ -103,10 +102,16 @@ export async function storyCommand(
 
   // In-memory state
   let currentStoryId: number | null = story?.id ?? null;
-  let currentItems: StoryTimelineItem[] = [];
+  let currentItems: TimelineItem[] = [];
 
-  // If resuming with a timeline, try to recover items from the expanded timeline
-  // (We don't store raw items separately — the expanded timeline is stored)
+  // Restore raw items from stored timeline on resume
+  if (story?.timeline) {
+    try {
+      currentItems = JSON.parse(story.timeline) as TimelineItem[];
+    } catch {
+      // Ignore parse errors from old expanded format
+    }
+  }
 
   let watchCountThisTurn = 0;
   let totalCost = 0;
@@ -125,6 +130,15 @@ export async function storyCommand(
       _toolCallId: string,
       params: { name: string; title: string; narrative: string },
     ) {
+      // Enforce kebab-case for Remotion composition ID compatibility
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(params.name)) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${params.name}"`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
       const now = new Date().toISOString();
 
       if (currentStoryId) {
@@ -173,10 +187,10 @@ export async function storyCommand(
       params: { index: number; deleteCount: number; items?: unknown[] },
     ) {
       // Validate new items
-      let newItems: StoryTimelineItem[] = [];
+      let newItems: TimelineItem[] = [];
       if (params.items && params.items.length > 0) {
         try {
-          newItems = z.array(StoryTimelineItemSchema).parse(params.items);
+          newItems = z.array(TimelineItemSchema).parse(params.items);
         } catch (err) {
           const errorText: TextContent = {
             type: 'text' as const,
@@ -205,7 +219,7 @@ export async function storyCommand(
       // Apply splice
       currentItems = allItems;
 
-      // Expand and store
+      // Store raw items
       if (!currentStoryId) {
         const errorText: TextContent = {
           type: 'text' as const,
@@ -214,12 +228,11 @@ export async function storyCommand(
         return { content: [errorText], details: {}, isError: true };
       }
 
-      const expanded = expandStoryTimeline(currentItems, config, getCurrentStoryName(), allVideos);
       const now = new Date().toISOString();
 
       db.update(stories)
         .set({
-          timeline: JSON.stringify(expanded),
+          timeline: JSON.stringify(currentItems),
           updatedAt: now,
         })
         .where(eq(stories.id, currentStoryId))
@@ -412,9 +425,7 @@ export async function storyCommand(
   let initialMessage: string;
   if (story?.storyline) {
     // Resume: inject current state
-    let timelineItemsJson: string | null = null;
-    // We don't store raw items separately, so we pass null for timeline items on resume
-    // The expanded timeline is in the story record but we don't reverse-expand it
+    const timelineItemsJson = currentItems.length > 0 ? JSON.stringify(currentItems, null, 2) : null;
     initialMessage = storyResumePrompt(
       story.storyline,
       timelineItemsJson,
@@ -492,8 +503,8 @@ export async function storyCommand(
     if (finalStory) {
       console.log(chalk.green(`Story saved: "${finalStory.title}" (${finalStory.name})`));
       if (finalStory.timeline) {
-        console.log(chalk.cyan(`  Preview:  montai remotion studio ${finalStory.name}`));
-        console.log(chalk.cyan(`  Render:   montai remotion render ${finalStory.name}`));
+        console.log(chalk.cyan(`  Preview:  montai preview ${finalStory.name}`));
+        console.log(chalk.cyan(`  Render:   montai render ${finalStory.name}`));
         console.log(chalk.cyan(`  Export:   montai export ${finalStory.name}`));
       }
       console.log(chalk.cyan(`  Resume:   montai story ${finalStory.name}`));

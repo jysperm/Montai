@@ -66,26 +66,17 @@ program
 
 program
   .command('export [name]')
-  .description('Export FCPXML from a timeline. Omit name for latest.')
+  .description('Export FCPXML from a timeline')
   .action(exportCommand);
 
-const remotion = program
-  .command('remotion')
-  .description('Remotion preview and rendering')
-  .addHelpCommand(false)
-  .helpOption(false)
-  .action(() => {
-    printFullHelp(program);
-  });
-
-remotion
+program
   .command('render [name]')
-  .description('Render video via Remotion. Omit name for latest timeline.')
+  .description('Render video via Remotion')
   .action(renderCommand);
 
-remotion
-  .command('studio [name]')
-  .description('Open Remotion Studio for preview. Omit name for latest timeline.')
+program
+  .command('preview [name]')
+  .description('Open Remotion Studio for preview')
   .action(studioCommand);
 
 program.action(() => {

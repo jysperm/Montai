@@ -52,7 +52,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **videos** — Discovered video files (whether analyzed is determined by joining video_summaries)
 - **video_summaries** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
 - **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
-- **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and expanded Timeline JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session.
+- **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **gemini_files** — Cached Gemini File API references for uploaded videos
 
 ## Pipeline
@@ -83,34 +83,34 @@ Uses an agent loop with tools:
 - `watch_segment(videoId, startSeconds, endSeconds)` — Re-watch a video segment
 - `get_video_summary(videoId)` — Retrieve stored summary
 
-The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into the standard Timeline format for downstream consumption.
+The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
 Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state.
 
-### 3. Render (`montai remotion render [name]`)
+### 3. Render (`montai render [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`.
+Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` for each timeline against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`.
 
-### 4. Studio (`montai remotion studio [name]`)
+### 4. Preview (`montai preview [name]`)
 
-Loads the Timeline from the database (by name, or latest if omitted), prepares a public directory (including `timeline.json` for studio fallback), then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`.
+Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files and a `timelines.json` index, then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Root.tsx dynamically registers one Composition per timeline, so all stories appear in the Studio sidebar.
 
 ### 5. Export (`montai export [name]`)
 
-Generates FCPXML 1.11 format from a Timeline. Output goes to `fcpxml/<name>.fcpxml`.
+Generates FCPXML 1.11 format from a Timeline. If name is given, exports that single timeline; if omitted, exports all timelines. Output goes to `fcpxml/<name>.fcpxml`.
 
 ## Timeline Data Model
 
-The Timeline is the shared intermediate representation consumed by both Remotion and FCPXML generators.
+The timeline has two layers: raw `TimelineItem` (stored in DB, edited by LLM) and `ExpandedTimeline` (consumed by Remotion/FCPXML).
 
-A project can produce multiple Timelines (multiple output videos). Each Timeline has a unique `name` used as an identifier and output filename. Each render/studio invocation operates on a single Timeline, passed to the static Remotion project via `--props`.
+A project can produce multiple timelines (multiple output videos). Each has a unique `name` used as an identifier and output filename.
 
-### Story Timeline Items
+### Timeline Items
 
 The LLM works with a unified items array containing three item types:
 
 ```typescript
-StoryClipItem {
+ClipItem {
   type: 'clip'
   videoId: number
   startTimeSeconds: number
@@ -120,7 +120,7 @@ StoryClipItem {
   transition: Transition       // default none
 }
 
-StoryOverlayItem {
+OverlayItem {
   type: 'overlay'
   text: string
   startClip: number            // 0-based clip index
@@ -131,7 +131,7 @@ StoryOverlayItem {
   style: 'title' | 'subtitle' | 'caption'
 }
 
-StoryAudioItem {
+AudioItem {
   type: 'audio'
   startClip: number
   startOffset: number
@@ -143,10 +143,10 @@ StoryAudioItem {
 }
 ```
 
-These are expanded via `expandStoryTimeline()` into the standard Timeline format:
+These are expanded via `expandTimeline()` into `ExpandedTimeline` format at consumption time:
 
 ```typescript
-Timeline {
+ExpandedTimeline {
   name: string
   fps: number
   width: number
@@ -155,7 +155,7 @@ Timeline {
   textOverlays: TextOverlay[]
 }
 
-TimelineClip {
+ExpandedClip {
   clipId: string
   videoId: number
   sourceFile: string
@@ -170,7 +170,7 @@ TimelineClip {
   }
 }
 
-TextOverlay {
+ExpandedOverlay {
   text: string
   startTimeSeconds: number
   endTimeSeconds: number
@@ -183,10 +183,10 @@ TextOverlay {
 
 Montai includes a static Remotion project at `src/remotion/project/` (inside Montai's own source tree). This project is **never modified at runtime** — all dynamic data is passed via CLI flags:
 
-- **Single Composition** (`Montai`): Uses `calculateMetadata` to compute duration/dimensions from the Timeline
-- **Render mode**: Timeline passed via `--props=<path>`, video files served via `--public-dir=<path>`
-- **Studio mode**: Timeline fetched from `staticFile('timeline.json')` when props are empty, video files served via `--public-dir=<path>`
-- **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and an `timeline.json` copy
+- **Dynamic Compositions**: Root.tsx fetches `timelines.json` from the public dir and registers one Composition per timeline (using the story name as id)
+- **Render mode**: Timeline passed via `--props=<path>`, composition targeted by story name, video files served via `--public-dir=<path>`
+- **Studio mode**: All stories appear in the Studio sidebar for switching, video files served via `--public-dir=<path>`
+- **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and a `timelines.json` index
 - **Dependencies**: Remotion, React, and transition packages are Montai's own dependencies — no separate install needed
 
 ## FCPXML Output
@@ -233,11 +233,11 @@ my-vlog-project/
   montai.db                    # SQLite (auto-created)
   .montai/                     # Cache directory (in project directory)
     transcoded/                 # Preprocessed video files
-    public/                     # Hard links to source video files + timeline.json
-      timeline.json             # Copy of timeline for Remotion Studio fallback
+    public/                     # Hard links to source video files + timelines index
+      timelines.json            # All timelines for Remotion Studio
       video1.mp4                # Hard link to source video
   output/
-    <name>.mp4                  # Generated by `montai remotion render`
+    <name>.mp4                  # Generated by `montai render`
   fcpxml/
     <name>.fcpxml               # Generated by `montai export`
 ```

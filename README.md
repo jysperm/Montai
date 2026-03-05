@@ -44,23 +44,23 @@ montai analyze --project
 # Interactive story session — generates storyline and timeline conversationally
 montai story
 
-# Export FCPXML for Final Cut Pro
+# Export FCPXML for Final Cut Pro (exports all stories, or pass a name)
 montai export
 ```
 
-### Remotion Preview & Render
+### Preview & Render
 
-You can also preview and render the timeline directly via Remotion:
+You can also preview and render the timeline directly:
 
 ```bash
 # Open Remotion Studio to preview the edit
-montai remotion studio
+montai preview
 
 # Render the final video
-montai remotion render
+montai render
 ```
 
-Both commands use the latest timeline by default, or pass a name to specify one (e.g. `montai remotion render my-edit`).
+Both commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
 
 ## Commands
 
@@ -75,9 +75,9 @@ Both commands use the latest timeline by default, or pass a name to specify one 
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
 | `story --hint <text>` | Initial direction hint for new story |
-| `export [name]` | Export FCPXML from a timeline (omit name for latest) |
-| `remotion render [name]` | Render video via Remotion |
-| `remotion studio [name]` | Open Remotion Studio for preview |
+| `export [name]` | Export FCPXML from a timeline |
+| `render [name]` | Render video via Remotion |
+| `preview [name]` | Open Remotion Studio for preview |
 
 ## Project Structure
 
