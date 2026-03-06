@@ -21,7 +21,7 @@ export const ExpandedOverlaySchema = z.object({
   text: z.string(),
   startTimeSeconds: z.number(),
   endTimeSeconds: z.number(),
-  position: z.enum(['top', 'center', 'bottom']),
+  position: z.enum(['top-left', 'top-right', 'center', 'bottom-left', 'bottom-center', 'bottom-right']),
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 

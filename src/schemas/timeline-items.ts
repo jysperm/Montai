@@ -20,7 +20,7 @@ export const OverlayItemSchema = z.object({
   startOffset: z.number().default(0),
   endClip: z.number().int().min(0).optional(),
   endOffset: z.number().default(0),
-  position: z.enum(['top', 'center', 'bottom']),
+  position: z.enum(['top-left', 'top-right', 'center', 'bottom-left', 'bottom-center', 'bottom-right']),
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 
@@ -118,8 +118,13 @@ export function expandTimeline(
 
       // Resolve end time
       let endTime: number;
-      if (overlay.endOffset <= 0) {
-        // 0 or negative = from end of endClip
+      if (overlay.endOffset === 0) {
+        // Default: end before the outgoing transition (next clip's incoming transition)
+        const nextClip = clipItems[endClipIdx + 1];
+        const transDur = nextClip && nextClip.transition.type !== 'none'
+          ? nextClip.transition.durationSeconds : 0;
+        endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] - transDur;
+      } else if (overlay.endOffset < 0) {
         endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] + overlay.endOffset;
       } else {
         endTime = clipStartTimes[endClipIdx] + overlay.endOffset;

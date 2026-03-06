@@ -20,7 +20,7 @@ interface TextOverlay {
   text: string;
   startTimeSeconds: number;
   endTimeSeconds: number;
-  position: 'top' | 'center' | 'bottom';
+  position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right';
   style: 'title' | 'subtitle' | 'caption';
 }
 
@@ -34,23 +34,32 @@ export interface TimelineProps {
   textOverlays: TextOverlay[];
 }
 
-const positionStyles = {
-  top: { top: 40, bottom: 'auto' as const },
-  center: { top: '50%' as const, transform: 'translateY(-50%)' },
-  bottom: { bottom: 40, top: 'auto' as const },
-} as const;
+function getPositionStyle(position: TextOverlay['position'], s: number) {
+  const margin = Math.round(40 * s);
+  switch (position) {
+    case 'top-left': return { top: margin, left: margin, textAlign: 'left' as const };
+    case 'top-right': return { top: margin, right: margin, textAlign: 'right' as const };
+    case 'center': return { top: '50%' as const, left: 0, right: 0, transform: 'translateY(-50%)', textAlign: 'center' as const };
+    case 'bottom-left': return { bottom: margin, left: margin, textAlign: 'left' as const };
+    case 'bottom-center': return { bottom: margin, left: 0, right: 0, textAlign: 'center' as const };
+    case 'bottom-right': return { bottom: margin, right: margin, textAlign: 'right' as const };
+  }
+}
 
-const textStyles = {
-  title: { fontSize: 64, fontWeight: 'bold' as const },
-  subtitle: { fontSize: 36, fontWeight: 'normal' as const },
-  caption: {
-    fontSize: 24,
-    fontWeight: 'normal' as const,
-    background: 'rgba(0,0,0,0.6)',
-    padding: '4px 12px',
-    borderRadius: 4,
-  },
-} as const;
+function getTextStyle(style: TextOverlay['style'], s: number) {
+  const textShadow = `0 ${Math.round(2 * s)}px ${Math.round(8 * s)}px rgba(0,0,0,0.8), 0 0 ${Math.round(2 * s)}px rgba(0,0,0,0.9)`;
+  switch (style) {
+    case 'title': return { fontSize: Math.round(80 * s), fontWeight: 'bold' as const, textShadow };
+    case 'subtitle': return { fontSize: Math.round(48 * s), fontWeight: 500 as const, textShadow };
+    case 'caption': return {
+      fontSize: Math.round(32 * s),
+      fontWeight: 'normal' as const,
+      background: 'rgba(0,0,0,0.6)',
+      padding: `${Math.round(4 * s)}px ${Math.round(12 * s)}px`,
+      borderRadius: Math.round(4 * s),
+    };
+  }
+}
 
 function getTransition(type: string, direction?: string): TransitionPresentation<Record<string, unknown>> | null {
   const dir = direction as
@@ -96,7 +105,8 @@ export function calculateTotalFrames(spec: TimelineProps): number {
 }
 
 export const MontaiVideo: React.FC<TimelineProps> = (props) => {
-  const { fps, clips, textOverlays } = props;
+  const { fps, height, clips, textOverlays } = props;
+  const scale = height / 1080;
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
@@ -143,26 +153,22 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
         const durationFrames = Math.round(
           (overlay.endTimeSeconds - overlay.startTimeSeconds) * fps,
         );
-        const pos = positionStyles[overlay.position];
-        const style = textStyles[overlay.style];
+        const pos = getPositionStyle(overlay.position, scale);
+        const style = getTextStyle(overlay.style, scale);
 
         return (
           <Sequence key={i} from={startFrame} durationInFrames={durationFrames}>
-            <AbsoluteFill
+            <div
               style={{
-                display: 'flex',
-                justifyContent: 'center',
                 position: 'absolute',
-                ...pos,
-                left: 0,
-                right: 0,
+                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
                 color: 'white',
-                textAlign: 'center',
                 pointerEvents: 'none',
+                ...pos,
               }}
             >
-              <div style={{ ...style }}>{overlay.text}</div>
-            </AbsoluteFill>
+              <div style={{ ...style, whiteSpace: 'pre-line' }}>{overlay.text}</div>
+            </div>
           </Sequence>
         );
       })}

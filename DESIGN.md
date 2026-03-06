@@ -117,7 +117,7 @@ ClipItem {
   endTimeSeconds: number
   playbackRate: number         // default 1
   volume: number               // default 1
-  transition: Transition       // default none
+  transition: Transition       // default none; defines the transition FROM the previous clip INTO this clip
 }
 
 OverlayItem {
@@ -127,7 +127,7 @@ OverlayItem {
   startOffset: number          // seconds from clip start (negative = from end)
   endClip?: number             // defaults to startClip
   endOffset: number            // seconds from clip end (0 = clip end, positive = from start)
-  position: 'top' | 'center' | 'bottom'
+  position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   style: 'title' | 'subtitle' | 'caption'
 }
 
@@ -142,6 +142,8 @@ AudioItem {
   volume: number
 }
 ```
+
+When expanding overlays, if `endOffset` is at its default (0), the overlay end time is automatically pulled back to when the outgoing transition starts (i.e. the next clip's incoming transition), so the old subtitle disappears and the new one appears at the transition boundary. Explicit non-zero `endOffset` bypasses this adjustment.
 
 These are expanded via `expandTimeline()` into `ExpandedTimeline` format at consumption time:
 
@@ -174,7 +176,7 @@ ExpandedOverlay {
   text: string
   startTimeSeconds: number
   endTimeSeconds: number
-  position: 'top' | 'center' | 'bottom'
+  position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   style: 'title' | 'subtitle' | 'caption'
 }
 ```
