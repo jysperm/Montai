@@ -30,9 +30,9 @@ export const EffectsSchema = z.object({
 export const ProjectConfigSchema = z.object({
   videos: z.array(z.string()).min(1),
   intermediateLanguage: z.enum(['zh', 'en']).default('en'),
-  output: OutputSchema.default({}),
-  models: ModelsSchema.default({}),
-  effects: EffectsSchema.default({}),
+  output: OutputSchema.default(() => OutputSchema.parse({})),
+  models: ModelsSchema.default(() => ModelsSchema.parse({})),
+  effects: EffectsSchema.default(() => EffectsSchema.parse({})),
 });
 
 export type Output = z.infer<typeof OutputSchema>;

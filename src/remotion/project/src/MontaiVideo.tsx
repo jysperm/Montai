@@ -1,5 +1,5 @@
 import React from 'react';
-import { AbsoluteFill, OffthreadVideo, Sequence, staticFile } from 'remotion';
+import { AbsoluteFill, Sequence, staticFile, Video } from 'remotion';
 import { TransitionSeries, linearTiming, type TransitionPresentation } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
@@ -126,13 +126,12 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
               key={clip.clipId}
               durationInFrames={durationFrames}
             >
-              <OffthreadVideo
+              <Video
                 src={getSourcePath(clip.sourceFile)}
                 startFrom={Math.round(clip.startTimeSeconds * fps)}
-                endAt={Math.round(clip.endTimeSeconds * fps)}
                 volume={clip.volume}
                 playbackRate={clip.playbackRate}
-                style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                style={{ width: '100%', height: '100%' }}
               />
             </TransitionSeries.Sequence>,
           ].filter(Boolean);

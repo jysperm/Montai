@@ -1,0 +1,13 @@
+diff --git a/node_modules/@remotion/bundler/dist/setup-sequence-stack-traces.js b/node_modules/@remotion/bundler/dist/setup-sequence-stack-traces.js
+index 2e6ec8d..96d4d71 100644
+--- a/node_modules/@remotion/bundler/dist/setup-sequence-stack-traces.js
++++ b/node_modules/@remotion/bundler/dist/setup-sequence-stack-traces.js
+@@ -16,7 +16,7 @@ const enableProxy = (api) => {
+         apply(target, thisArg, argArray) {
+             if (componentsToAddStacksTo.includes(argArray[0])) {
+                 const [first, props, ...rest] = argArray;
+-                const newProps = props.stack
++                const newProps = (props !== null && props !== void 0 && props.stack)
+                     ? props
+                     : {
+                         ...(props !== null && props !== void 0 ? props : {}),

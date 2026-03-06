@@ -79,6 +79,10 @@ Both commands load all stories by default, or pass a name to specify one (e.g. `
 | `render [name]` | Render video via Remotion |
 | `preview [name]` | Open Remotion Studio for preview |
 
+## Limitations
+
+- **No HDR support for preview/render**: Remotion renders each frame through the browser's canvas (SDR/sRGB), so HDR metadata (BT.2020, HLG/PQ) is lost. Use `export` to generate FCPXML for HDR-capable editors like Final Cut Pro.
+
 ## Project Structure
 
 ```

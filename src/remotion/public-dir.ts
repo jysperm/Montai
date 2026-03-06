@@ -32,7 +32,7 @@ export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[
     }
   }
 
-  // Write timelines.json for studio multi-composition support (loaded by Root.tsx)
+  // Write timelines.json for Root.tsx to load compositions dynamically
   writeFileSync(
     resolve(publicDir, 'timelines.json'),
     JSON.stringify(timelineArray, null, 2),

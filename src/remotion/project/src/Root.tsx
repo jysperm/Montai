@@ -1,17 +1,24 @@
-import { useState, useEffect } from 'react';
+import { useMemo } from 'react';
 import type { AnyZodObject } from 'zod';
 import { Composition, staticFile } from 'remotion';
 import { MontaiVideo, calculateTotalFrames, type TimelineProps } from './MontaiVideo';
 
-export const RemotionRoot = () => {
-  const [timelines, setTimelines] = useState<TimelineProps[]>([]);
+function loadTimelinesSync(): TimelineProps[] {
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('GET', staticFile('timelines.json'), false);
+    xhr.send();
+    if (xhr.status === 200) {
+      return JSON.parse(xhr.responseText);
+    }
+  } catch (err) {
+    console.error('Failed to load timelines.json:', err);
+  }
+  return [];
+}
 
-  useEffect(() => {
-    fetch(staticFile('timelines.json'))
-      .then(r => r.json())
-      .then(setTimelines)
-      .catch(err => console.error('Failed to load timelines.json:', err));
-  }, []);
+export const RemotionRoot = () => {
+  const timelines = useMemo(() => loadTimelinesSync(), []);
 
   return (
     <>
