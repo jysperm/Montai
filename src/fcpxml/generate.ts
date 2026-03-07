@@ -245,8 +245,10 @@ export function generateFcpxml(
   // FCP sequential model: clips placed end-to-end with explicit offsets.
   // Transitions require source media handles (extra frames beyond clip in/out).
   // FCP requires roughly centered transitions — asymmetric ones render shortened.
-  // When incoming clip lacks pre-handle, we shift its source range to create one.
-  // The shift (~0.26s) falls within the transition blend and is barely visible.
+  // Source shifts are pre-computed per clip considering both adjacent transitions:
+  //   positive shift → creates pre-handle (for transition entering the clip)
+  //   negative shift → creates post-handle (for transition leaving the clip)
+  // When a clip can't satisfy both sides, the smaller deficit is prioritized.
   // Titles are nested inside clips as connected anchor items (lane=1).
   const spine: string[] = [];
   let seqOffset = 0;
@@ -302,79 +304,86 @@ export function generateFcpxml(
     }
   }
 
+  // Pre-compute transition frame counts (rounded to even for centering)
+  const transFrames: number[] = new Array(spec.clips.length).fill(0);
+  for (let i = 1; i < spec.clips.length; i++) {
+    const clip = spec.clips[i];
+    if (clip.transition && clip.transition.type !== 'none') {
+      let frames = Math.round(clip.transition.durationSeconds * fps);
+      if (frames % 2 !== 0) frames += 1;
+      transFrames[i] = frames;
+    }
+  }
+
+  // Pre-compute source shifts. Each clip's valid shift range is [shiftMin, shiftMax]:
+  //   shiftMin = pre-handle needed for incoming transition − natural pre-handle
+  //   shiftMax = natural post-handle − post-handle needed for outgoing transition
+  // We pick shift = clamp(0, shiftMin, shiftMax), preferring no shift when possible.
+  const sourceShifts: number[] = new Array(spec.clips.length).fill(0);
+  for (let i = 0; i < spec.clips.length; i++) {
+    const clip = spec.clips[i];
+    const meta = videoMeta?.get(basename(clip.sourceFile));
+    if (!meta?.durationSeconds) continue;
+
+    const preNeeded = (transFrames[i] / fps) / 2;
+    const postNeeded = (i + 1 < spec.clips.length) ? (transFrames[i + 1] / fps) / 2 : 0;
+
+    const shiftMin = preNeeded - clip.startTimeSeconds;
+    const shiftMax = meta.durationSeconds - clip.endTimeSeconds - postNeeded;
+
+    if (shiftMin <= shiftMax) {
+      sourceShifts[i] = Math.max(shiftMin, Math.min(0, shiftMax));
+    } else {
+      // Can't satisfy both transitions — save at least one.
+      const preFeasible = shiftMin <= (meta.durationSeconds - clip.endTimeSeconds);
+      const postFeasible = -shiftMax <= clip.startTimeSeconds;
+      if (preFeasible && postFeasible) {
+        sourceShifts[i] = Math.abs(shiftMin) <= Math.abs(shiftMax) ? shiftMin : shiftMax;
+      } else if (preFeasible) {
+        sourceShifts[i] = shiftMin;
+      } else if (postFeasible) {
+        sourceShifts[i] = shiftMax;
+      }
+    }
+  }
+
   // Generate spine elements
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
     const clipDuration = clipDurations[i];
     const assetId = getAssetId(clip, spec.clips);
 
-    // Transition handle negotiation: find X (pre-boundary extent) such that
-    // incoming clip needs X of pre-handle and outgoing needs (DT-X) of post-handle.
-    // FCP requires roughly centered transitions — highly asymmetric ones render
-    // shortened. We target centered (X = DT/2) and use sourceShift when needed.
-    let sourceShiftSeconds = 0;
-    if (i > 0 && clip.transition && clip.transition.type !== 'none') {
-      let transitionFrames = Math.round(clip.transition.durationSeconds * fps);
-      if (transitionFrames % 2 !== 0) transitionFrames += 1;
-      const transSeconds = transitionFrames / fps;
-      const halfTransSeconds = transSeconds / 2;
-
+    // Emit centered transition if both sides have sufficient handles after shifts
+    if (i > 0 && transFrames[i] > 0) {
+      const halfTransSec = (transFrames[i] / fps) / 2;
       const prevClip = spec.clips[i - 1];
-      const prevFilename = basename(prevClip.sourceFile);
-      const prevMeta = videoMeta?.get(prevFilename);
+      const prevMeta = videoMeta?.get(basename(prevClip.sourceFile));
       const prevPostHandle = prevMeta?.durationSeconds
-        ? prevMeta.durationSeconds - prevClip.endTimeSeconds
+        ? prevMeta.durationSeconds - (prevClip.endTimeSeconds + sourceShifts[i - 1])
         : Infinity;
-      const curPreHandle = clip.startTimeSeconds;
+      const curPreHandle = clip.startTimeSeconds + sourceShifts[i];
 
-      // Target centered: X = halfTrans on each side
-      const lowerX = Math.max(halfTransSeconds, transSeconds - prevPostHandle);
-      const upperX = Math.min(curPreHandle, transSeconds - halfTransSeconds);
-
-      let X: number;
-      let canTransition = false;
-
-      if (transitionFrames > 0 && lowerX <= upperX) {
-        // Both handles sufficient — centered transition
-        X = Math.max(lowerX, Math.min(halfTransSeconds, upperX));
-        canTransition = true;
-      } else if (transitionFrames > 0) {
-        // Insufficient pre-handle — shift incoming clip's source to create handle.
-        // The shifted content falls within the transition blend and is barely visible.
-        const neededPreHandle = lowerX;
-        const shortfall = neededPreHandle - curPreHandle;
-        if (shortfall > 0) {
-          const curFilename = basename(clip.sourceFile);
-          const curMeta = videoMeta?.get(curFilename);
-          if (curMeta?.durationSeconds && clip.endTimeSeconds + shortfall <= curMeta.durationSeconds) {
-            sourceShiftSeconds = shortfall;
-            X = neededPreHandle;
-            canTransition = true;
-          }
-        }
-      }
-
-      if (canTransition) {
+      if (curPreHandle >= halfTransSec && prevPostHandle >= halfTransSec) {
         const boundaryFrames = Math.round(seqOffset * fps);
-        const xFrames = Math.round(X! * fps);
-        const transOffsetFrames = boundaryFrames - xFrames;
+        const halfFrames = transFrames[i] / 2;
+        const transOffsetFrames = boundaryFrames - halfFrames;
         if (crossDissolveId && audioCrossfadeId) {
           spine.push([
-            `${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transitionFrames}/${fps}s">`,
+            `${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transFrames[i]}/${fps}s">`,
             `${I}    <filter-video ref="${crossDissolveId}" name="Cross Dissolve" />`,
             `${I}    <filter-audio ref="${audioCrossfadeId}" name="Audio Cross Fade" />`,
             `${I}</transition>`,
           ].join('\n'));
         } else {
-          spine.push(`${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transitionFrames}/${fps}s" />`);
+          spine.push(`${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transFrames[i]}/${fps}s" />`);
         }
       }
     }
 
-    // Compute source start time: timecode offset + clip in-point (with shift for handle)
+    // Compute source start time: timecode offset + clip in-point (with shift)
     const clipFilename = basename(clip.sourceFile);
     const tcInfo = assetStartFrames.get(clipFilename);
-    const effectiveStartSeconds = clip.startTimeSeconds + sourceShiftSeconds;
+    const effectiveStartSeconds = clip.startTimeSeconds + sourceShifts[i];
     let clipStart: string;
     if (tcInfo && tcInfo.frames > 0) {
       const clipOffsetFrames = Math.round(effectiveStartSeconds * tcInfo.fpsNum / tcInfo.fpsDen);
