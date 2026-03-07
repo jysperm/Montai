@@ -15,9 +15,11 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-const TITLE_EFFECT_ID = 'r2';
+// FCP built-in effect UIDs — DaVinci Resolve maps these by transition name during import
 const TITLE_EFFECT_UID =
-  '.../Titles.localized/Bumper:Opener.localized/Basic Title.localized/Basic Title.moti';
+  '.../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti';
+const CROSS_DISSOLVE_UID = 'FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265';
+const AUDIO_CROSSFADE_UID = 'FFAudioTransition';
 
 function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
   const filename = basename(clip.sourceFile);
@@ -36,7 +38,7 @@ function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
 
 /**
  * Generate a <title> element with proper text-style structure.
- * The indent parameter controls the base indentation level.
+ * Used as a connected clip (anchor item) inside an asset-clip with lane="1".
  */
 function makeTitleXml(
   text: string,
@@ -45,11 +47,10 @@ function makeTitleXml(
   offset: string,
   duration: string,
   indent: string,
-  lane?: number,
+  titleEffectId: string,
 ): string {
-  const laneAttr = lane != null ? ` lane="${lane}"` : '';
   return [
-    `${indent}<title ref="${TITLE_EFFECT_ID}" name="${escapeXml(text.replace(/\n/g, ' '))}"${laneAttr} offset="${offset}" duration="${duration}" start="0/1s">`,
+    `${indent}<title ref="${titleEffectId}" lane="1" name="${escapeXml(text.replace(/\n/g, ' '))}" offset="${offset}" duration="${duration}" start="0/1s">`,
     `${indent}    <text>`,
     `${indent}        <text-style ref="${tsId}">${escapeXml(text)}</text-style>`,
     `${indent}    </text>`,
@@ -144,17 +145,21 @@ export function generateFcpxml(
 
   // --- Build format entries and asset resources ---
   const assetMap = new Map<string, string>(); // filename -> asset id
+  const assetFormatMap = new Map<string, string>(); // filename -> format id
   const assetStartFrames = new Map<string, { frames: number; fpsNum: number; fpsDen: number }>();
   const assetLines: string[] = [];
   const formatLines: string[] = [];
   const formatMap = new Map<string, string>(); // format key -> format id
   let assetIndex = 1;
-  let formatIndex = 2; // r1 is the sequence format, start at r2 (but r2 may be title effect)
 
-  // r1 is always the sequence/output format
-  // Title effect uses TITLE_EFFECT_ID (r2), so per-asset formats start after that
+  // Dynamic resource ID allocation: r1 = sequence format, then effects, then per-source formats
+  let nextResourceId = 2;
   const needsTitleEffect = spec.textOverlays.length > 0;
-  if (needsTitleEffect) formatIndex = 3; // r2 is taken by title effect
+  const titleEffectId = needsTitleEffect ? `r${nextResourceId++}` : null;
+  const hasTransitions = spec.clips.some((c, i) => i > 0 && c.transition && c.transition.type !== 'none');
+  const crossDissolveId = hasTransitions ? `r${nextResourceId++}` : null;
+  const audioCrossfadeId = hasTransitions ? `r${nextResourceId++}` : null;
+  let formatIndex = nextResourceId;
 
   let detectedHdr = false;
 
@@ -193,6 +198,7 @@ export function generateFcpxml(
 
       const meta = videoMeta?.get(filename);
       const formatId = meta ? getOrCreateFormat(meta) : 'r1';
+      assetFormatMap.set(filename, formatId);
       // Use source fps rational components for asset duration; fall back to sequence fps
       const assetFpsNum = meta?.fpsNum ?? fps;
       const assetFpsDen = meta?.fpsDen ?? 1;
@@ -235,66 +241,204 @@ export function generateFcpxml(
     }
   }
 
-  // --- Build spine elements ---
+  // --- Build spine elements (sequential model with handle negotiation) ---
+  // FCP sequential model: clips placed end-to-end with explicit offsets.
+  // Transitions require source media handles (extra frames beyond clip in/out).
+  // FCP requires roughly centered transitions — asymmetric ones render shortened.
+  // When incoming clip lacks pre-handle, we shift its source range to create one.
+  // The shift (~0.26s) falls within the transition blend and is barely visible.
+  // Titles are nested inside clips as connected anchor items (lane=1).
   const spine: string[] = [];
-  let offset = 0;
+  let seqOffset = 0;
   const I = '                    '; // base indent for spine children
+  const II = I + '    '; // indent for items inside a clip
 
-  // Video clips with transitions
+  // Pre-compute clip durations
+  const clipDurations: number[] = [];
+  for (const clip of spec.clips) {
+    clipDurations.push((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate);
+  }
+
+  // The timeline spec uses an overlapping model (clips overlap by transition duration),
+  // but FCPXML uses a sequential model (clips placed end-to-end, transitions borrow
+  // handles from adjacent clips). We need both coordinate systems to correctly map
+  // overlay positions from the spec onto sequential clip positions in FCPXML.
+  const clipOverlapStarts: number[] = [];
+  const clipSeqStarts: number[] = [];
+  {
+    let sOverlap = 0;
+    let sSeq = 0;
+    for (let i = 0; i < spec.clips.length; i++) {
+      if (i > 0 && spec.clips[i].transition && spec.clips[i].transition.type !== 'none') {
+        sOverlap -= spec.clips[i].transition.durationSeconds;
+      }
+      clipOverlapStarts.push(sOverlap);
+      clipSeqStarts.push(sSeq);
+      sOverlap += clipDurations[i];
+      sSeq += clipDurations[i];
+    }
+  }
+
+  // Map a time from the overlapping model to the sequential model
+  function overlapToSeq(t: number): number {
+    for (let i = spec.clips.length - 1; i >= 0; i--) {
+      if (t >= clipOverlapStarts[i]) {
+        return clipSeqStarts[i] + (t - clipOverlapStarts[i]);
+      }
+    }
+    return t;
+  }
+
+  // Assign overlays to their parent clips (in sequential timeline positions)
+  const clipOverlays = new Map<number, typeof spec.textOverlays>();
+  for (const overlay of spec.textOverlays) {
+    const seqStart = overlapToSeq(overlay.startTimeSeconds);
+    for (let i = spec.clips.length - 1; i >= 0; i--) {
+      if (seqStart >= clipSeqStarts[i]) {
+        if (!clipOverlays.has(i)) clipOverlays.set(i, []);
+        clipOverlays.get(i)!.push(overlay);
+        break;
+      }
+    }
+  }
+
+  // Generate spine elements
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
-    const clipDuration =
-      (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
+    const clipDuration = clipDurations[i];
     const assetId = getAssetId(clip, spec.clips);
 
-    // Transition before clip (except first clip)
+    // Transition handle negotiation: find X (pre-boundary extent) such that
+    // incoming clip needs X of pre-handle and outgoing needs (DT-X) of post-handle.
+    // FCP requires roughly centered transitions — highly asymmetric ones render
+    // shortened. We target centered (X = DT/2) and use sourceShift when needed.
+    let sourceShiftSeconds = 0;
     if (i > 0 && clip.transition && clip.transition.type !== 'none') {
-      const transitionFrames = Math.round(clip.transition.durationSeconds * fps);
-      if (transitionFrames > 0) {
-        spine.push(
-          `${I}<transition offset="${toRational(offset, fps)}" duration="${transitionFrames}/${fps}s" />`
-        );
-        offset -= transitionFrames / fps;
+      let transitionFrames = Math.round(clip.transition.durationSeconds * fps);
+      if (transitionFrames % 2 !== 0) transitionFrames += 1;
+      const transSeconds = transitionFrames / fps;
+      const halfTransSeconds = transSeconds / 2;
+
+      const prevClip = spec.clips[i - 1];
+      const prevFilename = basename(prevClip.sourceFile);
+      const prevMeta = videoMeta?.get(prevFilename);
+      const prevPostHandle = prevMeta?.durationSeconds
+        ? prevMeta.durationSeconds - prevClip.endTimeSeconds
+        : Infinity;
+      const curPreHandle = clip.startTimeSeconds;
+
+      // Target centered: X = halfTrans on each side
+      const lowerX = Math.max(halfTransSeconds, transSeconds - prevPostHandle);
+      const upperX = Math.min(curPreHandle, transSeconds - halfTransSeconds);
+
+      let X: number;
+      let canTransition = false;
+
+      if (transitionFrames > 0 && lowerX <= upperX) {
+        // Both handles sufficient — centered transition
+        X = Math.max(lowerX, Math.min(halfTransSeconds, upperX));
+        canTransition = true;
+      } else if (transitionFrames > 0) {
+        // Insufficient pre-handle — shift incoming clip's source to create handle.
+        // The shifted content falls within the transition blend and is barely visible.
+        const neededPreHandle = lowerX;
+        const shortfall = neededPreHandle - curPreHandle;
+        if (shortfall > 0) {
+          const curFilename = basename(clip.sourceFile);
+          const curMeta = videoMeta?.get(curFilename);
+          if (curMeta?.durationSeconds && clip.endTimeSeconds + shortfall <= curMeta.durationSeconds) {
+            sourceShiftSeconds = shortfall;
+            X = neededPreHandle;
+            canTransition = true;
+          }
+        }
+      }
+
+      if (canTransition) {
+        const boundaryFrames = Math.round(seqOffset * fps);
+        const xFrames = Math.round(X! * fps);
+        const transOffsetFrames = boundaryFrames - xFrames;
+        if (crossDissolveId && audioCrossfadeId) {
+          spine.push([
+            `${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transitionFrames}/${fps}s">`,
+            `${I}    <filter-video ref="${crossDissolveId}" name="Cross Dissolve" />`,
+            `${I}    <filter-audio ref="${audioCrossfadeId}" name="Audio Cross Fade" />`,
+            `${I}</transition>`,
+          ].join('\n'));
+        } else {
+          spine.push(`${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transitionFrames}/${fps}s" />`);
+        }
       }
     }
 
-    // Compute source start time: timecode offset + clip in-point
+    // Compute source start time: timecode offset + clip in-point (with shift for handle)
     const clipFilename = basename(clip.sourceFile);
     const tcInfo = assetStartFrames.get(clipFilename);
+    const effectiveStartSeconds = clip.startTimeSeconds + sourceShiftSeconds;
     let clipStart: string;
     if (tcInfo && tcInfo.frames > 0) {
-      const clipOffsetFrames = Math.round(clip.startTimeSeconds * tcInfo.fpsNum / tcInfo.fpsDen);
+      const clipOffsetFrames = Math.round(effectiveStartSeconds * tcInfo.fpsNum / tcInfo.fpsDen);
       clipStart = framesToRational(tcInfo.frames + clipOffsetFrames, tcInfo.fpsNum, tcInfo.fpsDen);
     } else {
-      clipStart = toRational(clip.startTimeSeconds, fps);
+      clipStart = toRational(effectiveStartSeconds, fps);
     }
 
-    spine.push(
-      `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(offset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}" tcFormat="NDF" />`
-    );
-    offset += clipDuration;
+    const clipFormatId = assetFormatMap.get(clipFilename);
+    const formatAttr = clipFormatId && clipFormatId !== 'r1' ? ` format="${clipFormatId}"` : '';
+
+    // Check for overlay titles attached to this clip
+    const overlays = clipOverlays.get(i) || [];
+
+    if (overlays.length === 0) {
+      spine.push(
+        `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF" />`
+      );
+    } else {
+      spine.push(
+        `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF">`
+      );
+
+      for (const overlay of overlays) {
+        const fontSize = overlay.style === 'title' ? 64 : overlay.style === 'subtitle' ? 36 : 24;
+        const overlaySeqStart = overlapToSeq(overlay.startTimeSeconds);
+        const overlaySeqEnd = overlapToSeq(overlay.endTimeSeconds);
+        const deltaInClip = overlaySeqStart - clipSeqStarts[i];
+
+        // Title offset must be in the parent clip's source timebase. When the
+        // source fps differs from the sequence fps (e.g. 59.94 vs 50), this offset
+        // can't align with both frame grids — FCP warns "not on edit frame boundary"
+        // but the title displays correctly.
+        let titleOffset: string;
+        if (tcInfo && tcInfo.frames > 0) {
+          const clipInFrames = Math.round(effectiveStartSeconds * tcInfo.fpsNum / tcInfo.fpsDen);
+          const deltaFrames = Math.round(deltaInClip * tcInfo.fpsNum / tcInfo.fpsDen);
+          titleOffset = framesToRational(tcInfo.frames + clipInFrames + deltaFrames, tcInfo.fpsNum, tcInfo.fpsDen);
+        } else {
+          titleOffset = toRational(effectiveStartSeconds + deltaInClip, fps);
+        }
+
+        const titleDuration = toRational(overlaySeqEnd - overlaySeqStart, fps);
+        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, titleOffset, titleDuration, II, titleEffectId!));
+      }
+
+      spine.push(`${I}</asset-clip>`);
+    }
+
+    seqOffset += clipDuration;
   }
 
-  // Text overlays as connected titles (lane 1)
-  for (const overlay of spec.textOverlays) {
-    const overlayOffset = toRational(overlay.startTimeSeconds, fps);
-    const overlayDuration = toRational(
-      overlay.endTimeSeconds - overlay.startTimeSeconds,
-      fps,
-    );
-    const fontSize =
-      overlay.style === 'title' ? 64 : overlay.style === 'subtitle' ? 36 : 24;
-
-    spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, overlayOffset, overlayDuration, I, 1));
-  }
-
-  const totalDuration = toRational(offset, fps);
+  const totalDuration = toRational(seqOffset, fps);
 
   // Resolve color space: auto detects from source footage, sdr/hdr are explicit overrides
   const colorSpaceOption = options?.colorSpace ?? 'auto';
   const useHdr = colorSpaceOption === 'hdr' || (colorSpaceOption === 'auto' && detectedHdr);
 
   const sequenceColorSpaceAttr = useHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
+  const effectLines: string[] = [];
+  if (titleEffectId) effectLines.push(`        <effect id="${titleEffectId}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />`);
+  if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
+  if (audioCrossfadeId) effectLines.push(`        <effect id="${audioCrossfadeId}" name="Audio Cross Fade" uid="${AUDIO_CROSSFADE_UID}" />`);
+
   const allFormatLines = [
     `        <format id="r1" name="FFVideoFormat${height}p${Math.round(fps)}" frameDuration="1/${fps}s" width="${width}" height="${height}"${sequenceColorSpaceAttr} />`,
     ...formatLines,
@@ -304,7 +448,7 @@ export function generateFcpxml(
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-${allFormatLines.join('\n')}${needsTitleEffect ? `\n        <effect id="${TITLE_EFFECT_ID}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />` : ''}
+${allFormatLines.join('\n')}${effectLines.length > 0 ? '\n' + effectLines.join('\n') : ''}
 ${assetLines.join('\n')}
     </resources>
     <library${useHdr ? ' colorProcessing="wide-hdr"' : ''}>
