@@ -1,4 +1,4 @@
-import { basename } from 'path';
+import { basename, relative, dirname } from 'path';
 import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
 
 function toRational(seconds: number, fps: number): string {
@@ -49,7 +49,7 @@ function makeTitleXml(
 ): string {
   const laneAttr = lane != null ? ` lane="${lane}"` : '';
   return [
-    `${indent}<title ref="${TITLE_EFFECT_ID}" name="${escapeXml(text)}"${laneAttr} offset="${offset}" duration="${duration}" start="0/1s">`,
+    `${indent}<title ref="${TITLE_EFFECT_ID}" name="${escapeXml(text.replace(/\n/g, ' '))}"${laneAttr} offset="${offset}" duration="${duration}" start="0/1s">`,
     `${indent}    <text>`,
     `${indent}        <text-style ref="${tsId}">${escapeXml(text)}</text-style>`,
     `${indent}    </text>`,
@@ -68,7 +68,6 @@ export interface VideoFormatInfo {
   durationSeconds?: number | null;
   totalFrames?: number | null;
   bitDepth?: number | null;
-  colorSpace?: string | null;
   colorPrimaries?: string | null;
   colorTransfer?: string | null;
   audioChannels?: number | null;
@@ -127,8 +126,8 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 
   if (primaries === 'bt709') return '1-1-1 (Rec. 709)';
   if (primaries === 'bt2020') {
-    if (transfer === 'smpte2084') return '9-18-9 (Rec. 2020 PQ)';
-    if (transfer === 'arib-std-b67') return '9-18-9 (Rec. 2020 HLG)';
+    if (transfer === 'pq') return '9-18-9 (Rec. 2020 PQ)';
+    if (transfer === 'hlg') return '9-18-9 (Rec. 2020 HLG)';
     return '9-1-9 (Rec. 2020)';
   }
   return null;
@@ -137,6 +136,7 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 export function generateFcpxml(
   spec: ExpandedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
+  options?: { eventName?: string; projectTitle?: string; outputPath?: string; colorSpace?: 'auto' | 'sdr' | 'hdr' },
 ): string {
   const { fps, width, height } = spec;
   let tsCounter = 0;
@@ -144,7 +144,7 @@ export function generateFcpxml(
 
   // --- Build format entries and asset resources ---
   const assetMap = new Map<string, string>(); // filename -> asset id
-  const assetStartFrames = new Map<string, { frames: number; fpsNum: number; fpsDen: number }>(); // filename -> timecode start info
+  const assetStartFrames = new Map<string, { frames: number; fpsNum: number; fpsDen: number }>();
   const assetLines: string[] = [];
   const formatLines: string[] = [];
   const formatMap = new Map<string, string>(); // format key -> format id
@@ -156,9 +156,15 @@ export function generateFcpxml(
   const needsTitleEffect = spec.textOverlays.length > 0;
   if (needsTitleEffect) formatIndex = 3; // r2 is taken by title effect
 
+  let detectedHdr = false;
+
   function getOrCreateFormat(meta: VideoFormatInfo): string {
-    const key = `${meta.width}x${meta.height}@${meta.fpsNum}/${meta.fpsDen}`;
+    const colorSpace = mapFcpxmlColorSpace(meta);
+    const key = `${meta.width}x${meta.height}@${meta.fpsNum}/${meta.fpsDen}:${colorSpace ?? ''}`;
     const fpsApprox = Math.round(meta.fpsNum / meta.fpsDen);
+
+    if (colorSpace && (colorSpace.includes('HLG') || colorSpace.includes('PQ'))) detectedHdr = true;
+
     // If it matches the sequence format, use r1
     if (meta.width === width && meta.height === height && meta.fpsNum === fps && meta.fpsDen === 1) {
       return 'r1';
@@ -167,11 +173,14 @@ export function generateFcpxml(
 
     const id = `r${formatIndex++}`;
     formatMap.set(key, id);
+    const colorSpaceAttr = colorSpace ? ` colorSpace="${colorSpace}"` : '';
     formatLines.push(
-      `        <format id="${id}" name="FFVideoFormat${meta.height}p${fpsApprox}" frameDuration="${meta.fpsDen}/${meta.fpsNum}s" width="${meta.width}" height="${meta.height}" />`
+      `        <format id="${id}" name="FFVideoFormat${meta.height}p${fpsApprox}" frameDuration="${meta.fpsDen}/${meta.fpsNum}s" width="${meta.width}" height="${meta.height}"${colorSpaceAttr} />`
     );
     return id;
   }
+
+  const outputDir = options?.outputPath ? dirname(options.outputPath) : null;
 
   for (const clip of spec.clips) {
     const filename = basename(clip.sourceFile);
@@ -207,13 +216,19 @@ export function generateFcpxml(
       }
       assetStartFrames.set(filename, { frames: tcStartFrames, fpsNum: assetFpsNum, fpsDen: assetFpsDen });
 
+      // Compute relative path from FCPXML output directory to source file
+      const relPath = outputDir && clip.sourceFile
+        ? relative(outputDir, clip.sourceFile)
+        : `./${filename}`;
+      const srcUrl = `file://${escapeXml(relPath)}`;
+
       const audioAttrs = meta?.audioChannels
         ? ` audioSources="1" audioChannels="${meta.audioChannels}" audioRate="${meta.audioSampleRate ?? 48000}"`
         : '';
       assetLines.push(
         [
           `        <asset id="${id}" start="${assetStart}" duration="${assetDuration}" hasVideo="1" hasAudio="1"${audioAttrs} format="${formatId}">`,
-          `            <media-rep kind="original-media" src="file://./${escapeXml(filename)}" />`,
+          `            <media-rep kind="original-media" src="${srcUrl}" />`,
           `        </asset>`,
         ].join('\n')
       );
@@ -237,7 +252,7 @@ export function generateFcpxml(
       const transitionFrames = Math.round(clip.transition.durationSeconds * fps);
       if (transitionFrames > 0) {
         spine.push(
-          `${I}<transition name="${clip.transition.type}" offset="${toRational(offset, fps)}" duration="${transitionFrames}/${fps}s" />`
+          `${I}<transition offset="${toRational(offset, fps)}" duration="${transitionFrames}/${fps}s" />`
         );
         offset -= transitionFrames / fps;
       }
@@ -275,8 +290,13 @@ export function generateFcpxml(
 
   const totalDuration = toRational(offset, fps);
 
+  // Resolve color space: auto detects from source footage, sdr/hdr are explicit overrides
+  const colorSpaceOption = options?.colorSpace ?? 'auto';
+  const useHdr = colorSpaceOption === 'hdr' || (colorSpaceOption === 'auto' && detectedHdr);
+
+  const sequenceColorSpaceAttr = useHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
   const allFormatLines = [
-    `        <format id="r1" name="FFVideoFormat${height}p${Math.round(fps)}" frameDuration="1/${fps}s" width="${width}" height="${height}" />`,
+    `        <format id="r1" name="FFVideoFormat${height}p${Math.round(fps)}" frameDuration="1/${fps}s" width="${width}" height="${height}"${sequenceColorSpaceAttr} />`,
     ...formatLines,
   ];
 
@@ -287,9 +307,9 @@ export function generateFcpxml(
 ${allFormatLines.join('\n')}${needsTitleEffect ? `\n        <effect id="${TITLE_EFFECT_ID}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />` : ''}
 ${assetLines.join('\n')}
     </resources>
-    <library>
-        <event name="Montai Export">
-            <project name="${escapeXml(spec.name)}">
+    <library${useHdr ? ' colorProcessing="wide-hdr"' : ''}>
+        <event name="${escapeXml(options?.eventName ?? 'Montai Export')}">
+            <project name="${escapeXml(options?.projectTitle ?? spec.name)}">
                 <sequence format="r1" duration="${totalDuration}" tcStart="0/1s" tcFormat="NDF">
                     <spine>
 ${spine.join('\n')}

@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { writeFileSync, mkdirSync } from 'fs';
-import { basename } from 'path';
+import { basename, resolve } from 'path';
 import { initDb } from '../db/index.js';
 import { videos } from '../db/schema.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
@@ -29,7 +29,7 @@ export async function exportCommand(name?: string) {
             fpsNum: video.fpsNum, fpsDen: video.fpsDen,
             durationSeconds: video.durationSeconds,
             totalFrames: video.totalFrames,
-            bitDepth: video.bitDepth, colorSpace: video.colorSpace,
+            bitDepth: video.bitDepth,
             colorPrimaries: video.colorPrimaries, colorTransfer: video.colorTransfer,
             audioChannels: video.audioChannels, audioSampleRate: video.audioSampleRate,
             startTimecode: video.startTimecode,
@@ -38,8 +38,15 @@ export async function exportCommand(name?: string) {
       }
     }
 
-    const fcpxml = generateFcpxml(spec, videoMeta);
-    writeFileSync(`fcpxml/${spec.name}.fcpxml`, fcpxml, 'utf-8');
+    const eventName = basename(resolve('.'));
+    const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);
+    const fcpxml = generateFcpxml(spec, videoMeta, {
+      eventName,
+      projectTitle: spec.title,
+      outputPath,
+      colorSpace: config.output.colorSpace,
+    });
+    writeFileSync(outputPath, fcpxml, 'utf-8');
     console.log(chalk.green(`FCPXML written to fcpxml/${spec.name}.fcpxml`));
   }
 }

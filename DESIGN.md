@@ -30,6 +30,7 @@ intermediateLanguage: zh        # Language for LLM-generated text (zh | en)
 output:
   resolution: 1080p             # 720p | 1080p | 1440p | 4k
   fps: 50
+  colorSpace: auto              # auto | sdr | hdr (auto: HDR if any source is BT.2020)
 models:
   analysis: gemini-3-flash-preview       # Per-video analysis
   editing: gemini-3-pro-preview         # Story agent loop

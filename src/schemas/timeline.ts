@@ -27,6 +27,7 @@ export const ExpandedOverlaySchema = z.object({
 
 export const ExpandedTimelineSchema = z.object({
   name: z.string(),
+  title: z.string().optional(),
   fps: z.number(),
   width: z.number(),
   height: z.number(),

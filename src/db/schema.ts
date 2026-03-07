@@ -10,8 +10,8 @@ export const videos = sqliteTable('videos', {
   height: integer('height'),
   fpsNum: integer('fps_num'),       // frame rate numerator, e.g. 60000
   fpsDen: integer('fps_den'),       // frame rate denominator, e.g. 1001
+  fps: text('fps'),               // decimal string, e.g. "59.94", "50"
   bitDepth: integer('bit_depth'),
-  colorSpace: text('color_space'),
   colorPrimaries: text('color_primaries'),
   colorTransfer: text('color_transfer'),
   totalFrames: integer('total_frames'),

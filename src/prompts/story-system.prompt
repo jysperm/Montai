@@ -31,16 +31,16 @@ Positioned sequentially — array order among clips determines playback order.
 ```
 
 ### Overlay items
-Anchored to clips via startClip/endClip (0-based index among clip items only).
+Anchored to clips via startClip/endClip (0-based index among clip items only). For multi-line text, use real newlines inside the JSON string (not literal `\n`).
 ```json
 {
   "type": "overlay",
-  "text": "Day 1",
+  "text": "清迈鲜花节 2026\nChiang Mai Flower Festival",
   "startClip": 0,
   "startOffset": 0,
   "endClip": 0,
   "endOffset": 3,
-  "position": "center",
+  "position": "center",            // top-left | top-right | center | bottom-left | bottom-center | bottom-right
   "style": "title"
 }
 ```

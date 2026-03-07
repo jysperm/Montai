@@ -366,17 +366,18 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       .where(eq(videos.path, filepath))
       .get();
 
-    if (existing && (existing.width == null || existing.fpsNum == null || existing.totalFrames == null || existing.audioChannels == null || existing.startTimecode == null)) {
+    if (existing && (existing.durationSeconds == null || existing.width == null || existing.fpsNum == null || existing.fps == null || existing.totalFrames == null || existing.audioChannels == null || existing.startTimecode == null)) {
       const spinner = ora(`Updating metadata for ${filename}`).start();
       try {
         const meta = getVideoMetadata(filepath);
         db.update(videos)
           .set({
+            durationSeconds: meta.durationSeconds,
             width: meta.width, height: meta.height,
             fpsNum: meta.fpsNum, fpsDen: meta.fpsDen,
             totalFrames: meta.totalFrames,
+            fps: String(meta.fps),
             bitDepth: meta.bitDepth,
-            colorSpace: meta.colorSpace,
             colorPrimaries: meta.colorPrimaries,
             colorTransfer: meta.colorTransfer,
             audioChannels: meta.audioChannels,
@@ -385,7 +386,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
           })
           .where(eq(videos.id, existing.id))
           .run();
-        spinner.succeed(`Updated ${filename} (${meta.width}x${meta.height}, ${(meta.fpsNum / meta.fpsDen).toFixed(2)}fps, ${meta.bitDepth ?? '?'}bit)`);
+        spinner.succeed(`Updated ${filename} (${meta.width}x${meta.height}, ${meta.fps}fps, ${meta.bitDepth ?? '?'}bit)`);
       } catch {
         spinner.warn(`Could not read metadata for ${filename}`);
       }
@@ -415,15 +416,15 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
               width: meta.width, height: meta.height,
               fpsNum: meta.fpsNum, fpsDen: meta.fpsDen,
               totalFrames: meta.totalFrames,
+              fps: String(meta.fps),
               bitDepth: meta.bitDepth,
-              colorSpace: meta.colorSpace,
               colorPrimaries: meta.colorPrimaries,
               colorTransfer: meta.colorTransfer,
               audioChannels: meta.audioChannels,
               audioSampleRate: meta.audioSampleRate,
             })
             .run();
-          spinner.succeed(`Registered ${filename} (${meta.width}x${meta.height}, ${(meta.fpsNum / meta.fpsDen).toFixed(2)}fps, ${meta.bitDepth ?? '?'}bit, ${meta.durationSeconds}s)`);
+          spinner.succeed(`Registered ${filename} (${meta.width}x${meta.height}, ${meta.fps}fps, ${meta.bitDepth ?? '?'}bit, ${meta.durationSeconds}s)`);
         } catch {
           db.insert(videos)
             .values({ filename, path: filepath, md5 })

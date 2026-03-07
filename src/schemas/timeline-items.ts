@@ -54,6 +54,7 @@ export function expandTimeline(
   config: ProjectConfig,
   storyName: string,
   videos: { id: number; path: string }[],
+  storyTitle?: string,
 ): ExpandedTimeline {
   const res = resolveResolution(config.output.resolution);
 
@@ -142,6 +143,7 @@ export function expandTimeline(
 
   return {
     name: storyName,
+    title: storyTitle,
     fps: config.output.fps,
     width: res.width,
     height: res.height,

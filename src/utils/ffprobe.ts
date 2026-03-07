@@ -6,9 +6,9 @@ export interface VideoMetadata {
   height: number;
   fpsNum: number;   // frame rate numerator, e.g. 60000
   fpsDen: number;   // frame rate denominator, e.g. 1001
+  fps: number;      // decimal frame rate, e.g. 59.94
   totalFrames: number | null;
   bitDepth: number | null;
-  colorSpace: string | null;
   colorPrimaries: string | null;
   colorTransfer: string | null;
   audioChannels: number | null;
@@ -53,9 +53,8 @@ export function getVideoMetadata(filepath: string): VideoMetadata {
   }
 
   const totalFrames: number | null = videoStream?.nb_frames ? parseInt(videoStream.nb_frames, 10) : null;
-  const colorSpace: string | null = videoStream?.color_space ?? null;
-  const colorPrimaries: string | null = videoStream?.color_primaries ?? null;
-  const colorTransfer: string | null = videoStream?.color_transfer ?? null;
+  const colorPrimaries: string | null = normalizeColorPrimaries(videoStream?.color_primaries ?? null);
+  const colorTransfer: string | null = normalizeColorTransfer(videoStream?.color_transfer ?? null);
 
   const audioStream = data.streams?.find(
     (s: { codec_type: string }) => s.codec_type === 'audio'
@@ -65,7 +64,36 @@ export function getVideoMetadata(filepath: string): VideoMetadata {
 
   const startTimecode: string | null = data.format?.tags?.timecode ?? videoStream?.tags?.timecode ?? null;
 
-  return { durationSeconds: Math.round(durationSeconds), width, height, fpsNum, fpsDen, totalFrames, bitDepth, colorSpace, colorPrimaries, colorTransfer, audioChannels, audioSampleRate, startTimecode };
+  const fps = parseFloat((fpsNum / fpsDen).toFixed(2));
+
+  return { durationSeconds: Math.round(durationSeconds), width, height, fpsNum, fpsDen, fps, totalFrames, bitDepth, colorPrimaries, colorTransfer, audioChannels, audioSampleRate, startTimecode };
+}
+
+function normalizeColorPrimaries(value: string | null): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    'bt709': 'bt709',
+    'bt2020': 'bt2020',
+    'smpte170m': 'smpte170m',
+    'bt470bg': 'bt470bg',
+  };
+  return map[value] ?? value;
+}
+
+function normalizeColorTransfer(value: string | null): string | null {
+  if (!value) return null;
+  const map: Record<string, string> = {
+    'arib-std-b67': 'hlg',
+    'smpte2084': 'pq',
+    'bt709': 'bt709',
+    'smpte170m': 'smpte170m',
+    'bt470bg': 'bt470bg',
+    'iec61966-2-1': 'srgb',
+    'linear': 'linear',
+    'bt2020-10': 'bt2020-10',
+    'bt2020-12': 'bt2020-12',
+  };
+  return map[value] ?? value;
 }
 
 export function getVideoDuration(filepath: string): number {

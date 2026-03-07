@@ -16,6 +16,7 @@ export function resolveResolution(preset: ResolutionPreset) {
 export const OutputSchema = z.object({
   resolution: z.enum(['720p', '1080p', '1440p', '4k']).default('1080p'),
   fps: z.number().default(50),
+  colorSpace: z.enum(['auto', 'sdr', 'hdr']).default('auto'),
 });
 
 export const ModelsSchema = z.object({

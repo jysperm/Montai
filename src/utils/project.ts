@@ -72,20 +72,20 @@ type VideoSummaryRow = InferSelectModel<typeof videoSummaries>;
  * Returns null and prints an error if no timelines are found.
  */
 export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?: string): ExpandedTimeline[] | null {
-  let storyRows: { name: string; timeline: string }[];
+  let storyRows: { name: string; title: string; timeline: string }[];
   if (name) {
-    const row = db.select({ name: stories.name, timeline: stories.timeline }).from(stories).where(eq(stories.name, name)).get();
+    const row = db.select({ name: stories.name, title: stories.title, timeline: stories.timeline }).from(stories).where(eq(stories.name, name)).get();
     if (row?.timeline) {
-      storyRows = [{ name: row.name, timeline: row.timeline }];
+      storyRows = [{ name: row.name, title: row.title, timeline: row.timeline }];
     } else {
       storyRows = [];
     }
   } else {
-    storyRows = db.select({ name: stories.name, timeline: stories.timeline })
+    storyRows = db.select({ name: stories.name, title: stories.title, timeline: stories.timeline })
       .from(stories)
       .where(sql`${stories.timeline} IS NOT NULL`)
       .orderBy(desc(stories.id))
-      .all() as { name: string; timeline: string }[];
+      .all() as { name: string; title: string; timeline: string }[];
   }
 
   if (storyRows.length === 0) {
@@ -102,7 +102,7 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   const allVideos = db.select().from(videos).all();
   return storyRows.map(r => {
     const items = JSON.parse(r.timeline) as TimelineItem[];
-    return expandTimeline(items, config, r.name, allVideos);
+    return expandTimeline(items, config, r.name, allVideos, r.title);
   });
 }
 
