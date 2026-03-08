@@ -247,6 +247,8 @@ Gemini file references are cached in the database with 48-hour expiry tracking.
 ```
 my-vlog-project/
   montai.yaml                  # User-authored
+  AGENTS.md                    # Optional: instructions/knowledge for the LLM (used in analyze + story)
+  STYLE.md                     # Optional: writing style reference from previous scripts (used in story only)
   montai.db                    # SQLite (auto-created)
   .montai/                     # Cache directory (in project directory)
     transcoded/                 # Preprocessed video files

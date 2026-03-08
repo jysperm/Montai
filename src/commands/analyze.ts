@@ -1,12 +1,14 @@
 import chalk from 'chalk';
 import ora from 'ora';
+import * as readline from 'readline';
 import { asc, eq, isNull } from 'drizzle-orm';
 import { getDb, initDb } from '../db/index.js';
 import { videos, videoSummaries, projectContext } from '../db/schema.js';
-import { loadProjectConfig, resolveVideoFiles, getVideoFilename } from '../utils/project.js';
+import { loadProjectConfig, resolveVideoFiles, getVideoFilename, readProjectFile } from '../utils/project.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
-import { statSync } from 'fs';
+import { existsSync, writeFileSync, statSync } from 'fs';
+import { resolve } from 'path';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { videoAnalysisPrompt, mergeFactsPrompt, projectOverviewPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -241,7 +243,37 @@ function listVideos(db: ReturnType<typeof getDb>): void {
   }
 }
 
+async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
+  const resolvedPath = resolve(configPath);
+  if (existsSync(resolvedPath)) return;
+
+  const defaultConfig = `videos:
+  - .
+intermediateLanguage: en
+output:
+  resolution: 1080p
+  fps: 50
+models:
+  analysis: gemini-3-flash-preview
+  editing: gemini-3-pro-preview
+`;
+  console.log(chalk.yellow(`Config file not found: ${resolvedPath}`));
+  console.log(chalk.dim(`Will create with default content:\n${defaultConfig}`));
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  await new Promise<void>((res) => {
+    rl.question(chalk.blue('Press Enter to create, or Ctrl-C to cancel... '), () => {
+      rl.close();
+      res();
+    });
+  });
+
+  writeFileSync(resolvedPath, defaultConfig, 'utf-8');
+  console.log(chalk.green(`Created ${resolvedPath}`));
+}
+
 export async function analyzeCommand(options: { reRun?: string; show?: string; list?: boolean; addFact?: string; project?: boolean }) {
+  await ensureProjectConfig();
   const config = loadProjectConfig();
   const db = await initDb();
 
@@ -464,6 +496,8 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     return;
   }
 
+  const agentInstructions = readProjectFile('AGENTS.md');
+
   console.log(chalk.blue(`Analyzing ${videosToAnalyze.length} video(s)...`));
   const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
   let totalCost = 0;
@@ -516,7 +550,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const currentContext = db.select().from(projectContext).get();
-      const analysisPrompt = videoAnalysisPrompt(config.intermediateLanguage, currentContext?.facts);
+      const analysisPrompt = videoAnalysisPrompt(config.intermediateLanguage, currentContext?.facts, agentInstructions);
 
       const messages: Message[] = [
         {

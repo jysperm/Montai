@@ -37,3 +37,11 @@ Return a JSON object with this exact structure:
 }
 
 Be precise with timestamps. Identify all distinct segments, even brief ones. Mark highlights that would make good cuts for an edited vlog.
+{{#if agentInstructions}}
+
+The following are instructions and knowledge provided by the user about this project. Use them to inform your analysis.
+
+---
+{{{agentInstructions}}}
+---
+{{/if}}

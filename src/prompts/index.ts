@@ -38,8 +38,8 @@ function formatOverlayLanguageInstruction(languages: string[]): string {
   return `Write all overlay text (titles, captions, subtitles) in ${names.join(' and ')}. Each overlay should include all languages.`;
 }
 
-export function videoAnalysisPrompt(intermediateLanguage: string, facts?: string | null): string {
-  return templates.videoAnalysis({ languageName: langName(intermediateLanguage), facts: facts || null });
+export function videoAnalysisPrompt(intermediateLanguage: string, facts?: string | null, agentInstructions?: string | null): string {
+  return templates.videoAnalysis({ languageName: langName(intermediateLanguage), facts: facts || null, agentInstructions: agentInstructions || null });
 }
 
 export function mergeFactsPrompt(existingFacts: string | null, newFact: string, intermediateLanguage: string): string {
@@ -62,10 +62,11 @@ export function projectOverviewPrompt(
   });
 }
 
-export function storySystemPrompt(intermediateLanguage: string, overlayLanguages: string[]): string {
+export function storySystemPrompt(intermediateLanguage: string, overlayLanguages: string[], agentInstructions?: string | null): string {
   return templates.storySystem({
     languageName: langName(intermediateLanguage),
     overlayLanguageInstruction: formatOverlayLanguageInstruction(overlayLanguages),
+    agentInstructions: agentInstructions || null,
   });
 }
 
@@ -73,11 +74,13 @@ export function storyUserPrompt(
   videoSummaries: { videoId: number; filename: string; summary: string }[],
   facts: string | null,
   hint: string,
+  styleReference?: string | null,
 ): string {
   return templates.storyUser({
     videoSummaries,
     facts: facts || null,
     hint: hint || null,
+    styleReference: styleReference || null,
   });
 }
 
@@ -86,11 +89,13 @@ export function storyResumePrompt(
   timelineItems: string | null,
   videoSummaries: { videoId: number; filename: string; summary: string }[],
   facts: string | null,
+  styleReference?: string | null,
 ): string {
   return templates.storyResume({
     storyline,
     timelineItems: timelineItems || null,
     videoSummaries,
     facts: facts || null,
+    styleReference: styleReference || null,
   });
 }

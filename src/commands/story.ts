@@ -12,7 +12,7 @@ import {
   projectContext,
   stories,
 } from '../db/schema.js';
-import { loadProjectConfig, serializeVideoSummary } from '../utils/project.js';
+import { loadProjectConfig, serializeVideoSummary, readProjectFile } from '../utils/project.js';
 import { langName } from '../prompts/index.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -37,6 +37,8 @@ export async function storyCommand(
 ) {
   const config = loadProjectConfig();
   const db = await initDb();
+  const agentInstructions = readProjectFile('AGENTS.md');
+  const styleReference = readProjectFile('STYLE.md');
 
   // --list: show all stories and exit
   if (options.list) {
@@ -339,7 +341,7 @@ export async function storyCommand(
   // Create agent
   const agent = new Agent({
     initialState: {
-      systemPrompt: storySystemPrompt(config.intermediateLanguage, config.effects.languages),
+      systemPrompt: storySystemPrompt(config.intermediateLanguage, config.effects.languages, agentInstructions),
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -431,10 +433,11 @@ export async function storyCommand(
       timelineItemsJson,
       videoSummaryData,
       facts,
+      styleReference,
     );
   } else {
     // New story
-    initialMessage = storyUserPrompt(videoSummaryData, facts, options.hint ?? '');
+    initialMessage = storyUserPrompt(videoSummaryData, facts, options.hint ?? '', styleReference);
   }
 
   // Helper to run agent and display response, catching errors

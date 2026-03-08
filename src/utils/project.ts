@@ -13,6 +13,12 @@ import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
 
+export function readProjectFile(filename: string): string | null {
+  const filepath = resolve(filename);
+  if (!existsSync(filepath)) return null;
+  return readFileSync(filepath, 'utf-8');
+}
+
 function expandTilde(filepath: string): string {
   if (filepath.startsWith('~/')) {
     return join(homedir(), filepath.slice(2));

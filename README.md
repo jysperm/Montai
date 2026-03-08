@@ -20,11 +20,10 @@ This makes the `montai` command available globally. Requires `ffmpeg` and `ffpro
 ```yaml
 videos:
   - .
-intermediateLanguage: zh
+intermediateLanguage: en
 output:
   resolution: 1080p
   fps: 50
-  colorSpace: auto  # auto: detect from footage (HDR if any source is BT.2020) | sdr | hdr
 models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
@@ -119,6 +118,8 @@ If your source footage is HDR (e.g. HLG), you need to enable color management in
 ```
 my-vlog-project/
   montai.yaml          # Project config
+  AGENTS.md            # Optional: instructions/knowledge for the LLM
+  STYLE.md             # Optional: writing style reference from previous scripts
   montai.db            # SQLite database (auto-created)
   .montai/             # Cache (transcoded videos, specs)
   output/               # Rendered videos

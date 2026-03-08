@@ -83,3 +83,13 @@ Example: to show "Day 1" for the first 3 seconds of clip 0, use `startClip: 0, s
 **Always call update_storyline / update_timeline to persist your changes.** Don't just describe changes — save them.
 
 Be action-oriented. After watching segments, note your observations briefly, then proceed to build/update the timeline.
+{{#if agentInstructions}}
+
+## User Instructions
+
+The following are instructions and knowledge provided by the user about this project. Follow these instructions.
+
+---
+{{{agentInstructions}}}
+---
+{{/if}}
