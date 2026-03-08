@@ -45,8 +45,9 @@ montai analyze --project
 # Interactive story session — generates storyline and timeline conversationally
 montai story
 
-# Export FCPXML for Final Cut Pro (exports all stories, or pass a name)
-montai export
+# Export FCPXML (exports all stories, or pass a name)
+montai export --fcp        # for Final Cut Pro (default)
+montai export --davinci    # for DaVinci Resolve
 ```
 
 ### Preview & Render
@@ -62,6 +63,21 @@ montai render
 ```
 
 Both commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
+
+## Output Compatibility
+
+Resolution and frame rate are configurable via `output.resolution` and `output.fps`.
+
+|  | Final Cut Pro (`export`) | DaVinci Resolve (`export`) | Remotion (`preview` / `render`) |
+|--|--------------------------|----------------------------|-------------------------------|
+| Color depth | Preserves source (8/10bit) | Preserves source (8/10bit) | 8bit only |
+| Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
+| Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
+| Text overlays | All positions | Centered only | All positions |
+
+`preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved. For HDR or 10bit projects, use `export` to generate FCPXML and finish in a video editor.
+
+FCPXML transitions use FCP's built-in FxPlug effects (Cross Dissolve, Slide, Wipe). DaVinci Resolve only reliably maps Cross Dissolve (fade) during FCPXML import — Slide and Wipe transitions fall back to dissolve.
 
 ## Export .fcpxml
 
@@ -93,20 +109,10 @@ If your source footage is HDR (e.g. HLG), you need to enable color management in
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
 | `story --hint <text>` | Initial direction hint for new story |
-| `export [name]` | Export FCPXML from a timeline |
+| `export [name]` | Export FCPXML from a timeline (default: `--fcp`) |
+| `export --davinci` | Export FCPXML optimized for DaVinci Resolve |
 | `render [name]` | Render video via Remotion |
 | `preview [name]` | Open Remotion Studio for preview |
-
-## Video Format Support
-
-Resolution and frame rate are configurable via `output.resolution` and `output.fps`.
-
-|  | `export` (FCPXML) | `preview` / `render` |
-|--|-------------------|---------------------|
-| Color depth | Preserves source (8/10bit) | 8bit only |
-| Color space | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
-
-`preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved. For HDR or 10bit projects, use `export` to generate FCPXML and finish in a video editor.
 
 ## Project Structure
 

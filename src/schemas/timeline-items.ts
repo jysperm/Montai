@@ -10,7 +10,7 @@ export const ClipItemSchema = z.object({
   endTimeSeconds: z.number(),
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
-  transition: TransitionSchema.default({ type: 'none', durationSeconds: 0 }),
+  transition: TransitionSchema.optional().catch(undefined),
 });
 
 export const OverlayItemSchema = z.object({
@@ -72,7 +72,7 @@ export function expandTimeline(
     const effectiveDuration = rawDuration / clip.playbackRate;
 
     // Subtract transition overlap from previous clip
-    if (i > 0 && clip.transition.type !== 'none') {
+    if (i > 0 && clip.transition) {
       currentTime -= clip.transition.durationSeconds;
     }
 
@@ -122,7 +122,7 @@ export function expandTimeline(
       if (overlay.endOffset === 0) {
         // Default: end before the outgoing transition (next clip's incoming transition)
         const nextClip = clipItems[endClipIdx + 1];
-        const transDur = nextClip && nextClip.transition.type !== 'none'
+        const transDur = nextClip?.transition
           ? nextClip.transition.durationSeconds : 0;
         endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] - transDur;
       } else if (overlay.endOffset < 0) {

@@ -1,7 +1,7 @@
 import { z } from 'zod';
 
 export const TransitionSchema = z.object({
-  type: z.enum(['none', 'fade', 'slide', 'wipe']),
+  type: z.enum(['fade', 'slide', 'wipe']),
   durationSeconds: z.number(),
   direction: z.enum(['from-left', 'from-right', 'from-top', 'from-bottom']).optional(),
 });
@@ -14,7 +14,7 @@ export const ExpandedClipSchema = z.object({
   endTimeSeconds: z.number(),
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
-  transition: TransitionSchema.default({ type: 'none', durationSeconds: 0 }),
+  transition: TransitionSchema.optional().catch(undefined),
 });
 
 export const ExpandedOverlaySchema = z.object({

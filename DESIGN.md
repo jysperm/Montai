@@ -98,7 +98,7 @@ Loads Timeline(s) from the database (by name, or all if omitted), prepares a pub
 
 ### 5. Export (`montai export [name]`)
 
-Generates FCPXML 1.11 format from a Timeline. If name is given, exports that single timeline; if omitted, exports all timelines. Output goes to `fcpxml/<name>.fcpxml`.
+Generates FCPXML 1.11 format from a Timeline. If name is given, exports that single timeline; if omitted, exports all timelines. Output goes to `fcpxml/<name>.fcpxml`. Supports `--fcp` (default) and `--davinci` flags to optimize output for the target editor.
 
 ## Timeline Data Model
 
@@ -118,7 +118,7 @@ ClipItem {
   endTimeSeconds: number
   playbackRate: number         // default 1
   volume: number               // default 1
-  transition: Transition       // default none; defines the transition FROM the previous clip INTO this clip
+  transition?: Transition      // optional; defines the transition FROM the previous clip INTO this clip
 }
 
 OverlayItem {
@@ -166,8 +166,8 @@ ExpandedClip {
   endTimeSeconds: number
   playbackRate: number
   volume: number
-  transition: {
-    type: 'none' | 'fade' | 'slide' | 'wipe'
+  transition?: {
+    type: 'fade' | 'slide' | 'wipe'
     direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'
     durationSeconds: number
   }
@@ -194,7 +194,21 @@ Montai includes a static Remotion project at `src/remotion/project/` (inside Mon
 
 ## FCPXML Output
 
-Generates FCPXML 1.11 format XML. Maps clips to `<asset-clip>`, transitions to `<transition>`, text to `<title>`. Times expressed as rational numbers (e.g., `1001/30000s`). Each Timeline outputs to `fcpxml/<name>.fcpxml`.
+Generates FCPXML 1.11 format XML. Maps clips to `<asset-clip>`, transitions to `<transition>`, text overlays to `<title>` (Essential Title template). Times expressed as rational numbers (e.g., `1001/30000s`). Each Timeline outputs to `fcpxml/<name>.fcpxml`.
+
+Transition types map to FCP FxPlug effects: fade → Cross Dissolve, slide → Slide, wipe → Wipe. DaVinci Resolve only reliably imports Cross Dissolve; Slide and Wipe fall back to dissolve.
+
+Text overlays use the Essential Title Motion template, which is the most compatible across FCP and DaVinci. Font sizes and text shadow match Remotion's rendering. The `caption` style's background box cannot be replicated since Essential Title has no background element.
+
+Title positioning uses Essential Title's Motion template params. The template has a fixed 3840×2160 canvas with paragraph margins (left=-1600, right=1600, top=562, bottom=-700). Positioning is achieved by shifting the title object's Position param (`key="9999/10085/10086/1/100/101"`); horizontal alignment uses the standard `<text-style alignment>` attribute, vertical positioning is computed from font size. This works in FCP; DaVinci ignores Motion template params so titles render at center there.
+
+The `--fcp`/`--davinci` flag controls target-specific adaptations:
+
+| Aspect | `--fcp` (default) | `--davinci` |
+|--------|-------------------|-------------|
+| Font sizes / shadow | 2× scaled (template canvas 3840×2160) | 1× (DaVinci reads text-style directly) |
+| Title positioning | Position param on Essential Title | Skipped (DaVinci ignores Motion params) |
+| Transitions | fade, slide, wipe | All mapped to Cross Dissolve |
 
 ## Gemini Integration
 

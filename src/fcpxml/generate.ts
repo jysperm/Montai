@@ -1,4 +1,4 @@
-import { basename, relative, dirname } from 'path';
+import { basename } from 'path';
 import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
 
 function toRational(seconds: number, fps: number): string {
@@ -15,11 +15,28 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
-// FCP built-in effect UIDs — DaVinci Resolve maps these by transition name during import
+// FCP built-in effect UIDs.
+// DaVinci Resolve only reliably maps Cross Dissolve during FCPXML import;
+// Slide and Wipe fall back to dissolve (DaVinci FCPXML import limitation).
 const TITLE_EFFECT_UID =
   '.../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti';
 const CROSS_DISSOLVE_UID = 'FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265';
+const SLIDE_UID = 'FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648';
+const WIPE_UID = 'FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8';
 const AUDIO_CROSSFADE_UID = 'FFAudioTransition';
+
+// Direction mapping: Remotion direction → FCP param value
+// Slide: param key "4", Wipe: param key "13"
+// FCP names transitions by the direction of motion (e.g. "Slide Left" = content moves left = new clip enters from right)
+function fcpDirectionValue(direction?: string): string {
+  switch (direction) {
+    case 'from-right': return '0';   // Left variant
+    case 'from-bottom': return '1';  // Up variant
+    case 'from-left': return '2';    // Right variant
+    case 'from-top': return '3';     // Down variant
+    default: return '0';             // default: from-right (Left variant)
+  }
+}
 
 function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
   const filename = basename(clip.sourceFile);
@@ -36,6 +53,70 @@ function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
   return 'asset-1';
 }
 
+// Essential Title positioning via Motion template params.
+// The template has a fixed 3840×2160 canvas (origin at center, X right+, Y up+).
+// All font sizes, shadow dimensions, and position coordinates must be expressed in
+// this template space. For a 1080p project, the template is scaled 2× to fit,
+// so template values = project values × 2. The scale factor is always
+// TMPL_HEIGHT / 1080 = 2, independent of project resolution.
+const TMPL_HALF_W = 1920;
+const TMPL_HALF_H = 1080;
+const TMPL_MARGIN = 80;  // 40px at 1080p × 2
+const TMPL_SCALE = 2;    // 2160 / 1080
+
+// Paragraph margins from the Essential Title Motion template define the text layout
+// area relative to the title object center. With default alignment (center/center),
+// the text center is approximately at the Position param value (the ±69 asymmetry
+// in paragraph margins is offset by the template's default text Position.Y = 69).
+const PARA_L = -1600; // paragraph left margin
+const PARA_R = 1600;  // paragraph right margin
+
+// Position key for Essential Title (Properties > Transform > Position)
+const POS_KEY = '9999/10085/10086/1/100/101';
+
+/**
+ * Generate <param> elements for Essential Title positioning.
+ * Returns empty string for center (default, no params needed).
+ * DaVinci ignores Motion template params — titles render at center there regardless.
+ *
+ * Horizontal: uses text-style `alignment` for paragraph alignment (left/center/right)
+ * plus Position.X to shift the text area so the aligned edge is at frame margin.
+ * Vertical: uses Position.Y to place the text center at the target Y, adjusted for
+ * font size so the text edge sits at the margin. The Alignment Motion param (key 373)
+ * is not used because FCP ignores it during FCPXML import.
+ */
+function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number): string {
+  if (position === 'center') return '';
+
+  // Horizontal: shift text area so aligned edge is at frame edge ± margin
+  // Left: text starts at Position.X + PARA_L → want at -TMPL_HALF_W + TMPL_MARGIN
+  // Right: text ends at Position.X + PARA_R → want at TMPL_HALF_W - TMPL_MARGIN
+  const xLeft = -TMPL_HALF_W + TMPL_MARGIN - PARA_L;   // -240
+  const xRight = TMPL_HALF_W - TMPL_MARGIN - PARA_R;    // 240
+
+  // Vertical: position text center so its edge is at frame edge ± margin
+  // Bottom: text bottom = textCenter - fontSize/2 → want at -TMPL_HALF_H + TMPL_MARGIN
+  // Top: text top = textCenter + fontSize/2 → want at TMPL_HALF_H - TMPL_MARGIN
+  const halfFont = Math.round(fontSizeTmpl / 2);
+  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfFont;
+  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfFont;
+
+  let posX = 0, posY = 0;
+  switch (position) {
+    case 'top-left':      posX = xLeft;  posY = yTop;    break;
+    case 'top-right':     posX = xRight; posY = yTop;    break;
+    case 'bottom-left':   posX = xLeft;  posY = yBottom; break;
+    case 'bottom-center': posX = 0;      posY = yBottom; break;
+    case 'bottom-right':  posX = xRight; posY = yBottom; break;
+    default: return '';
+  }
+
+  return [
+    '',
+    `${indent}<param name="Position" key="${POS_KEY}" value="${posX} ${posY}"/>`,
+  ].join('\n');
+}
+
 /**
  * Generate a <title> element with proper text-style structure.
  * Used as a connected clip (anchor item) inside an asset-clip with lane="1".
@@ -44,21 +125,34 @@ function makeTitleXml(
   text: string,
   tsId: string,
   fontSize: number,
+  bold: boolean,
+  shadowOffset: number,
+  shadowBlur: number,
   offset: string,
   duration: string,
   indent: string,
   titleEffectId: string,
+  position: string,
 ): string {
-  return [
-    `${indent}<title ref="${titleEffectId}" lane="1" name="${escapeXml(text.replace(/\n/g, ' '))}" offset="${offset}" duration="${duration}" start="0/1s">`,
+  const alignment = position === 'center' || position === 'bottom-center'
+    ? 'center' : position.endsWith('-left') ? 'left' : 'right';
+  const boldAttr = bold ? ' bold="1"' : '';
+  // Match Remotion's textShadow: 0 2px 8px rgba(0,0,0,0.8)
+  const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
+  const positionParams = fcpTitleParams(position, `${indent}    `, fontSize);
+
+  const lines = [
+    `${indent}<title ref="${titleEffectId}" lane="1" name="${escapeXml(text.replace(/\n/g, ' '))}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
     `${indent}    <text>`,
     `${indent}        <text-style ref="${tsId}">${escapeXml(text)}</text-style>`,
     `${indent}    </text>`,
     `${indent}    <text-style-def id="${tsId}">`,
-    `${indent}        <text-style font="Helvetica" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1" alignment="center" />`,
+    `${indent}        <text-style font="Helvetica Neue" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1"${boldAttr} alignment="${alignment}"${shadowAttrs} />`,
     `${indent}    </text-style-def>`,
     `${indent}</title>`,
-  ].join('\n');
+  ];
+
+  return lines.join('\n');
 }
 
 export interface VideoFormatInfo {
@@ -137,8 +231,9 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 export function generateFcpxml(
   spec: ExpandedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
-  options?: { eventName?: string; projectTitle?: string; outputPath?: string; colorSpace?: 'auto' | 'sdr' | 'hdr' },
+  options?: { eventName?: string; projectTitle?: string; colorSpace?: 'auto' | 'sdr' | 'hdr'; target?: 'fcp' | 'davinci' },
 ): string {
+  const target = options?.target ?? 'fcp';
   const { fps, width, height } = spec;
   let tsCounter = 0;
   const nextTs = () => `ts${++tsCounter}`;
@@ -156,9 +251,19 @@ export function generateFcpxml(
   let nextResourceId = 2;
   const needsTitleEffect = spec.textOverlays.length > 0;
   const titleEffectId = needsTitleEffect ? `r${nextResourceId++}` : null;
-  const hasTransitions = spec.clips.some((c, i) => i > 0 && c.transition && c.transition.type !== 'none');
-  const crossDissolveId = hasTransitions ? `r${nextResourceId++}` : null;
-  const audioCrossfadeId = hasTransitions ? `r${nextResourceId++}` : null;
+  // Determine which transition effects are used.
+  // DaVinci only reliably imports Cross Dissolve, so map all transitions to fade.
+  const usedTransitionTypes = new Set<string>();
+  for (let i = 1; i < spec.clips.length; i++) {
+    const trans = spec.clips[i].transition;
+    if (trans) {
+      usedTransitionTypes.add(target === 'davinci' ? 'fade' : trans.type);
+    }
+  }
+  const crossDissolveId = usedTransitionTypes.has('fade') ? `r${nextResourceId++}` : null;
+  const slideId = usedTransitionTypes.has('slide') ? `r${nextResourceId++}` : null;
+  const wipeId = usedTransitionTypes.has('wipe') ? `r${nextResourceId++}` : null;
+  const audioCrossfadeId = usedTransitionTypes.size > 0 ? `r${nextResourceId++}` : null;
   let formatIndex = nextResourceId;
 
   let detectedHdr = false;
@@ -184,8 +289,6 @@ export function generateFcpxml(
     );
     return id;
   }
-
-  const outputDir = options?.outputPath ? dirname(options.outputPath) : null;
 
   for (const clip of spec.clips) {
     const filename = basename(clip.sourceFile);
@@ -222,11 +325,8 @@ export function generateFcpxml(
       }
       assetStartFrames.set(filename, { frames: tcStartFrames, fpsNum: assetFpsNum, fpsDen: assetFpsDen });
 
-      // Compute relative path from FCPXML output directory to source file
-      const relPath = outputDir && clip.sourceFile
-        ? relative(outputDir, clip.sourceFile)
-        : `./${filename}`;
-      const srcUrl = `file://${escapeXml(relPath)}`;
+      // Absolute file:// URL so FCP/DaVinci can locate the source media directly
+      const srcUrl = `file://${escapeXml(clip.sourceFile || filename)}`;
 
       const audioAttrs = meta?.audioChannels
         ? ` audioSources="1" audioChannels="${meta.audioChannels}" audioRate="${meta.audioSampleRate ?? 48000}"`
@@ -271,8 +371,9 @@ export function generateFcpxml(
     let sOverlap = 0;
     let sSeq = 0;
     for (let i = 0; i < spec.clips.length; i++) {
-      if (i > 0 && spec.clips[i].transition && spec.clips[i].transition.type !== 'none') {
-        sOverlap -= spec.clips[i].transition.durationSeconds;
+      const trans = spec.clips[i].transition;
+      if (i > 0 && trans) {
+        sOverlap -= trans.durationSeconds;
       }
       clipOverlapStarts.push(sOverlap);
       clipSeqStarts.push(sSeq);
@@ -308,7 +409,7 @@ export function generateFcpxml(
   const transFrames: number[] = new Array(spec.clips.length).fill(0);
   for (let i = 1; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
-    if (clip.transition && clip.transition.type !== 'none') {
+    if (clip.transition) {
       let frames = Math.round(clip.transition.durationSeconds * fps);
       if (frames % 2 !== 0) frames += 1;
       transFrames[i] = frames;
@@ -367,10 +468,38 @@ export function generateFcpxml(
         const boundaryFrames = Math.round(seqOffset * fps);
         const halfFrames = transFrames[i] / 2;
         const transOffsetFrames = boundaryFrames - halfFrames;
-        if (crossDissolveId && audioCrossfadeId) {
+        const transType = target === 'davinci' ? 'fade' : clip.transition!.type;
+        const transDir = clip.transition!.direction;
+
+        // Resolve effect ref and name based on transition type
+        let videoEffectRef: string | null = null;
+        let videoEffectName = '';
+        let directionParam = '';
+        if (transType === 'fade' && crossDissolveId) {
+          videoEffectRef = crossDissolveId;
+          videoEffectName = 'Cross Dissolve';
+        } else if (transType === 'slide' && slideId) {
+          videoEffectRef = slideId;
+          videoEffectName = 'Slide';
+          directionParam = `${I}        <param name="Direction" key="4" value="${fcpDirectionValue(transDir)}" />`;
+        } else if (transType === 'wipe' && wipeId) {
+          videoEffectRef = wipeId;
+          videoEffectName = 'Wipe';
+          directionParam = `${I}        <param name="Direction" key="13" value="${fcpDirectionValue(transDir)}" />`;
+        }
+
+        if (videoEffectRef && audioCrossfadeId) {
+          const filterVideoLines: string[] = [];
+          if (directionParam) {
+            filterVideoLines.push(`${I}    <filter-video ref="${videoEffectRef}" name="${videoEffectName}">`);
+            filterVideoLines.push(directionParam);
+            filterVideoLines.push(`${I}    </filter-video>`);
+          } else {
+            filterVideoLines.push(`${I}    <filter-video ref="${videoEffectRef}" name="${videoEffectName}" />`);
+          }
           spine.push([
             `${I}<transition offset="${transOffsetFrames}/${fps}s" duration="${transFrames[i]}/${fps}s">`,
-            `${I}    <filter-video ref="${crossDissolveId}" name="Cross Dissolve" />`,
+            ...filterVideoLines,
             `${I}    <filter-audio ref="${audioCrossfadeId}" name="Audio Cross Fade" />`,
             `${I}</transition>`,
           ].join('\n'));
@@ -407,8 +536,16 @@ export function generateFcpxml(
         `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF">`
       );
 
+      // Font sizes and shadow dimensions scale factor:
+      // FCP: 2× (Essential Title template renders at 3840×2160 and scales to project)
+      // DaVinci: 1× (reads text-style fontSize directly, no template scaling)
+      const scale = target === 'fcp' ? TMPL_SCALE : 1;
+      const shadowOffsetPx = Math.round(2 * scale);
+      const shadowBlurPx = Math.round(8 * scale);
+
       for (const overlay of overlays) {
-        const fontSize = overlay.style === 'title' ? 64 : overlay.style === 'subtitle' ? 36 : 24;
+        const fontSize = overlay.style === 'title' ? Math.round(80 * scale) : overlay.style === 'subtitle' ? Math.round(48 * scale) : Math.round(32 * scale);
+        const isBold = overlay.style === 'title';
         const overlaySeqStart = overlapToSeq(overlay.startTimeSeconds);
         const overlaySeqEnd = overlapToSeq(overlay.endTimeSeconds);
         const deltaInClip = overlaySeqStart - clipSeqStarts[i];
@@ -427,7 +564,9 @@ export function generateFcpxml(
         }
 
         const titleDuration = toRational(overlaySeqEnd - overlaySeqStart, fps);
-        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, titleOffset, titleDuration, II, titleEffectId!));
+        // DaVinci ignores Motion template params, so skip position params
+        const effectivePosition = target === 'davinci' ? 'center' : overlay.position;
+        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, effectivePosition));
       }
 
       spine.push(`${I}</asset-clip>`);
@@ -446,6 +585,8 @@ export function generateFcpxml(
   const effectLines: string[] = [];
   if (titleEffectId) effectLines.push(`        <effect id="${titleEffectId}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />`);
   if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
+  if (slideId) effectLines.push(`        <effect id="${slideId}" name="Slide" uid="${SLIDE_UID}" />`);
+  if (wipeId) effectLines.push(`        <effect id="${wipeId}" name="Wipe" uid="${WIPE_UID}" />`);
   if (audioCrossfadeId) effectLines.push(`        <effect id="${audioCrossfadeId}" name="Audio Cross Fade" uid="${AUDIO_CROSSFADE_UID}" />`);
 
   const allFormatLines = [

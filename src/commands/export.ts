@@ -6,7 +6,8 @@ import { videos } from '../db/schema.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { generateFcpxml, type VideoFormatInfo } from '../fcpxml/generate.js';
 
-export async function exportCommand(name?: string) {
+export async function exportCommand(name?: string, options?: { fcp?: boolean; davinci?: boolean }) {
+  const target: 'fcp' | 'davinci' = options?.davinci ? 'davinci' : 'fcp';
   const config = loadProjectConfig();
   const db = await initDb();
 
@@ -39,13 +40,13 @@ export async function exportCommand(name?: string) {
     }
 
     const eventName = basename(resolve('.'));
-    const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);
     const fcpxml = generateFcpxml(spec, videoMeta, {
       eventName,
       projectTitle: spec.title,
-      outputPath,
       colorSpace: config.output.colorSpace,
+      target,
     });
+    const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);
     writeFileSync(outputPath, fcpxml, 'utf-8');
     console.log(chalk.green(`FCPXML written to fcpxml/${spec.name}.fcpxml`));
   }

@@ -96,7 +96,7 @@ export function calculateTotalFrames(spec: TimelineProps): number {
     total += Math.round(clipDuration * fps);
     if (clip.transition) {
       const transitionFrames = Math.round(clip.transition.durationSeconds * fps);
-      if (clip.transition.type !== 'none' && transitionFrames > 0) {
+      if (clip.transition?.type && transitionFrames > 0) {
         total -= transitionFrames;
       }
     }

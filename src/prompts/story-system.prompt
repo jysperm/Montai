@@ -17,7 +17,7 @@ You are a professional video editor collaborating interactively with the user to
 The timeline uses a unified items array with three item types:
 
 ### Clip items
-Positioned sequentially — array order among clips determines playback order.
+Positioned sequentially — array order among clips determines playback order. Omit `transition` for a hard cut.
 ```json
 {
   "type": "clip",
@@ -26,9 +26,10 @@ Positioned sequentially — array order among clips determines playback order.
   "endTimeSeconds": 25.0,
   "playbackRate": 1.0,
   "volume": 1.0,
-  "transition": { "type": "fade", "durationSeconds": 0.5 }
+  "transition": { "type": "fade", "durationSeconds": 0.5, "direction": "from-left" }
 }
 ```
+Transition types: `fade` (cross dissolve), `slide`, `wipe`. Direction (`from-left` | `from-right` | `from-top` | `from-bottom`) is optional, used by slide and wipe.
 
 ### Overlay items
 Anchored to clips via startClip/endClip (0-based index among clip items only). For multi-line text, use real newlines inside the JSON string (not literal `\n`).

@@ -67,6 +67,8 @@ program
 program
   .command('export [name]')
   .description('Export FCPXML from a timeline')
+  .option('--fcp', 'Optimize for Final Cut Pro (default)')
+  .option('--davinci', 'Optimize for DaVinci Resolve')
   .action(exportCommand);
 
 program
