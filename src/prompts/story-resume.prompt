@@ -26,7 +26,7 @@ We are resuming work on an existing story edit. Here is the current state:
 
 {{/each}}
 
-Summarize the current state briefly and ask what I'd like to change or improve.
+Briefly introduce the current storyline and timeline state, then wait for my direction.
 {{#if styleReference}}
 
 ## Writing Style Reference

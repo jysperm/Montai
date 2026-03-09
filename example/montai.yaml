@@ -1,6 +1,6 @@
 videos:
   - .
-intermediateLanguage: zh
+language: zh
 output:
   resolution: 1080p
   fps: 50

@@ -31,6 +31,7 @@ models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
 effects:
+  # Languages for text overlays, specify multiple for bilingual subtitles
   languages: [zh, en]
 ```
 
@@ -46,16 +47,16 @@ montai analyze
 montai story
 ```
 
-### Preview, Render & Export
+4. Preview, render, or export:
 
 ```bash
 # Open Remotion Studio to preview the edit
 montai preview
 
-# Render the final video
+# Render the final video via Remotion
 montai render
 
-# Export FCPXML (exports all stories, or pass a name)
+# Export FCPXML for professional video editors
 montai export --fcp        # for Final Cut Pro (default)
 montai export --davinci    # for DaVinci Resolve
 ```

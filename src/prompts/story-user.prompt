@@ -15,7 +15,7 @@ Video Summaries:
 Direction from the user: {{hint}}
 {{/if}}
 
-Start by generating a storyline. Call update_storyline to save it, then explain your plan and wait for my feedback before proceeding to the timeline.
+Briefly introduce what these source videos contain and wait for my direction before proceeding.
 {{#if styleReference}}
 
 ## Writing Style Reference

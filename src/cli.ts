@@ -62,6 +62,7 @@ program
   .option('--new', 'Force create a new story')
   .option('--list', 'List all stories')
   .option('--hint <text>', 'Initial direction hint for new story')
+  .option('--no-intro', 'Skip initial LLM summary, go straight to input')
   .action(storyCommand);
 
 program

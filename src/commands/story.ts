@@ -3,8 +3,7 @@ import ora from 'ora';
 import * as readline from 'readline';
 import { eq, desc } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
-import { getModel, type AssistantMessage, type FileContent, type TextContent } from '@mariozechner/pi-ai';
-import { Type } from '@sinclair/typebox';
+import { getModel, type AssistantMessage } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
 import {
   videos,
@@ -13,27 +12,19 @@ import {
   stories,
 } from '../db/schema.js';
 import { loadProjectConfig, serializeVideoSummary, readProjectFile } from '../utils/project.js';
-import { langName } from '../prompts/index.js';
-import { uploadVideoToGemini } from '../gemini/upload.js';
-import { transcodeForUpload } from '../utils/transcode.js';
 import {
   storySystemPrompt,
   storyUserPrompt,
   storyResumePrompt,
 } from '../prompts/index.js';
-import {
-  TimelineItemSchema,
-  spliceTimelineItems,
-  type TimelineItem,
-} from '../schemas/timeline-items.js';
+import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
-import { z } from 'zod';
-
-const MAX_VIDEO_FILES_PER_TURN = 10;
+import { getStoryTools } from './tools.js';
+import { renderTimeline } from '../utils/render-timeline.js';
 
 export async function storyCommand(
   name?: string,
-  options: { new?: boolean; list?: boolean; hint?: string } = {},
+  options: { new?: boolean; list?: boolean; hint?: string; intro?: boolean } = {},
 ) {
   const config = loadProjectConfig();
   const db = await initDb();
@@ -79,7 +70,7 @@ export async function storyCommand(
   let story: typeof stories.$inferSelect | undefined;
 
   if (options.new) {
-    // Force create new — story will be created by update_storyline tool
+    // Force create new — story will be created by updateStoryline tool
     story = undefined;
   } else if (name) {
     story = db.select().from(stories).where(eq(stories.name, name)).get();
@@ -100,243 +91,33 @@ export async function storyCommand(
 
   // Set up agent
   const model = getModel('google', config.models.editing as Parameters<typeof getModel>[1]);
-  const spinner = ora({ text: 'Thinking...', discardStdin: false }).start();
+  const spinner = ora({ text: 'Thinking...', discardStdin: false });
+  if (options.intro !== false) {
+    spinner.start();
+  }
 
   // In-memory state
-  let currentStoryId: number | null = story?.id ?? null;
-  let currentItems: TimelineItem[] = [];
+  const toolsCtx = {
+    db,
+    config,
+    allVideos,
+    allSummaries,
+    currentStoryId: story?.id ?? null,
+    currentItems: [] as TimelineItem[],
+  };
 
   // Restore raw items from stored timeline on resume
   if (story?.timeline) {
     try {
-      currentItems = JSON.parse(story.timeline) as TimelineItem[];
+      toolsCtx.currentItems = JSON.parse(story.timeline) as TimelineItem[];
     } catch {
       // Ignore parse errors from old expanded format
     }
   }
 
-  let watchCountThisTurn = 0;
   let totalCost = 0;
 
-  // Define tools
-  const updateStorylineTool = {
-    name: 'update_storyline',
-    label: 'Update Storyline',
-    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${langName(config.language)}.`,
-    parameters: Type.Object({
-      name: Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival")' }),
-      title: Type.String({ description: `Human-readable title for the video, in ${langName(config.language)}` }),
-      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${langName(config.language)}` }),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { name: string; title: string; narrative: string },
-    ) {
-      // Enforce kebab-case for Remotion composition ID compatibility
-      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(params.name)) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${params.name}"`,
-        };
-        return { content: [errorText], details: {}, isError: true };
-      }
-
-      const now = new Date().toISOString();
-
-      if (currentStoryId) {
-        db.update(stories)
-          .set({
-            name: params.name,
-            title: params.title,
-            storyline: params.narrative,
-            updatedAt: now,
-          })
-          .where(eq(stories.id, currentStoryId))
-          .run();
-      } else {
-        const result = db.insert(stories)
-          .values({
-            name: params.name,
-            title: params.title,
-            storyline: params.narrative,
-            createdAt: now,
-            updatedAt: now,
-          })
-          .returning()
-          .get();
-        currentStoryId = result.id;
-      }
-
-      const textContent: TextContent = {
-        type: 'text' as const,
-        text: `Storyline saved: "${params.title}" (${params.name})`,
-      };
-      return { content: [textContent], details: {} };
-    },
-  };
-
-  const updateTimelineTool = {
-    name: 'update_timeline',
-    label: 'Update Timeline',
-    description: `Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement. Overlay text must be in ${config.effects.languages.map(langName).join(' and ')}.`,
-    parameters: Type.Object({
-      index: Type.Number({ description: 'Position to start modifying' }),
-      deleteCount: Type.Number({ description: 'Number of items to remove (-1 = all from index)' }),
-      items: Type.Optional(Type.Array(Type.Any(), { description: 'New items to insert at the position' })),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { index: number; deleteCount: number; items?: unknown[] },
-    ) {
-      // Validate new items
-      let newItems: TimelineItem[] = [];
-      if (params.items && params.items.length > 0) {
-        try {
-          newItems = z.array(TimelineItemSchema).parse(params.items);
-        } catch (err) {
-          const errorText: TextContent = {
-            type: 'text' as const,
-            text: `Item validation failed: ${err}`,
-          };
-          return { content: [errorText], details: {}, isError: true };
-        }
-      }
-
-      // Validate overlay clip references against current clip count
-      const allItems = spliceTimelineItems(currentItems, params.index, params.deleteCount, newItems);
-      const clipCount = allItems.filter((i) => i.type === 'clip').length;
-      for (const item of allItems) {
-        if (item.type === 'overlay') {
-          const endClip = item.endClip ?? item.startClip;
-          if (item.startClip >= clipCount || endClip >= clipCount) {
-            const errorText: TextContent = {
-              type: 'text' as const,
-              text: `Error: overlay "${item.text}" references clip index ${item.startClip}/${endClip} but there are only ${clipCount} clips (0-${clipCount - 1}). Fix the startClip/endClip values.`,
-            };
-            return { content: [errorText], details: {}, isError: true };
-          }
-        }
-      }
-
-      // Apply splice
-      currentItems = allItems;
-
-      // Store raw items
-      if (!currentStoryId) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: Call update_storyline first to create a story before updating the timeline.',
-        };
-        return { content: [errorText], details: {}, isError: true };
-      }
-
-      const now = new Date().toISOString();
-
-      db.update(stories)
-        .set({
-          timeline: JSON.stringify(currentItems),
-          updatedAt: now,
-        })
-        .where(eq(stories.id, currentStoryId))
-        .run();
-
-      const finalClipCount = currentItems.filter((i) => i.type === 'clip').length;
-      const overlayCount = currentItems.filter((i) => i.type === 'overlay').length;
-      const textContent: TextContent = {
-        type: 'text' as const,
-        text: `Timeline updated: ${currentItems.length} items (${finalClipCount} clips, ${overlayCount} overlays)`,
-      };
-      return { content: [textContent], details: {} };
-    },
-  };
-
-  function getCurrentStoryName(): string {
-    if (currentStoryId) {
-      const row = db.select({ name: stories.name }).from(stories).where(eq(stories.id, currentStoryId)).get();
-      return row?.name ?? 'untitled';
-    }
-    return 'untitled';
-  }
-
-  const watchSegmentTool = {
-    name: 'watch_segment',
-    label: 'Watch Segment',
-    description: `Re-watch a specific segment of a video to verify cut points. Maximum ${MAX_VIDEO_FILES_PER_TURN} segments per turn.`,
-    parameters: Type.Object({
-      videoId: Type.Number({ description: 'The video ID' }),
-      startSeconds: Type.Number({ description: 'Start time in seconds' }),
-      endSeconds: Type.Number({ description: 'End time in seconds' }),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { videoId: number; startSeconds: number; endSeconds: number },
-    ) {
-      watchCountThisTurn++;
-      if (watchCountThisTurn > MAX_VIDEO_FILES_PER_TURN) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: You have already watched ${MAX_VIDEO_FILES_PER_TURN} segments this turn. Wait for the next turn to watch more segments.`,
-        };
-        return { content: [errorText], details: {}, isError: true };
-      }
-
-      const video = allVideos.find((v) => v.id === params.videoId);
-      if (!video) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: Video ${params.videoId} not found`,
-        };
-        return { content: [errorText], details: {} };
-      }
-
-      try {
-        const transcoded = await transcodeForUpload(video.id, video.path);
-        const fileUri = await uploadVideoToGemini(video.id, transcoded.path);
-        const fileContent: FileContent = {
-          type: 'file',
-          uri: fileUri,
-          mimeType: 'video/mp4',
-          videoMetadata: {
-            startOffset: `${params.startSeconds}s`,
-            endOffset: `${params.endSeconds}s`,
-          },
-        };
-        const textContent: TextContent = {
-          type: 'text' as const,
-          text: `Video segment from ${video.filename} (${params.startSeconds}s-${params.endSeconds}s) is now in context.`,
-        };
-        return { content: [textContent, fileContent], details: {} };
-      } catch (err) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error watching segment: ${err}`,
-        };
-        return { content: [errorText], details: {} };
-      }
-    },
-  };
-
-  const getVideoSummaryTool = {
-    name: 'get_video_summary',
-    label: 'Get Video Summary',
-    description: 'Retrieve the stored analysis summary for a video.',
-    parameters: Type.Object({
-      videoId: Type.Number({ description: 'The video ID' }),
-    }),
-    async execute(
-      _toolCallId: string,
-      params: { videoId: number },
-    ) {
-      const summary = allSummaries.find((s) => s.videoId === params.videoId);
-      const textContent: TextContent = {
-        type: 'text' as const,
-        text: summary
-          ? `Summary for video ${params.videoId}:\n${serializeVideoSummary(summary)}`
-          : `No summary found for video ${params.videoId}`,
-      };
-      return { content: [textContent], details: {} };
-    },
-  };
+  const { tools: allTools, resetWatchCount } = getStoryTools(toolsCtx);
 
   // Create agent
   const agent = new Agent({
@@ -348,10 +129,8 @@ export async function storyCommand(
     transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(messages)),
   });
 
-  const allTools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoSummaryTool];
   agent.setTools(allTools);
 
-  let turn = 0;
   let lastAssistantText = '';
 
   agent.subscribe((event) => {
@@ -359,15 +138,14 @@ export async function storyCommand(
       switch (event.type) {
         case 'turn_start':
           spinner.stop();
-          turn++;
-          watchCountThisTurn = 0;
-          spinner.text = `Turn ${turn}: thinking...`;
+          resetWatchCount();
+          spinner.text = `Thinking...`;
           spinner.start();
           break;
         case 'tool_execution_start':
           spinner.stop();
           console.log(chalk.dim(`  [${event.toolName}] ${JSON.stringify(event.args).slice(0, 200)}`));
-          spinner.text = `Turn ${turn}: ${event.toolName}...`;
+          spinner.text = `${event.toolName}...`;
           spinner.start();
           break;
         case 'tool_execution_end':
@@ -428,7 +206,7 @@ export async function storyCommand(
   let initialMessage: string;
   if (story?.storyline) {
     // Resume: inject current state
-    const timelineItemsJson = currentItems.length > 0 ? JSON.stringify(currentItems, null, 2) : null;
+    const timelineItemsJson = toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null;
     initialMessage = storyResumePrompt(
       story.storyline,
       timelineItemsJson,
@@ -457,11 +235,39 @@ export async function storyCommand(
       console.log(`\n${lastAssistantText.trimEnd()}`);
       lastAssistantText = '';
     }
+
+    const timelineLines = renderTimeline(
+      toolsCtx.currentItems,
+      process.stdout.columns || 80,
+    );
+    if (timelineLines.length > 0) {
+      console.log('');
+      for (const line of timelineLines) {
+        console.log(line);
+      }
+    }
   }
 
-  // Run initial prompt without tools so the LLM replies with text only
-  agent.setTools([]);
-  await runAgent(initialMessage);
+  // Run initial prompt (or skip with --no-intro)
+  let pendingContext: string | null = null;
+  if (options.intro === false) {
+    // Defer context injection until the user's first message
+    pendingContext = initialMessage;
+
+    // Print timeline if available
+    const timelineLines = renderTimeline(
+      toolsCtx.currentItems,
+      process.stdout.columns || 80,
+    );
+    if (timelineLines.length > 0) {
+      for (const line of timelineLines) {
+        console.log(line);
+      }
+    }
+  } else {
+    agent.setTools([]);
+    await runAgent(initialMessage);
+  }
   agent.setTools(allTools);
 
   // Interactive loop
@@ -494,7 +300,12 @@ export async function storyCommand(
       spinner.text = 'Thinking...';
       spinner.start();
 
-      await runAgent(userInput);
+      let message = userInput;
+      if (pendingContext) {
+        message = pendingContext + '\n\n---\n\n' + userInput;
+        pendingContext = null;
+      }
+      await runAgent(message);
     }
   } finally {
     rl.close();
@@ -504,8 +315,8 @@ export async function storyCommand(
 
   console.log(chalk.dim(`\nTotal cost: $${totalCost < 0.01 ? totalCost.toFixed(4) : totalCost.toFixed(2)}`));
 
-  if (currentStoryId) {
-    const finalStory = db.select().from(stories).where(eq(stories.id, currentStoryId)).get();
+  if (toolsCtx.currentStoryId) {
+    const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();
     if (finalStory) {
       console.log(chalk.green(`Story saved: "${finalStory.title}" (${finalStory.name})`));
       if (finalStory.timeline) {

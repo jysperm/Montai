@@ -78,14 +78,16 @@ Supports resume: skips videos that already have a row in `video_summaries` on re
 Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
 
 Uses an agent loop with tools:
-- `update_storyline(name, title, narrative)` — Save/update the storyline
-- `update_timeline(index, deleteCount, items)` — Update timeline using splice semantics
-- `watch_segment(videoId, startSeconds, endSeconds)` — Re-watch a video segment
-- `get_video_summary(videoId)` — Retrieve stored summary
+- `updateStoryline(name, title, narrative)` — Save/update the storyline
+- `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
+- `watchSegment(videoId, startSeconds, endSeconds)` — Watch a video segment
+- `getVideoSummary(videoId)` — Retrieve stored summary
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
-Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state.
+Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state. Use `--no-intro` to skip the initial LLM summary and go straight to input.
+
+After each agent response, a TUI timeline visualization is printed showing clips as `[ vN ]` blocks (proportional to duration), transitions as `~`, and overlays as `‹arrow style arrow›` on lanes above the clip track. Overlays that overlap in time are placed on separate lanes, with lanes ordered bottom-up (closest to clips first). Arrow characters indicate overlay position (e.g. `↙` for bottom-left, `─` for center).
 
 ### 3. Render (`montai render [name]`)
 
@@ -228,7 +230,7 @@ This typically reduces a 100MB+ raw video to a few MB.
 
 The LLM further processes uploaded video at 1Kbps mono audio and default media resolution.
 
-The `watch_segment` tool returns `FileContent` with `videoMetadata` (startOffset/endOffset), which is injected directly into the agent's conversation context so the model sees the actual video pixels when making editing decisions.
+The `watchSegment` tool returns `FileContent` with `videoMetadata` (startOffset/endOffset), which is injected directly into the agent's conversation context so the model sees the actual video pixels when making editing decisions.
 
 ### Supported Models
 
