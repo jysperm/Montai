@@ -15,6 +15,11 @@ function escapeXml(str: string): string {
     .replace(/'/g, '&apos;');
 }
 
+/** Sanitize a string for use in FCP name attributes (no "/" or newlines allowed). */
+function fcpName(str: string): string {
+  return escapeXml(str.replace(/\//g, '-').replace(/[\r\n]+/g, ' '));
+}
+
 // FCP built-in effect UIDs.
 // DaVinci Resolve only reliably maps Cross Dissolve during FCPXML import;
 // Slide and Wipe fall back to dissolve (DaVinci FCPXML import limitation).
@@ -64,42 +69,49 @@ const TMPL_HALF_H = 1080;
 const TMPL_MARGIN = 80;  // 40px at 1080p × 2
 const TMPL_SCALE = 2;    // 2160 / 1080
 
-// Paragraph margins from the Essential Title Motion template define the text layout
-// area relative to the title object center. With default alignment (center/center),
-// the text center is approximately at the Position param value (the ±69 asymmetry
-// in paragraph margins is offset by the template's default text Position.Y = 69).
-const PARA_L = -1600; // paragraph left margin
-const PARA_R = 1600;  // paragraph right margin
-
 // Position key for Essential Title (Properties > Transform > Position)
 const POS_KEY = '9999/10085/10086/1/100/101';
+
+// Line height factor accounts for FCP's default line spacing + font ascender/descender.
+const LINE_HEIGHT = 1.5;
 
 /**
  * Generate <param> elements for Essential Title positioning.
  * Returns empty string for center (default, no params needed).
  * DaVinci ignores Motion template params — titles render at center there regardless.
  *
- * Horizontal: uses text-style `alignment` for paragraph alignment (left/center/right)
- * plus Position.X to shift the text area so the aligned edge is at frame margin.
- * Vertical: uses Position.Y to place the text center at the target Y, adjusted for
- * font size so the text edge sits at the margin. The Alignment Motion param (key 373)
- * is not used because FCP ignores it during FCPXML import.
+ * FCP's Essential Title center-aligns text at Position.X regardless of text-style
+ * alignment. For left/right positions we shift Position.X so the centered text
+ * appears in the correct region of the frame.
  */
-function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number): string {
-  if (position === 'center') return '';
+function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1): string {
+  // Essential Title template default Position.Y = 69 compensates for paragraph
+  // margin asymmetry. Setting Position overrides this default, so we must include it.
+  const TMPL_DEFAULT_Y = 69;
 
-  // Horizontal: shift text area so aligned edge is at frame edge ± margin
-  // Left: text starts at Position.X + PARA_L → want at -TMPL_HALF_W + TMPL_MARGIN
-  // Right: text ends at Position.X + PARA_R → want at TMPL_HALF_W - TMPL_MARGIN
-  const xLeft = -TMPL_HALF_W + TMPL_MARGIN - PARA_L;   // -240
-  const xRight = TMPL_HALF_W - TMPL_MARGIN - PARA_R;    // 240
+  if (position === 'center') {
+    if (lineCount <= 1) return '';
+    // Multi-line center text: push up to compensate for extra lines below center.
+    const centerAdjust = TMPL_DEFAULT_Y + Math.round((lineCount - 1) * fontSizeTmpl * LINE_HEIGHT / 2);
+    return [
+      '',
+      `${indent}<param name="Position" key="${POS_KEY}" value="0 ${centerAdjust}"/>`,
+    ].join('\n');
+  }
 
-  // Vertical: position text center so its edge is at frame edge ± margin
-  // Bottom: text bottom = textCenter - fontSize/2 → want at -TMPL_HALF_H + TMPL_MARGIN
-  // Top: text top = textCenter + fontSize/2 → want at TMPL_HALF_H - TMPL_MARGIN
-  const halfFont = Math.round(fontSizeTmpl / 2);
-  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfFont;
-  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfFont;
+  // Horizontal: place text center so a typical subtitle's edge aligns at roughly
+  // TMPL_MARGIN from the frame edge, matching vertical margin.
+  const TYPICAL_TEXT_HALF_W = 100; // ~50px at 1080p
+  const xLeft = -TMPL_HALF_W + TMPL_MARGIN + TYPICAL_TEXT_HALF_W;
+  const xRight = TMPL_HALF_W - TMPL_MARGIN - TYPICAL_TEXT_HALF_W;
+
+  // Vertical: position text center so its bottom/top edge sits at frame margin.
+  // LINE_HEIGHT accounts for FCP's actual rendered line height (spacing + metrics).
+  // TMPL_DEFAULT_Y is intentionally excluded here — it corrects center-position text
+  // for paragraph-margin asymmetry but causes unequal top/bottom margins at edges.
+  const halfTextHeight = Math.round(lineCount * fontSizeTmpl * LINE_HEIGHT / 2);
+  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfTextHeight;
+  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfTextHeight;
 
   let posX = 0, posY = 0;
   switch (position) {
@@ -119,7 +131,7 @@ function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number):
 
 /**
  * Generate a <title> element with proper text-style structure.
- * Used as a connected clip (anchor item) inside an asset-clip with lane="1".
+ * Used as a connected clip (anchor item) inside an asset-clip.
  */
 function makeTitleXml(
   text: string,
@@ -133,18 +145,20 @@ function makeTitleXml(
   indent: string,
   titleEffectId: string,
   position: string,
+  lane: number = 1,
 ): string {
   const alignment = position === 'center' || position === 'bottom-center'
     ? 'center' : position.endsWith('-left') ? 'left' : 'right';
   const boldAttr = bold ? ' bold="1"' : '';
   // Match Remotion's textShadow: 0 2px 8px rgba(0,0,0,0.8)
   const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
-  const positionParams = fcpTitleParams(position, `${indent}    `, fontSize);
+  const lineCount = text.split('\n').length;
+  const positionParams = fcpTitleParams(position, `${indent}    `, fontSize, lineCount);
 
   const lines = [
-    `${indent}<title ref="${titleEffectId}" lane="1" name="${escapeXml(text.replace(/\n/g, ' '))}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
+    `${indent}<title ref="${titleEffectId}" lane="${lane}" name="${fcpName(text)}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
     `${indent}    <text>`,
-    `${indent}        <text-style ref="${tsId}">${escapeXml(text)}</text-style>`,
+    `${indent}        <text-style ref="${tsId}" alignment="${alignment}">${escapeXml(text)}</text-style>`,
     `${indent}    </text>`,
     `${indent}    <text-style-def id="${tsId}">`,
     `${indent}        <text-style font="Helvetica Neue" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1"${boldAttr} alignment="${alignment}"${shadowAttrs} />`,
@@ -543,7 +557,8 @@ export function generateFcpxml(
       const shadowOffsetPx = Math.round(2 * scale);
       const shadowBlurPx = Math.round(8 * scale);
 
-      for (const overlay of overlays) {
+      for (let oi = 0; oi < overlays.length; oi++) {
+        const overlay = overlays[oi];
         const fontSize = overlay.style === 'title' ? Math.round(80 * scale) : overlay.style === 'subtitle' ? Math.round(48 * scale) : Math.round(32 * scale);
         const isBold = overlay.style === 'title';
         const overlaySeqStart = overlapToSeq(overlay.startTimeSeconds);
@@ -566,7 +581,7 @@ export function generateFcpxml(
         const titleDuration = toRational(overlaySeqEnd - overlaySeqStart, fps);
         // DaVinci ignores Motion template params, so skip position params
         const effectivePosition = target === 'davinci' ? 'center' : overlay.position;
-        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, effectivePosition));
+        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, effectivePosition, oi + 1));
       }
 
       spine.push(`${I}</asset-clip>`);
@@ -598,8 +613,8 @@ ${allFormatLines.join('\n')}${effectLines.length > 0 ? '\n' + effectLines.join('
 ${assetLines.join('\n')}
     </resources>
     <library>
-        <event name="${escapeXml(options?.eventName ?? 'Montai Export')}">
-            <project name="${escapeXml(options?.projectTitle ?? spec.name)}">
+        <event name="${fcpName(options?.eventName ?? 'Montai Export')}">
+            <project name="${fcpName(options?.projectTitle ?? spec.name)}">
                 <sequence format="r1" duration="${totalDuration}" tcStart="0/1s" tcFormat="NDF">
                     <spine>
 ${spine.join('\n')}
