@@ -122,11 +122,11 @@ export async function storyCommand(
   const updateStorylineTool = {
     name: 'update_storyline',
     label: 'Update Storyline',
-    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${langName(config.intermediateLanguage)}.`,
+    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${langName(config.language)}.`,
     parameters: Type.Object({
       name: Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival")' }),
-      title: Type.String({ description: `Human-readable title for the video, in ${langName(config.intermediateLanguage)}` }),
-      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${langName(config.intermediateLanguage)}` }),
+      title: Type.String({ description: `Human-readable title for the video, in ${langName(config.language)}` }),
+      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${langName(config.language)}` }),
     }),
     async execute(
       _toolCallId: string,
@@ -341,14 +341,15 @@ export async function storyCommand(
   // Create agent
   const agent = new Agent({
     initialState: {
-      systemPrompt: storySystemPrompt(config.intermediateLanguage, config.effects.languages, agentInstructions),
+      systemPrompt: storySystemPrompt(config.language, config.effects.languages, agentInstructions),
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(messages)),
   });
 
-  agent.setTools([updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoSummaryTool]);
+  const allTools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoSummaryTool];
+  agent.setTools(allTools);
 
   let turn = 0;
   let lastAssistantText = '';
@@ -458,8 +459,10 @@ export async function storyCommand(
     }
   }
 
-  // Run initial prompt
+  // Run initial prompt without tools so the LLM replies with text only
+  agent.setTools([]);
   await runAgent(initialMessage);
+  agent.setTools(allTools);
 
   // Interactive loop
   const rl = readline.createInterface({

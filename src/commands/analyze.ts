@@ -249,13 +249,15 @@ async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
 
   const defaultConfig = `videos:
   - .
-intermediateLanguage: en
+language: en
 output:
   resolution: 1080p
   fps: 50
 models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
+effects:
+  languages: [zh, en]
 `;
   console.log(chalk.yellow(`Config file not found: ${resolvedPath}`));
   console.log(chalk.dim(`Will create with default content:\n${defaultConfig}`));
@@ -279,7 +281,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
   if (options.addFact) {
     const existing = db.select().from(projectContext).get();
-    const prompt = mergeFactsPrompt(existing?.facts ?? null, options.addFact, config.intermediateLanguage);
+    const prompt = mergeFactsPrompt(existing?.facts ?? null, options.addFact, config.language);
 
     const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -343,7 +345,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       return;
     }
 
-    const prompt = projectOverviewPrompt(existing?.facts ?? null, allSummaries, config.intermediateLanguage);
+    const prompt = projectOverviewPrompt(existing?.facts ?? null, allSummaries, config.language);
     const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Generating project overview...').start();
@@ -550,7 +552,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const currentContext = db.select().from(projectContext).get();
-      const analysisPrompt = videoAnalysisPrompt(config.intermediateLanguage, currentContext?.facts, agentInstructions);
+      const analysisPrompt = videoAnalysisPrompt(config.language, currentContext?.facts, agentInstructions);
 
       const messages: Message[] = [
         {

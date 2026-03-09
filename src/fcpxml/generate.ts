@@ -221,7 +221,7 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 
   if (primaries === 'bt709') return '1-1-1 (Rec. 709)';
   if (primaries === 'bt2020') {
-    if (transfer === 'pq') return '9-18-9 (Rec. 2020 PQ)';
+    if (transfer === 'pq') return '9-16-9 (Rec. 2020 PQ)';
     if (transfer === 'hlg') return '9-18-9 (Rec. 2020 HLG)';
     return '9-1-9 (Rec. 2020)';
   }
@@ -231,7 +231,7 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
 export function generateFcpxml(
   spec: ExpandedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
-  options?: { eventName?: string; projectTitle?: string; colorSpace?: 'auto' | 'sdr' | 'hdr'; target?: 'fcp' | 'davinci' },
+  options?: { eventName?: string; projectTitle?: string; target?: 'fcp' | 'davinci' },
 ): string {
   const target = options?.target ?? 'fcp';
   const { fps, width, height } = spec;
@@ -577,11 +577,7 @@ export function generateFcpxml(
 
   const totalDuration = toRational(seqOffset, fps);
 
-  // Resolve color space: auto detects from source footage, sdr/hdr are explicit overrides
-  const colorSpaceOption = options?.colorSpace ?? 'auto';
-  const useHdr = colorSpaceOption === 'hdr' || (colorSpaceOption === 'auto' && detectedHdr);
-
-  const sequenceColorSpaceAttr = useHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
+  const sequenceColorSpaceAttr = detectedHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
   const effectLines: string[] = [];
   if (titleEffectId) effectLines.push(`        <effect id="${titleEffectId}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />`);
   if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
@@ -601,7 +597,7 @@ export function generateFcpxml(
 ${allFormatLines.join('\n')}${effectLines.length > 0 ? '\n' + effectLines.join('\n') : ''}
 ${assetLines.join('\n')}
     </resources>
-    <library${useHdr ? ' colorProcessing="wide-hdr"' : ''}>
+    <library>
         <event name="${escapeXml(options?.eventName ?? 'Montai Export')}">
             <project name="${escapeXml(options?.projectTitle ?? spec.name)}">
                 <sequence format="r1" duration="${totalDuration}" tcStart="0/1s" tcFormat="NDF">

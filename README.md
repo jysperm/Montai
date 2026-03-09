@@ -7,11 +7,13 @@ AI-powered tool that extracts storylines from unscripted footage and generates e
 ```bash
 git clone https://github.com/jysperm/Montai.git
 cd Montai
-npm ci
-npm link
+npm ci && npm link
 ```
 
-This makes the `montai` command available globally. Requires `ffmpeg` and `ffprobe` on PATH. A [Gemini API key](https://aistudio.google.com/apikeys) is needed (set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable).
+Prerequisites:
+
+- `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
+- [Gemini API key](https://aistudio.google.com/apikeys) — set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable
 
 ## Quick Start
 
@@ -20,38 +22,31 @@ This makes the `montai` command available globally. Requires `ffmpeg` and `ffpro
 ```yaml
 videos:
   - .
-intermediateLanguage: en
+# Language for intermediate text (e.g. storyline, summaries)
+language: en
 output:
   resolution: 1080p
   fps: 50
 models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
+effects:
+  languages: [zh, en]
 ```
 
-2. Run the pipeline:
+2. Analyze all videos (uploads to Gemini, generates per-video summaries):
 
 ```bash
-# Analyze all videos (uploads to Gemini, generates per-video summaries)
 montai analyze
-
-# Add project context facts to improve analysis and editing
-montai analyze --add-fact "This is a trip to Tokyo with my family"
-
-# View AI-generated project overview (synthesizes all video summaries + facts)
-montai analyze --project
-
-# Interactive story session — generates storyline and timeline conversationally
-montai story
-
-# Export FCPXML (exports all stories, or pass a name)
-montai export --fcp        # for Final Cut Pro (default)
-montai export --davinci    # for DaVinci Resolve
 ```
 
-### Preview & Render
+3. Interactive story session — generates storyline and timeline conversationally:
 
-You can also preview and render the timeline directly:
+```bash
+montai story
+```
+
+### Preview, Render & Export
 
 ```bash
 # Open Remotion Studio to preview the edit
@@ -59,41 +54,32 @@ montai preview
 
 # Render the final video
 montai render
+
+# Export FCPXML (exports all stories, or pass a name)
+montai export --fcp        # for Final Cut Pro (default)
+montai export --davinci    # for DaVinci Resolve
 ```
 
-Both commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
-
-## Output Compatibility
-
-Resolution and frame rate are configurable via `output.resolution` and `output.fps`.
-
-|  | Final Cut Pro (`export`) | DaVinci Resolve (`export`) | Remotion (`preview` / `render`) |
-|--|--------------------------|----------------------------|-------------------------------|
-| Color depth | Preserves source (8/10bit) | Preserves source (8/10bit) | 8bit only |
-| Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
-| Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
-| Text overlays | All positions | Centered only | All positions |
-
-`preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved. For HDR or 10bit projects, use `export` to generate FCPXML and finish in a video editor.
-
-FCPXML transitions use FCP's built-in FxPlug effects (Cross Dissolve, Slide, Wipe). DaVinci Resolve only reliably maps Cross Dissolve (fade) during FCPXML import — Slide and Wipe transitions fall back to dissolve.
+All commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
 
 ## Export .fcpxml
 
 `montai export` generates FCPXML 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. FCPXML preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
 
-### Final Cut Pro
+### Final Cut Pro (recommended)
 
-Use File → Import → XML to import the `.fcpxml` file. After importing, the media files will appear offline. To relink them, select the imported project in the browser, then use File → Relink Files and locate the directory containing your video files.
+First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
+
+If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the FCPXML.
 
 ### DaVinci Resolve
 
-Use File → Import → Timeline → Import AAF, EDL, XML, FCPXML and select the `.fcpxml` file. After importing, the media files will appear offline. To relink them, import the referenced video files into the Media Pool — Resolve will automatically match them to the timeline clips (requires "Automatically conform missing clips added to the media pool" in Project Settings → General Options, enabled by default).
+First import your video files into the Media Pool, then use File → Import → Timeline → Import AAF, EDL, XML, FCPXML to import the `.fcpxml` file. Resolve will automatically match the media to the timeline clips.
 
-If your source footage is HDR (e.g. HLG), you need to enable color management in Project Settings → Color Management, otherwise the HDR gamma curve won't be converted correctly and the output will look washed out:
+If your source footage is HDR (e.g. HLG), enable color management in Project Settings → Color Management, otherwise the output will look washed out. Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, then choose:
 
-- **Output SDR**: Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, Color Processing Mode to "SDR", Output Color Space to "Rec.709 Gamma 2.4"
-- **Output HDR**: Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, Color Processing Mode to "HDR", Output Color Space to "HDR HLG"
+- **Output SDR**: Color Processing Mode "SDR", Output Color Space "Rec.709 Gamma 2.4"
+- **Output HDR**: Color Processing Mode "HDR", Output Color Space "HDR HLG"
 
 ## Commands
 
@@ -108,8 +94,9 @@ If your source footage is HDR (e.g. HLG), you need to enable color management in
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
 | `story --hint <text>` | Initial direction hint for new story |
-| `export [name]` | Export FCPXML from a timeline (default: `--fcp`) |
-| `export --davinci` | Export FCPXML optimized for DaVinci Resolve |
+| `export [name]` | Export FCPXML from a timeline |
+| `export --fcp` | Optimize for Final Cut Pro (default) |
+| `export --davinci` | Optimize for DaVinci Resolve |
 | `render [name]` | Render video via Remotion |
 | `preview [name]` | Open Remotion Studio for preview |
 
@@ -125,3 +112,16 @@ my-vlog-project/
   output/               # Rendered videos
   fcpxml/               # Generated FCPXML files
 ```
+
+## Output Compatibility
+
+|  | Final Cut Pro | DaVinci Resolve | Remotion |
+|--|---------------|-----------------|----------|
+| Color depth | Preserves source (8/10bit) | Preserves source (8/10bit) | 8bit only |
+| Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
+| Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
+| Text overlays | All positions | Centered only | All positions |
+
+`preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved.
+
+DaVinci Resolve only reliably imports Cross Dissolve (fade) from FCPXML — Slide and Wipe transitions fall back to dissolve.

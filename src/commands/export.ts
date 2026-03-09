@@ -43,7 +43,6 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
     const fcpxml = generateFcpxml(spec, videoMeta, {
       eventName,
       projectTitle: spec.title,
-      colorSpace: config.output.colorSpace,
       target,
     });
     const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);

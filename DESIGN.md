@@ -26,11 +26,10 @@ Users create a `montai.yaml` in their project directory:
 videos:
   - .                           # Current directory: scan for all video files
   - ~/footage/extra-clip.mp4    # Individual file also supported
-intermediateLanguage: zh        # Language for LLM-generated text (zh | en)
+language: zh                     # Language for LLM-generated text (zh | en)
 output:
   resolution: 1080p             # 720p | 1080p | 1440p | 4k
   fps: 50
-  colorSpace: auto              # auto | sdr | hdr (auto: HDR if any source is BT.2020)
 models:
   analysis: gemini-3-flash-preview       # Per-video analysis
   editing: gemini-3-pro-preview         # Story agent loop
@@ -38,7 +37,7 @@ effects:
   languages: [zh, en]           # Subtitle / caption languages
 ```
 
-`intermediateLanguage` controls the language used for all internal text: video analysis summaries, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
+`language` controls the language used for all internal text: video analysis summaries, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
 Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 

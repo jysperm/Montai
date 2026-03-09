@@ -38,33 +38,33 @@ function formatOverlayLanguageInstruction(languages: string[]): string {
   return `Write all overlay text (titles, captions, subtitles) in ${names.join(' and ')}. Each overlay should include all languages.`;
 }
 
-export function videoAnalysisPrompt(intermediateLanguage: string, facts?: string | null, agentInstructions?: string | null): string {
-  return templates.videoAnalysis({ languageName: langName(intermediateLanguage), facts: facts || null, agentInstructions: agentInstructions || null });
+export function videoAnalysisPrompt(language: string, facts?: string | null, agentInstructions?: string | null): string {
+  return templates.videoAnalysis({ languageName: langName(language), facts: facts || null, agentInstructions: agentInstructions || null });
 }
 
-export function mergeFactsPrompt(existingFacts: string | null, newFact: string, intermediateLanguage: string): string {
+export function mergeFactsPrompt(existingFacts: string | null, newFact: string, language: string): string {
   return templates.mergeFacts({
     existingFacts: existingFacts || null,
     newFact,
-    languageName: langName(intermediateLanguage),
+    languageName: langName(language),
   });
 }
 
 export function projectOverviewPrompt(
   facts: string | null,
   videoSummaries: { videoId: number; filename: string; overview: string; location: string | null; timeOfDay: string | null }[],
-  intermediateLanguage: string,
+  language: string,
 ): string {
   return templates.projectOverview({
     facts: facts || null,
     videoSummaries,
-    languageName: langName(intermediateLanguage),
+    languageName: langName(language),
   });
 }
 
-export function storySystemPrompt(intermediateLanguage: string, overlayLanguages: string[], agentInstructions?: string | null): string {
+export function storySystemPrompt(language: string, overlayLanguages: string[], agentInstructions?: string | null): string {
   return templates.storySystem({
-    languageName: langName(intermediateLanguage),
+    languageName: langName(language),
     overlayLanguageInstruction: formatOverlayLanguageInstruction(overlayLanguages),
     agentInstructions: agentInstructions || null,
   });
