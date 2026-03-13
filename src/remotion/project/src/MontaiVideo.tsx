@@ -97,6 +97,47 @@ function getSourcePath(sourceFile: string): string {
   return staticFile(filename);
 }
 
+function ClipVideo({
+  clip,
+  fps,
+  incomingTransitionFrames,
+  outgoingTransitionFrames,
+}: {
+  clip: EditClip;
+  fps: number;
+  incomingTransitionFrames: number;
+  outgoingTransitionFrames: number;
+}) {
+  const durationFrames = Math.round(
+    ((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate) * fps,
+  );
+  const hasTransitions = incomingTransitionFrames > 0 || outgoingTransitionFrames > 0;
+
+  const volumeCallback = useCallback(
+    (frame: number) => {
+      let vol = clip.volume;
+      if (incomingTransitionFrames > 0 && frame < incomingTransitionFrames) {
+        vol *= frame / incomingTransitionFrames;
+      }
+      if (outgoingTransitionFrames > 0 && frame > durationFrames - outgoingTransitionFrames) {
+        vol *= (durationFrames - frame) / outgoingTransitionFrames;
+      }
+      return Math.max(0, vol);
+    },
+    [clip.volume, incomingTransitionFrames, outgoingTransitionFrames, durationFrames],
+  );
+
+  return (
+    <Video
+      src={getSourcePath(clip.sourceFile)}
+      trimBefore={Math.round(clip.startTimeSeconds * fps)}
+      volume={hasTransitions ? volumeCallback : clip.volume}
+      playbackRate={clip.playbackRate}
+      style={{ width: '100%', height: '100%' }}
+    />
+  );
+}
+
 export function calculateTotalFrames(spec: TimelineProps): number {
   let total = 0;
   const { fps } = spec;
@@ -160,7 +201,7 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>
       <TransitionSeries>
-        {clips.map((clip) => {
+        {clips.map((clip, clipIndex) => {
           const durationFrames = Math.round(
             ((clip.endTimeSeconds - clip.startTimeSeconds) /
               clip.playbackRate) *
@@ -171,6 +212,10 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
             : null;
           const transitionFrames = clip.transition
             ? Math.round(clip.transition.durationSeconds * fps)
+            : 0;
+          const nextClip = clips[clipIndex + 1];
+          const outgoingTransitionFrames = nextClip?.transition
+            ? Math.round(nextClip.transition.durationSeconds * fps)
             : 0;
 
           return [
@@ -185,12 +230,11 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
               key={clip.clipId}
               durationInFrames={durationFrames}
             >
-              <Video
-                src={getSourcePath(clip.sourceFile)}
-                trimBefore={Math.round(clip.startTimeSeconds * fps)}
-                volume={clip.volume}
-                playbackRate={clip.playbackRate}
-                style={{ width: '100%', height: '100%' }}
+              <ClipVideo
+                clip={clip}
+                fps={fps}
+                incomingTransitionFrames={transitionFrames}
+                outgoingTransitionFrames={outgoingTransitionFrames}
               />
             </TransitionSeries.Sequence>,
           ].filter(Boolean);
