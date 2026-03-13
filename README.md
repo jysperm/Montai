@@ -122,7 +122,8 @@ my-vlog-project/
 | Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
 | Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
 | Text overlays | All positions | Centered only | All positions |
+| Audio fades | Yes | No | Yes |
 
 `preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved.
 
-DaVinci Resolve only reliably imports Cross Dissolve (fade) from FCPXML — Slide and Wipe transitions fall back to dissolve.
+DaVinci Resolve only reliably imports Cross Dissolve (fade) from FCPXML — Slide and Wipe transitions fall back to dissolve. Audio fadeIn/fadeOut are also ignored by DaVinci.

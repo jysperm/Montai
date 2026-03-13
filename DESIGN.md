@@ -231,13 +231,7 @@ Text overlays use the Essential Title Motion template, which is the most compati
 
 Title positioning uses Essential Title's Motion template params. The template has a fixed 3840×2160 canvas with paragraph margins (left=-1600, right=1600, top=562, bottom=-700). Positioning is achieved by shifting the title object's Position param (`key="9999/10085/10086/1/100/101"`); horizontal alignment uses the standard `<text-style alignment>` attribute, vertical positioning is computed from font size. This works in FCP; DaVinci ignores Motion template params so titles render at center there.
 
-The `--fcp`/`--davinci` flag controls target-specific adaptations:
-
-| Aspect | `--fcp` (default) | `--davinci` |
-|--------|-------------------|-------------|
-| Font sizes / shadow | 2× scaled (template canvas 3840×2160) | 1× (DaVinci reads text-style directly) |
-| Title positioning | Position param on Essential Title | Skipped (DaVinci ignores Motion params) |
-| Transitions | fade, slide, wipe | All mapped to Cross Dissolve |
+The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
 
 ## Gemini Integration
 

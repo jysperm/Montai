@@ -254,6 +254,11 @@ export function generateFcpxml(
   options?: { eventName?: string; projectTitle?: string; target?: 'fcp' | 'davinci' },
   audioMeta?: Map<string, AudioFormatInfo>,
 ): string {
+  // FCP vs DaVinci: if a feature is silently ignored by DaVinci (no import
+  // error), we don't branch on target — same output for both. We only branch
+  // when DaVinci would produce wrong results, e.g. font size scaling: FCP needs
+  // 2× (Essential Title template canvas is 3840×2160), DaVinci needs 1× (reads
+  // text-style fontSize directly).
   const target = options?.target ?? 'fcp';
   const { fps, width, height } = spec;
   let tsCounter = 0;
@@ -278,7 +283,7 @@ export function generateFcpxml(
   for (let i = 1; i < spec.clips.length; i++) {
     const trans = spec.clips[i].transition;
     if (trans) {
-      usedTransitionTypes.add(target === 'davinci' ? 'fade' : trans.type);
+      usedTransitionTypes.add(trans.type);
     }
   }
   const crossDissolveId = usedTransitionTypes.has('fade') ? `r${nextResourceId++}` : null;
@@ -472,6 +477,7 @@ export function generateFcpxml(
   // --- Build audio assets and assign anchor items to their parent clips ---
   // Each audio clip is placed as an anchor item (lane=-1) of the video clip
   // it starts on, with offset computed in that clip's source timebase.
+  // DaVinci: volume and positioning work, but fadeIn/fadeOut ignored
   const audioAssetMap = new Map<string, string>();
   const clipAudioAnchors = new Map<number, string[]>();
 
@@ -594,7 +600,7 @@ export function generateFcpxml(
         const boundaryFrames = Math.round(seqOffset * fps);
         const halfFrames = transFrames[i] / 2;
         const transOffsetFrames = boundaryFrames - halfFrames;
-        const transType = target === 'davinci' ? 'fade' : clip.transition!.type;
+        const transType = clip.transition!.type; // DaVinci: Slide/Wipe fall back to dissolve
         const transDir = clip.transition!.direction;
 
         // Resolve effect ref and name based on transition type
@@ -693,9 +699,8 @@ export function generateFcpxml(
         }
 
         const titleDuration = toRational(overlaySeqEnd - overlaySeqStart, fps);
-        // DaVinci ignores Motion template params, so skip position params
-        const effectivePosition = target === 'davinci' ? 'center' : overlay.position;
-        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, effectivePosition, oi + 1));
+        // DaVinci: position ignored, titles render at center
+        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, overlay.position, oi + 1));
       }
 
       // Audio anchor items attached to this clip
