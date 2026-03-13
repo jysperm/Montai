@@ -320,11 +320,9 @@ export async function storyCommand(
     if (finalStory) {
       console.log(chalk.green(`Story saved: "${finalStory.title}" (${finalStory.name})`));
       if (finalStory.timeline) {
-        console.log(chalk.cyan(`  Preview:  montai preview ${finalStory.name}`));
-        console.log(chalk.cyan(`  Render:   montai render ${finalStory.name}`));
-        console.log(chalk.cyan(`  Export:   montai export ${finalStory.name}`));
+        const cmd = chalk.bold.cyan;
+        console.log(chalk.cyan(`You can ${cmd('montai preview')}, ${cmd('montai export')}, or ${cmd(`montai render ${finalStory.name}`)}.`));
       }
-      console.log(chalk.cyan(`  Resume:   montai story ${finalStory.name}`));
     }
   }
 }

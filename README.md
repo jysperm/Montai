@@ -95,11 +95,11 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
 | `story --hint <text>` | Initial direction hint for new story |
-| `export [name]` | Export FCPXML from a timeline |
+| `export` | Export FCPXML from a timeline |
 | `export --fcp` | Optimize for Final Cut Pro (default) |
 | `export --davinci` | Optimize for DaVinci Resolve |
 | `render [name]` | Render video via Remotion |
-| `preview [name]` | Open Remotion Studio for preview |
+| `preview` | Open Remotion Studio for preview |
 
 ## Project Structure
 
