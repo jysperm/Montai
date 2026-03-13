@@ -25,7 +25,15 @@ We are resuming work on an existing story edit. Here is the current state:
 {{this.summary}}
 
 {{/each}}
+{{#if musicSummaries}}
+## Music Library
 
+{{#each musicSummaries}}
+--- Music ID {{this.musicId}} ({{this.filename}}) ---
+{{this.summary}}
+
+{{/each}}
+{{/if}}
 Briefly introduce the current storyline and timeline state, then wait for my direction.
 {{#if styleReference}}
 

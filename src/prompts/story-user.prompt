@@ -11,6 +11,14 @@ Video Summaries:
 {{this.summary}}
 
 {{/each}}
+{{#if musicSummaries}}
+Music Library:
+{{#each musicSummaries}}
+--- Music ID {{this.musicId}} ({{this.filename}}) ---
+{{this.summary}}
+
+{{/each}}
+{{/if}}
 {{#if hint}}
 Direction from the user: {{hint}}
 {{/if}}

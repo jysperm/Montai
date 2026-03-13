@@ -54,16 +54,26 @@ Every overlay must include all configured languages. For example, if the project
 }
 ```
 
-### Audio items (for future use)
+### Audio items (background music)
 ```json
 {
   "type": "audio",
   "startClip": 0,
+  "startOffset": 0,
   "endClip": 3,
-  "description": "upbeat background music",
-  "volume": 0.5
+  "endOffset": 0,
+  "musicId": 1,
+  "audioStartSeconds": 0,
+  "volume": 0.3,
+  "fadeInSeconds": 2,
+  "fadeOutSeconds": 3
 }
 ```
+- `musicId`: references a music file from the music library (provided in context). Required unless using `generationPrompt`.
+- `audioStartSeconds`: where in the music file to start playing (default 0). Use this to skip intros or start from a specific section.
+- `generationPrompt`: (optional) text description for AI-generated music. When set, `musicId` is not needed. Music generation is not yet implemented — this is a placeholder for future use.
+- `fadeInSeconds` / `fadeOutSeconds`: linear volume fade at start/end (default 0).
+- Volume 0.3–0.5 is typical for background music under dialog.
 
 ### Anchor positioning rules
 - `startClip` / `endClip`: 0-based index among clip items only (not all items). Must be valid indices (0 to number_of_clips - 1)

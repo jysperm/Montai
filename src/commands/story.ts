@@ -10,8 +10,10 @@ import {
   videoSummaries,
   projectContext,
   stories,
+  music,
+  musicSummaries,
 } from '../db/schema.js';
-import { loadProjectConfig, serializeVideoSummary, readProjectFile } from '../utils/project.js';
+import { loadProjectConfig, serializeVideoSummary, serializeMusicSummary, readProjectFile } from '../utils/project.js';
 import {
   storySystemPrompt,
   storyUserPrompt,
@@ -63,6 +65,18 @@ export async function storyCommand(
     };
   });
 
+  // Load music data
+  const allMusic = db.select().from(music).all();
+  const allMusicSummaries = db.select().from(musicSummaries).all();
+  const musicSummaryData = allMusicSummaries.map((s) => {
+    const track = allMusic.find((m) => m.id === s.musicId);
+    return {
+      musicId: s.musicId,
+      filename: track?.filename ?? 'unknown',
+      summary: serializeMusicSummary(s),
+    };
+  });
+
   const context = db.select().from(projectContext).get();
   const facts = context?.facts ?? null;
 
@@ -96,12 +110,16 @@ export async function storyCommand(
     spinner.start();
   }
 
+  const musicNames = new Map(allMusic.map((m) => [m.id, m.filename]));
+
   // In-memory state
   const toolsCtx = {
     db,
     config,
     allVideos,
     allSummaries,
+    allMusic,
+    allMusicSummaries,
     currentStoryId: story?.id ?? null,
     currentItems: [] as TimelineItem[],
   };
@@ -213,10 +231,11 @@ export async function storyCommand(
       videoSummaryData,
       facts,
       styleReference,
+      musicSummaryData,
     );
   } else {
     // New story
-    initialMessage = storyUserPrompt(videoSummaryData, facts, options.hint ?? '', styleReference);
+    initialMessage = storyUserPrompt(videoSummaryData, facts, options.hint ?? '', styleReference, musicSummaryData);
   }
 
   // Helper to run agent and display response, catching errors
@@ -239,6 +258,7 @@ export async function storyCommand(
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
+      musicNames,
     );
     if (timelineLines.length > 0) {
       console.log('');
@@ -258,6 +278,7 @@ export async function storyCommand(
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
+      musicNames,
     );
     if (timelineLines.length > 0) {
       for (const line of timelineLines) {

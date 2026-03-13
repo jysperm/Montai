@@ -13,6 +13,7 @@ function loadTemplate(name: string): HandlebarsTemplateDelegate {
 
 const templates = {
   videoAnalysis: loadTemplate('video-analysis'),
+  musicAnalysis: loadTemplate('music-analysis'),
   mergeFacts: loadTemplate('merge-facts'),
   projectOverview: loadTemplate('project-overview'),
   storySystem: loadTemplate('story-system'),
@@ -40,6 +41,10 @@ function formatOverlayLanguageInstruction(languages: string[]): string {
 
 export function videoAnalysisPrompt(language: string, facts?: string | null, agentInstructions?: string | null): string {
   return templates.videoAnalysis({ languageName: langName(language), facts: facts || null, agentInstructions: agentInstructions || null });
+}
+
+export function musicAnalysisPrompt(language: string, agentInstructions?: string | null): string {
+  return templates.musicAnalysis({ languageName: langName(language), agentInstructions: agentInstructions || null });
 }
 
 export function mergeFactsPrompt(existingFacts: string | null, newFact: string, language: string): string {
@@ -75,12 +80,14 @@ export function storyUserPrompt(
   facts: string | null,
   hint: string,
   styleReference?: string | null,
+  musicSummaries?: { musicId: number; filename: string; summary: string }[],
 ): string {
   return templates.storyUser({
     videoSummaries,
     facts: facts || null,
     hint: hint || null,
     styleReference: styleReference || null,
+    musicSummaries: musicSummaries && musicSummaries.length > 0 ? musicSummaries : null,
   });
 }
 
@@ -90,6 +97,7 @@ export function storyResumePrompt(
   videoSummaries: { videoId: number; filename: string; summary: string }[],
   facts: string | null,
   styleReference?: string | null,
+  musicSummaries?: { musicId: number; filename: string; summary: string }[],
 ): string {
   return templates.storyResume({
     storyline,
@@ -97,5 +105,6 @@ export function storyResumePrompt(
     videoSummaries,
     facts: facts || null,
     styleReference: styleReference || null,
+    musicSummaries: musicSummaries && musicSummaries.length > 0 ? musicSummaries : null,
   });
 }

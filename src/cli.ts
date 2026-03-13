@@ -49,9 +49,9 @@ program
   .description(
     'Transcode, upload and analyze videos'
   )
-  .option('--re-run <filename>', 'Re-analyze a specific video by filename, overwriting existing summary')
-  .option('--show <filename>', 'Show the stored summary for a video by filename')
-  .option('--list', 'List all videos and their analysis status')
+  .option('--re-run <filename>', 'Re-analyze a specific video or music file by filename')
+  .option('--show <filename>', 'Show the stored summary for a video or music file')
+  .option('--list', 'List all videos and music files with analysis status')
   .option('--add-fact <text>', 'Add a project fact (AI merges into existing facts)')
   .option('--project', 'Show AI-generated project overview (regenerates if stale)')
   .action(analyzeCommand);

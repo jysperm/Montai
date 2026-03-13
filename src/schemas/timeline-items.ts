@@ -30,9 +30,12 @@ export const AudioItemSchema = z.object({
   startOffset: z.number().default(0),
   endClip: z.number().int().min(0).optional(),
   endOffset: z.number().default(0),
-  sourceFile: z.string().optional(),
-  description: z.string().optional(),
+  musicId: z.number().optional(),
+  audioStartSeconds: z.number().default(0),
+  generationPrompt: z.string().optional(),
   volume: z.number().default(1),
+  fadeInSeconds: z.number().default(0),
+  fadeOutSeconds: z.number().default(0),
 });
 
 export const TimelineItemSchema = z.discriminatedUnion('type', [
@@ -55,6 +58,7 @@ export function expandTimeline(
   storyName: string,
   videos: { id: number; path: string }[],
   storyTitle?: string,
+  musicFiles?: { id: number; path: string; durationSeconds?: number | null }[],
 ): ExpandedTimeline {
   const res = resolveResolution(config.output.resolution);
 
@@ -141,6 +145,61 @@ export function expandTimeline(
     })
     .filter((o): o is NonNullable<typeof o> => o !== null);
 
+  // Build audio tracks from audio items
+  const audioTracks = items
+    .filter((item): item is AudioItem => item.type === 'audio')
+    .map((audio) => {
+      const startClipIdx = audio.startClip;
+      const endClipIdx = audio.endClip ?? audio.startClip;
+
+      if (startClipIdx >= clipItems.length || endClipIdx >= clipItems.length) {
+        console.warn(`Warning: audio item references invalid clip index (startClip=${startClipIdx}, endClip=${endClipIdx}, total clips=${clipItems.length}), skipping`);
+        return null;
+      }
+
+      // Resolve start/end times (same logic as overlays)
+      let startTime: number;
+      if (audio.startOffset >= 0) {
+        startTime = clipStartTimes[startClipIdx] + audio.startOffset;
+      } else {
+        startTime = clipStartTimes[startClipIdx] + clipDurations[startClipIdx] + audio.startOffset;
+      }
+
+      let endTime: number;
+      if (audio.endOffset === 0) {
+        endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx];
+      } else if (audio.endOffset < 0) {
+        endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] + audio.endOffset;
+      } else {
+        endTime = clipStartTimes[endClipIdx] + audio.endOffset;
+      }
+
+      // Resolve source file from musicId
+      let sourceFile = '';
+      if (audio.musicId && musicFiles) {
+        const musicFile = musicFiles.find((m) => m.id === audio.musicId);
+        if (musicFile) {
+          sourceFile = musicFile.path;
+          // Warn if music duration is insufficient
+          const neededDuration = (endTime - startTime) + audio.audioStartSeconds;
+          if (musicFile.durationSeconds && neededDuration > musicFile.durationSeconds) {
+            console.warn(`Warning: music "${musicFile.path}" duration (${musicFile.durationSeconds}s) may be insufficient for audio item (needs ~${Math.round(neededDuration)}s)`);
+          }
+        }
+      }
+
+      return {
+        sourceFile,
+        startTimeSeconds: Math.max(0, startTime),
+        endTimeSeconds: endTime,
+        audioStartSeconds: audio.audioStartSeconds,
+        volume: audio.volume,
+        fadeInSeconds: audio.fadeInSeconds,
+        fadeOutSeconds: audio.fadeOutSeconds,
+      };
+    })
+    .filter((a): a is NonNullable<typeof a> => a !== null);
+
   return {
     name: storyName,
     title: storyTitle,
@@ -149,6 +208,7 @@ export function expandTimeline(
     height: res.height,
     clips: timelineClips,
     textOverlays,
+    audioTracks,
   };
 }
 

@@ -99,3 +99,30 @@ function normalizeColorTransfer(value: string | null): string | null {
 export function getVideoDuration(filepath: string): number {
   return getVideoMetadata(filepath).durationSeconds;
 }
+
+export interface AudioMetadata {
+  durationSeconds: number;
+  sampleRate: number | null;
+  channels: number | null;
+}
+
+export function getAudioMetadata(filepath: string): AudioMetadata {
+  const output = execFileSync('ffprobe', [
+    '-v', 'quiet',
+    '-print_format', 'json',
+    '-show_format',
+    '-show_streams',
+    filepath,
+  ], { encoding: 'utf-8' });
+
+  const data = JSON.parse(output);
+  const durationSeconds = Math.round(parseFloat(data.format?.duration ?? '0'));
+
+  const audioStream = data.streams?.find(
+    (s: { codec_type: string }) => s.codec_type === 'audio'
+  );
+  const channels: number | null = audioStream?.channels ?? null;
+  const sampleRate: number | null = audioStream?.sample_rate ? parseInt(audioStream.sample_rate, 10) : null;
+
+  return { durationSeconds, sampleRate, channels };
+}

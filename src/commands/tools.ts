@@ -2,7 +2,7 @@ import { eq } from 'drizzle-orm';
 import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
-import { stories, type videoSummaries } from '../db/schema.js';
+import { stories, type videoSummaries, type music, type musicSummaries } from '../db/schema.js';
 import { langName } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import { serializeVideoSummary } from '../utils/project.js';
@@ -22,6 +22,8 @@ export interface StoryToolsContext {
   config: ProjectConfig;
   allVideos: { id: number; path: string; filename: string }[];
   allSummaries: (typeof videoSummaries.$inferSelect)[];
+  allMusic: (typeof music.$inferSelect)[];
+  allMusicSummaries: (typeof musicSummaries.$inferSelect)[];
   currentStoryId: number | null;
   currentItems: TimelineItem[];
 }
@@ -147,9 +149,12 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       const finalClipCount = ctx.currentItems.filter((i) => i.type === 'clip').length;
       const overlayCount = ctx.currentItems.filter((i) => i.type === 'overlay').length;
+      const audioCount = ctx.currentItems.filter((i) => i.type === 'audio').length;
+      const parts = [`${finalClipCount} clips`, `${overlayCount} overlays`];
+      if (audioCount > 0) parts.push(`${audioCount} audio`);
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Timeline updated: ${ctx.currentItems.length} items (${finalClipCount} clips, ${overlayCount} overlays)`,
+        text: `Timeline updated: ${ctx.currentItems.length} items (${parts.join(', ')})`,
       };
       return { content: [textContent], details: {} };
     },

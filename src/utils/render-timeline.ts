@@ -1,5 +1,6 @@
 import chalk from 'chalk';
-import type { TimelineItem, ClipItem, OverlayItem } from '../schemas/timeline-items.js';
+import { parse } from 'path';
+import type { TimelineItem, ClipItem, OverlayItem, AudioItem } from '../schemas/timeline-items.js';
 
 const positionArrows: Record<string, string> = {
   'center': '─',
@@ -53,8 +54,39 @@ function renderOverlayLabel(style: string, arrow: string, width: number): string
   return base + ' '.repeat(Math.max(0, width - base.length));
 }
 
+interface AudioSpan {
+  startCol: number;
+  endCol: number;
+  label: string;
+}
+
 function colorOverlay(text: string): string {
   return chalk.yellow(text);
+}
+
+function colorAudio(text: string): string {
+  return chalk.magenta(text);
+}
+
+function renderAudioLane(lane: AudioSpan[], trackWidth: number): string {
+  let result = '';
+  let cursor = 0;
+
+  for (const a of lane) {
+    if (a.startCol > cursor) {
+      result += ' '.repeat(a.startCol - cursor);
+    }
+    const w = a.endCol - a.startCol;
+    const label = renderOverlayLabel(a.label, '♫', w);
+    result += colorAudio(label);
+    cursor = a.endCol;
+  }
+
+  if (cursor < trackWidth) {
+    result += ' '.repeat(trackWidth - cursor);
+  }
+
+  return result;
 }
 
 function renderLane(lane: OverlaySpan[], trackWidth: number): string {
@@ -79,11 +111,12 @@ function renderLane(lane: OverlaySpan[], trackWidth: number): string {
   return result;
 }
 
-export function renderTimeline(items: TimelineItem[], terminalWidth: number): string[] {
+export function renderTimeline(items: TimelineItem[], terminalWidth: number, musicNames?: Map<number, string>): string[] {
   const clips = items.filter((i): i is ClipItem => i.type === 'clip');
   if (clips.length === 0) return [];
 
   const overlays = items.filter((i): i is OverlayItem => i.type === 'overlay');
+  const audios = items.filter((i): i is AudioItem => i.type === 'audio');
 
   const padding = 2;
   const trackWidth = terminalWidth - padding * 2;
@@ -140,9 +173,13 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number): st
   const durStr = totalSec >= 60
     ? `${Math.floor(totalSec / 60)}m${totalSec % 60 > 0 ? ` ${totalSec % 60}s` : ''}`
     : `${totalSec}s`;
+  const audioCount = items.filter(i => i.type === 'audio').length;
   let summary = `${durStr} | ${clips.length} clips`;
   if (overlays.length > 0) {
     summary += `, ${overlays.length} overlay${overlays.length > 1 ? 's' : ''}`;
+  }
+  if (audioCount > 0) {
+    summary += `, ${audioCount} audio`;
   }
 
   // Map overlays to column spans
@@ -179,6 +216,42 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number): st
     if (!placed) lanes.push([span]);
   }
 
+  // Map audio items to column spans
+  const audioSpans: AudioSpan[] = [];
+  for (const a of audios) {
+    const endClipIdx = a.endClip ?? a.startClip;
+    if (a.startClip >= clips.length || endClipIdx >= clips.length) continue;
+    let startCol = clipStartCol[a.startClip];
+    if (a.startClip > 0 && clips[a.startClip].transition) {
+      startCol += 1;
+    }
+    const endCol = clipEndCol[endClipIdx];
+    let label: string;
+    if (a.musicId != null && musicNames?.has(a.musicId)) {
+      label = parse(musicNames.get(a.musicId)!).name;
+    } else if (a.musicId != null) {
+      label = `a${a.musicId}`;
+    } else {
+      label = 'gen';
+    }
+    audioSpans.push({ startCol, endCol, label });
+  }
+
+  // Greedy lane assignment for audio
+  const sortedAudio = [...audioSpans].sort((a, b) => a.startCol - b.startCol);
+  const audioLanes: AudioSpan[][] = [];
+  for (const span of sortedAudio) {
+    let placed = false;
+    for (const lane of audioLanes) {
+      if (lane[lane.length - 1].endCol <= span.startCol) {
+        lane.push(span);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) audioLanes.push([span]);
+  }
+
   // Render clip track
   let clipTrack = '';
   for (let i = 0; i < clips.length; i++) {
@@ -201,11 +274,15 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number): st
   // Assemble output
   const pad = ' '.repeat(padding);
   const lines: string[] = [];
+  lines.push('');
   lines.push(pad + chalk.dim(summary));
   for (let i = lanes.length - 1; i >= 0; i--) {
     lines.push(pad + renderLane(lanes[i], trackWidth));
   }
   lines.push(pad + chalk.cyan(clipTrack));
+  for (const lane of audioLanes) {
+    lines.push(pad + renderAudioLane(lane, trackWidth));
+  }
 
   return lines;
 }

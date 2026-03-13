@@ -51,11 +51,31 @@ export const stories = sqliteTable('stories', {
   updatedAt: text('updated_at').notNull(),
 });
 
+export const music = sqliteTable('music', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filename: text('filename').notNull(),
+  path: text('path').notNull().unique(),
+  md5: text('md5').notNull(),
+  durationSeconds: integer('duration_seconds'),
+  sampleRate: integer('sample_rate'),
+  channels: integer('channels'),
+});
+
+export const musicSummaries = sqliteTable('music_summaries', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  musicId: integer('music_id')
+    .notNull()
+    .references(() => music.id),
+  overview: text('overview').notNull(),
+  segments: text('segments').notNull(), // JSON array
+});
+
 export const geminiFiles = sqliteTable('gemini_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   videoId: integer('video_id')
-    .notNull()
     .references(() => videos.id),
+  musicId: integer('music_id')
+    .references(() => music.id),
   fileUri: text('file_uri').notNull(),
   uploadedAt: text('uploaded_at').notNull(),
   state: text('state').notNull(),

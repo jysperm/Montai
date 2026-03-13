@@ -7,11 +7,12 @@ import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
 import type { InferSelectModel } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { stories, videos, videoSummaries } from '../db/schema.js';
+import { stories, videos, videoSummaries, music, musicSummaries } from '../db/schema.js';
 import { expandTimeline, type TimelineItem } from '../schemas/timeline-items.js';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
+const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg']);
 
 export function readProjectFile(filename: string): string | null {
   const filepath = resolve(filename);
@@ -30,7 +31,7 @@ export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
   const resolvedPath = resolve(configPath);
   if (!existsSync(resolvedPath)) {
     console.error(`Error: Config file not found: ${resolvedPath}`);
-    console.error('Run "montai init" to create a montai.yaml, or run this command from a Montai project directory.');
+    console.error('Run "montai analyze" to create a montai.yaml, or run this command from a Montai project directory.');
     process.exit(1);
   }
   const raw = readFileSync(resolvedPath, 'utf-8');
@@ -41,7 +42,7 @@ export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
 export function resolveVideoFiles(config: ProjectConfig): string[] {
   const files: string[] = [];
 
-  for (const entry of config.videos) {
+  for (const entry of config.assets.videos) {
     const resolved = resolve(expandTilde(entry));
 
     try {
@@ -68,6 +69,47 @@ export function resolveVideoFiles(config: ProjectConfig): string[] {
 
 export function getVideoFilename(filepath: string): string {
   return basename(filepath);
+}
+
+export function resolveMusicFiles(config: ProjectConfig): string[] {
+  const files: string[] = [];
+
+  for (const entry of config.assets.music) {
+    const resolved = resolve(expandTilde(entry));
+
+    try {
+      const stat = statSync(resolved);
+
+      if (stat.isDirectory()) {
+        const dirFiles = readdirSync(resolved)
+          .filter((f) => AUDIO_EXTENSIONS.has(extname(f).toLowerCase()))
+          .map((f) => join(resolved, f))
+          .sort();
+        files.push(...dirFiles);
+      } else if (stat.isFile()) {
+        if (AUDIO_EXTENSIONS.has(extname(resolved).toLowerCase())) {
+          files.push(resolved);
+        }
+      }
+    } catch {
+      console.warn(`Warning: could not access path: ${resolved}`);
+    }
+  }
+
+  return files;
+}
+
+export function getMusicFilename(filepath: string): string {
+  return basename(filepath);
+}
+
+type MusicSummaryRow = InferSelectModel<typeof musicSummaries>;
+
+export function serializeMusicSummary(row: MusicSummaryRow): string {
+  return JSON.stringify({
+    overview: row.overview,
+    segments: JSON.parse(row.segments),
+  });
 }
 
 type VideoSummaryRow = InferSelectModel<typeof videoSummaries>;
@@ -106,9 +148,10 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   }
 
   const allVideos = db.select().from(videos).all();
+  const allMusic = db.select().from(music).all();
   return storyRows.map(r => {
     const items = JSON.parse(r.timeline) as TimelineItem[];
-    return expandTimeline(items, config, r.name, allVideos, r.title);
+    return expandTimeline(items, config, r.name, allVideos, r.title, allMusic);
   });
 }
 

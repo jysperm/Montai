@@ -1,5 +1,8 @@
-videos:
-  - .
+assets:
+  videos:
+    - .
+  music:
+    - ./musics/
 language: zh
 output:
   resolution: 1080p

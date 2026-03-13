@@ -1,0 +1,108 @@
+/**
+ * Test: verify that audio FileContent can flow through pi-ai's complete()
+ * into Gemini and produce a music analysis result.
+ *
+ * Requires GEMINI_API_KEY env var and a real audio file.
+ * Run: npx vitest run tests/audio-analysis.test.ts
+ */
+
+import { describe, it, expect } from 'vitest';
+import { getModel, complete, type FileContent, type TextContent, type Message } from '@mariozechner/pi-ai';
+import { GoogleGenAI } from '@google/genai';
+
+const AUDIO_PATH =
+  '/Users/jysperm/jysperm/Montai/example/musics/Sneaky Adventure.mp3';
+
+async function uploadAudio(filePath: string): Promise<string> {
+  const client = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY! });
+
+  const upload = await client.files.upload({ file: filePath });
+  if (!upload.uri) throw new Error('Upload failed: no URI');
+
+  let state = upload.state ?? 'PROCESSING';
+  while (state === 'PROCESSING') {
+    await new Promise((r) => setTimeout(r, 3000));
+    const info = await client.files.get({ name: upload.name! });
+    state = info.state ?? 'FAILED';
+  }
+
+  if (state !== 'ACTIVE') throw new Error(`Upload failed: ${state}`);
+  return upload.uri;
+}
+
+describe('audio FileContent analysis via pi-ai complete()', () => {
+  it('Gemini can analyze music mood and structure from audio file', async () => {
+    const fileUri = await uploadAudio(AUDIO_PATH);
+
+    const model = getModel('google', 'gemini-3-flash-preview');
+    const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
+
+    const fileContent: FileContent = {
+      type: 'file',
+      uri: fileUri,
+      mimeType: 'audio/mpeg',
+    };
+
+    const prompt: TextContent = {
+      type: 'text',
+      text: `You are a music analyst. Listen to this audio track carefully and produce a structured analysis in JSON format.
+
+Return a JSON object with this structure:
+{
+  "overview": "A 2-3 sentence description of the overall mood, atmosphere, and character of this music. Describe the emotional feel, energy level, instrumentation, and what kind of video content it would suit.",
+  "genre": "Primary genre or style",
+  "segments": [
+    {
+      "startTime": "MM:SS",
+      "endTime": "MM:SS",
+      "description": "Describe what happens in this section — changes in energy, instrumentation, mood shifts, build-ups, drops, climax, etc."
+    }
+  ]
+}
+
+Be precise with timestamps. Identify distinct sections (intro, verse, chorus, bridge, build-up, climax, outro, etc.). The overview and segment descriptions should be rich and descriptive — focus on the emotional feel and how the music evolves.`,
+    };
+
+    const messages: Message[] = [
+      {
+        role: 'user',
+        content: [fileContent, prompt],
+        timestamp: Date.now(),
+      },
+    ];
+
+    const result = await complete(model, { messages }, { apiKey });
+
+    console.log('\n--- Usage ---');
+    console.log(`input=${result.usage.input} output=${result.usage.output} cacheRead=${result.usage.cacheRead} cost=$${result.usage.cost.total.toFixed(4)}`);
+
+    const text = result.content
+      .filter((c): c is TextContent => c.type === 'text')
+      .map((c) => c.text)
+      .join('');
+
+    console.log('\n--- Response ---');
+    console.log(text);
+
+    expect(result.stopReason).not.toBe('error');
+    expect(text.length).toBeGreaterThan(0);
+
+    // Verify we can parse the JSON response
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    expect(jsonMatch).not.toBeNull();
+
+    const parsed = JSON.parse(jsonMatch![0]);
+    expect(parsed.overview).toBeDefined();
+    expect(parsed.segments).toBeDefined();
+    expect(Array.isArray(parsed.segments)).toBe(true);
+    expect(parsed.segments.length).toBeGreaterThan(0);
+
+    console.log('\n--- Parsed ---');
+    console.log(`Overview: ${parsed.overview}`);
+    console.log(`Genre: ${parsed.genre}`);
+    console.log(`Segments: ${parsed.segments.length}`);
+    for (const seg of parsed.segments) {
+      console.log(`  ${seg.startTime}-${seg.endTime}: ${seg.description.slice(0, 80)}...`);
+    }
+  }, 300_000);
+});

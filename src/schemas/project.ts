@@ -27,14 +27,30 @@ export const EffectsSchema = z.object({
   languages: z.array(z.string()).default(['en']),
 });
 
-export const ProjectConfigSchema = z.object({
+export const AssetsSchema = z.object({
   videos: z.array(z.string()).min(1),
-  language: z.enum(['zh', 'en']).default('en'),
-  output: OutputSchema.default(() => OutputSchema.parse({})),
-  models: ModelsSchema.default(() => ModelsSchema.parse({})),
-  effects: EffectsSchema.default(() => EffectsSchema.parse({})),
+  music: z.array(z.string()).default([]),
 });
 
+export const ProjectConfigSchema = z.preprocess(
+  (raw: unknown) => {
+    // Backward compat: top-level `videos` → `assets.videos`
+    if (raw && typeof raw === 'object' && 'videos' in raw && !('assets' in raw)) {
+      const { videos, ...rest } = raw as Record<string, unknown>;
+      return { ...rest, assets: { videos } };
+    }
+    return raw;
+  },
+  z.object({
+    assets: AssetsSchema,
+    language: z.enum(['zh', 'en']).default('en'),
+    output: OutputSchema.default(() => OutputSchema.parse({})),
+    models: ModelsSchema.default(() => ModelsSchema.parse({})),
+    effects: EffectsSchema.default(() => EffectsSchema.parse({})),
+  }),
+);
+
+export type Assets = z.infer<typeof AssetsSchema>;
 export type Output = z.infer<typeof OutputSchema>;
 export type Models = z.infer<typeof ModelsSchema>;
 export type Effects = z.infer<typeof EffectsSchema>;

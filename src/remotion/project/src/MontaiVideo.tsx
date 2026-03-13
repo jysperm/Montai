@@ -1,5 +1,5 @@
-import React from 'react';
-import { AbsoluteFill, Sequence, staticFile } from 'remotion';
+import React, { useCallback } from 'react';
+import { AbsoluteFill, Audio, Sequence, staticFile } from 'remotion';
 import { Video } from '@remotion/media';
 import { TransitionSeries, linearTiming, type TransitionPresentation } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
@@ -25,6 +25,16 @@ interface TextOverlay {
   style: 'title' | 'subtitle' | 'caption';
 }
 
+interface AudioTrack {
+  sourceFile: string;
+  startTimeSeconds: number;
+  endTimeSeconds: number;
+  audioStartSeconds: number;
+  volume: number;
+  fadeInSeconds: number;
+  fadeOutSeconds: number;
+}
+
 export interface TimelineProps {
   [key: string]: unknown;
   name: string;
@@ -33,6 +43,7 @@ export interface TimelineProps {
   height: number;
   clips: EditClip[];
   textOverlays: TextOverlay[];
+  audioTracks?: AudioTrack[];
 }
 
 function getPositionStyle(position: TextOverlay['position'], s: number) {
@@ -105,8 +116,45 @@ export function calculateTotalFrames(spec: TimelineProps): number {
   return Math.max(total, 1);
 }
 
+function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number }) {
+  const startFrame = Math.round(track.startTimeSeconds * fps);
+  const durationFrames = Math.round(
+    (track.endTimeSeconds - track.startTimeSeconds) * fps,
+  );
+  const startFromFrame = Math.round(track.audioStartSeconds * fps);
+  const fadeInFrames = Math.round(track.fadeInSeconds * fps);
+  const fadeOutFrames = Math.round(track.fadeOutSeconds * fps);
+  const baseVolume = track.volume;
+
+  const volumeCallback = useCallback(
+    (frame: number) => {
+      let vol = baseVolume;
+      // Fade in
+      if (fadeInFrames > 0 && frame < fadeInFrames) {
+        vol *= frame / fadeInFrames;
+      }
+      // Fade out
+      if (fadeOutFrames > 0 && frame > durationFrames - fadeOutFrames) {
+        vol *= (durationFrames - frame) / fadeOutFrames;
+      }
+      return Math.max(0, vol);
+    },
+    [baseVolume, fadeInFrames, fadeOutFrames, durationFrames],
+  );
+
+  return (
+    <Sequence from={startFrame} durationInFrames={durationFrames}>
+      <Audio
+        src={getSourcePath(track.sourceFile)}
+        startFrom={startFromFrame}
+        volume={volumeCallback}
+      />
+    </Sequence>
+  );
+}
+
 export const MontaiVideo: React.FC<TimelineProps> = (props) => {
-  const { fps, height, clips, textOverlays } = props;
+  const { fps, height, clips, textOverlays, audioTracks } = props;
   const scale = height / 1080;
 
   return (
@@ -173,6 +221,10 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
           </Sequence>
         );
       })}
+
+      {(audioTracks ?? []).map((track, i) => (
+        <AudioTrackComponent key={`audio-${i}`} track={track} fps={fps} />
+      ))}
     </AbsoluteFill>
   );
 };

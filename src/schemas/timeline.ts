@@ -25,6 +25,16 @@ export const ExpandedOverlaySchema = z.object({
   style: z.enum(['title', 'subtitle', 'caption']),
 });
 
+export const ExpandedAudioSchema = z.object({
+  sourceFile: z.string(),
+  startTimeSeconds: z.number(),
+  endTimeSeconds: z.number(),
+  audioStartSeconds: z.number(),
+  volume: z.number(),
+  fadeInSeconds: z.number(),
+  fadeOutSeconds: z.number(),
+});
+
 export const ExpandedTimelineSchema = z.object({
   name: z.string(),
   title: z.string().optional(),
@@ -33,9 +43,11 @@ export const ExpandedTimelineSchema = z.object({
   height: z.number(),
   clips: z.array(ExpandedClipSchema),
   textOverlays: z.array(ExpandedOverlaySchema).default([]),
+  audioTracks: z.array(ExpandedAudioSchema).default([]),
 });
 
 export type Transition = z.infer<typeof TransitionSchema>;
 export type ExpandedClip = z.infer<typeof ExpandedClipSchema>;
 export type ExpandedOverlay = z.infer<typeof ExpandedOverlaySchema>;
+export type ExpandedAudio = z.infer<typeof ExpandedAudioSchema>;
 export type ExpandedTimeline = z.infer<typeof ExpandedTimelineSchema>;

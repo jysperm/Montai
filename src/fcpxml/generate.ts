@@ -242,10 +242,17 @@ export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
   return null;
 }
 
+export interface AudioFormatInfo {
+  durationSeconds?: number | null;
+  channels?: number | null;
+  sampleRate?: number | null;
+}
+
 export function generateFcpxml(
   spec: ExpandedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
   options?: { eventName?: string; projectTitle?: string; target?: 'fcp' | 'davinci' },
+  audioMeta?: Map<string, AudioFormatInfo>,
 ): string {
   const target = options?.target ?? 'fcp';
   const { fps, width, height } = spec;
@@ -462,6 +469,111 @@ export function generateFcpxml(
     }
   }
 
+  // --- Build audio assets and assign anchor items to their parent clips ---
+  // Each audio clip is placed as an anchor item (lane=-1) of the video clip
+  // it starts on, with offset computed in that clip's source timebase.
+  const audioAssetMap = new Map<string, string>();
+  const clipAudioAnchors = new Map<number, string[]>();
+
+  for (const audio of spec.audioTracks ?? []) {
+    if (!audio.sourceFile) continue;
+    const filename = basename(audio.sourceFile);
+
+    if (!audioAssetMap.has(filename)) {
+      const id = `audio-asset-${audioAssetMap.size + 1}`;
+      audioAssetMap.set(filename, id);
+
+      const meta = audioMeta?.get(filename);
+      const sampleRate = meta?.sampleRate ?? 48000;
+      const channels = meta?.channels ?? 2;
+      const durationSeconds = meta?.durationSeconds ?? 600;
+      const durationTicks = Math.round(durationSeconds * sampleRate);
+
+      const srcUrl = `file://${escapeXml(audio.sourceFile || filename)}`;
+
+      assetLines.push(
+        [
+          `        <asset id="${id}" start="0/1s" duration="${durationTicks}/${sampleRate}s" hasAudio="1" audioSources="1" audioChannels="${channels}" audioRate="${sampleRate}">`,
+          `            <media-rep kind="original-media" src="${srcUrl}" />`,
+          `        </asset>`,
+        ].join('\n')
+      );
+    }
+
+    // Find which clip this audio starts on (sequential timeline coordinates)
+    const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
+    let parentClipIdx = 0;
+    for (let ci = spec.clips.length - 1; ci >= 0; ci--) {
+      if (audioSeqStart >= clipSeqStarts[ci]) {
+        parentClipIdx = ci;
+        break;
+      }
+    }
+
+    // Compute offset in the parent clip's local timeline (source timebase)
+    const parentClip = spec.clips[parentClipIdx];
+    const parentClipFilename = basename(parentClip.sourceFile);
+    const parentTcInfo = assetStartFrames.get(parentClipFilename);
+    const parentEffectiveStart = parentClip.startTimeSeconds + sourceShifts[parentClipIdx];
+    const deltaInClip = audioSeqStart - clipSeqStarts[parentClipIdx];
+
+    const audioAssetId = audioAssetMap.get(filename)!;
+    let audioClipOffset: string;
+    if (parentTcInfo && parentTcInfo.frames > 0) {
+      const clipInFrames = Math.round(parentEffectiveStart * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
+      const deltaFrames = Math.round(deltaInClip * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
+      audioClipOffset = framesToRational(parentTcInfo.frames + clipInFrames + deltaFrames, parentTcInfo.fpsNum, parentTcInfo.fpsDen);
+    } else {
+      audioClipOffset = toRational(parentEffectiveStart + deltaInClip, fps);
+    }
+    const audioClipDuration = toRational(audio.endTimeSeconds - audio.startTimeSeconds, fps);
+    const audioClipStart = toRational(audio.audioStartSeconds, fps);
+
+    // Build volume adjustment with fade
+    const fadeInSec = audio.fadeInSeconds;
+    const fadeOutSec = audio.fadeOutSeconds;
+    const vol = audio.volume;
+
+    let volumeXml = '';
+    if (vol !== 1 || fadeInSec > 0 || fadeOutSec > 0) {
+      const dB = vol === 1 ? '0' : String(Math.round(20 * Math.log10(vol)));
+      if (fadeInSec > 0 || fadeOutSec > 0) {
+        const fadeElements: string[] = [];
+        if (fadeInSec > 0) {
+          fadeElements.push(`${II}            <fadeIn type="linear" duration="${toRational(fadeInSec, fps)}"/>`);
+        }
+        if (fadeOutSec > 0) {
+          fadeElements.push(`${II}            <fadeOut type="linear" duration="${toRational(fadeOutSec, fps)}"/>`);
+        }
+        volumeXml = [
+          ``,
+          `${II}    <adjust-volume amount="${dB}dB">`,
+          `${II}        <param name="amount" value="${dB}dB">`,
+          ...fadeElements,
+          `${II}        </param>`,
+          `${II}    </adjust-volume>`,
+        ].join('\n');
+      } else {
+        volumeXml = `\n${II}    <adjust-volume amount="${dB}dB"/>`;
+      }
+    }
+
+    if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
+    if (volumeXml) {
+      clipAudioAnchors.get(parentClipIdx)!.push(
+        [
+          `${II}<asset-clip ref="${audioAssetId}" lane="-1" name="${escapeXml(filename)}" offset="${audioClipOffset}" duration="${audioClipDuration}" start="${audioClipStart}">`,
+          `${volumeXml}`,
+          `${II}</asset-clip>`,
+        ].join('\n')
+      );
+    } else {
+      clipAudioAnchors.get(parentClipIdx)!.push(
+        `${II}<asset-clip ref="${audioAssetId}" lane="-1" name="${escapeXml(filename)}" offset="${audioClipOffset}" duration="${audioClipDuration}" start="${audioClipStart}" />`
+      );
+    }
+  }
+
   // Generate spine elements
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
@@ -538,10 +650,12 @@ export function generateFcpxml(
     const clipFormatId = assetFormatMap.get(clipFilename);
     const formatAttr = clipFormatId && clipFormatId !== 'r1' ? ` format="${clipFormatId}"` : '';
 
-    // Check for overlay titles attached to this clip
+    // Check for overlay titles and audio anchor items attached to this clip
     const overlays = clipOverlays.get(i) || [];
+    const audioAnchors = clipAudioAnchors.get(i) || [];
+    const hasChildren = overlays.length > 0 || audioAnchors.length > 0;
 
-    if (overlays.length === 0) {
+    if (!hasChildren) {
       spine.push(
         `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF" />`
       );
@@ -583,6 +697,9 @@ export function generateFcpxml(
         const effectivePosition = target === 'davinci' ? 'center' : overlay.position;
         spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, titleEffectId!, effectivePosition, oi + 1));
       }
+
+      // Audio anchor items attached to this clip
+      spine.push(...audioAnchors);
 
       spine.push(`${I}</asset-clip>`);
     }
