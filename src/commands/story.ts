@@ -16,13 +16,44 @@ import {
 import { loadProjectConfig, serializeVideoSummary, serializeMusicSummary, readProjectFile } from '../utils/project.js';
 import {
   storySystemPrompt,
-  storyUserPrompt,
-  storyResumePrompt,
+  storyContextPrompt,
 } from '../prompts/index.js';
 import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
 import { getStoryTools } from './tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
+
+function formatTimestamp(seconds: number): string {
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatDuration(seconds: number): string {
+  const totalSec = Math.round(seconds);
+  if (totalSec >= 60) {
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return s > 0 ? `${m}m${s}s` : `${m}m`;
+  }
+  return `${totalSec}s`;
+}
+
+function countItemsByType(items: Array<{ type: string }>): { clips: number; overlays: number; audio: number } {
+  return {
+    clips: items.filter(i => i.type === 'clip').length,
+    overlays: items.filter(i => i.type === 'overlay').length,
+    audio: items.filter(i => i.type === 'audio').length,
+  };
+}
+
+function formatItemCounts(counts: { clips: number; overlays: number; audio: number }): string {
+  const parts: string[] = [];
+  if (counts.clips > 0) parts.push(`${counts.clips} clip${counts.clips !== 1 ? 's' : ''}`);
+  if (counts.overlays > 0) parts.push(`${counts.overlays} overlay${counts.overlays !== 1 ? 's' : ''}`);
+  if (counts.audio > 0) parts.push(`${counts.audio} audio`);
+  return parts.join(', ') || 'nothing';
+}
 
 export async function storyCommand(
   name?: string,
@@ -98,7 +129,7 @@ export async function storyCommand(
   }
 
   if (story) {
-    console.log(chalk.blue(`Resuming story: "${story.title}" (${story.name})`));
+    console.log(chalk.blue(`Resuming story: ${story.title} (${story.name})`));
   } else {
     console.log(chalk.blue('Starting new story...'));
   }
@@ -121,6 +152,7 @@ export async function storyCommand(
     allMusic,
     allMusicSummaries,
     currentStoryId: story?.id ?? null,
+    currentStoryName: story?.name ?? null,
     currentItems: [] as TimelineItem[],
   };
 
@@ -150,6 +182,7 @@ export async function storyCommand(
   agent.setTools(allTools);
 
   let lastAssistantText = '';
+  let lastToolArgs: Record<string, unknown> = {};
 
   agent.subscribe((event) => {
     try {
@@ -157,36 +190,98 @@ export async function storyCommand(
         case 'turn_start':
           spinner.stop();
           resetWatchCount();
-          spinner.text = `Thinking...`;
+          spinner.text = 'Thinking...';
           spinner.start();
           break;
         case 'tool_execution_start':
-          spinner.stop();
-          console.log(chalk.dim(`  [${event.toolName}] ${JSON.stringify(event.args).slice(0, 200)}`));
+          lastToolArgs = event.args as Record<string, unknown>;
           spinner.text = `${event.toolName}...`;
+          break;
+        case 'tool_execution_end': {
+          spinner.stop();
+
+          if (event.isError) {
+            console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: failed`);
+            spinner.text = 'Thinking...';
+            spinner.start();
+            break;
+          }
+
+          const check = chalk.green('✓');
+          const toolLabel = chalk.green(event.toolName);
+
+          switch (event.toolName) {
+            case 'updateStoryline': {
+              const title = lastToolArgs.title as string;
+              const storyName = lastToolArgs.name as string;
+              const narrative = lastToolArgs.narrative as string;
+              console.log(`  ${check} ${toolLabel}: ${title} (${storyName})`);
+              for (const line of narrative.split('\n')) {
+                console.log(chalk.dim(`    ${line}`));
+              }
+              console.log('');
+              break;
+            }
+            case 'watchSegment': {
+              const videoId = lastToolArgs.videoId as number;
+              const startSec = lastToolArgs.startSeconds as number;
+              const endSec = lastToolArgs.endSeconds as number;
+              const dur = formatDuration(endSec - startSec);
+              console.log(`  ${check} ${toolLabel}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
+              break;
+            }
+            case 'updateTimeline': {
+              const deleteCount = lastToolArgs.deleteCount as number;
+              const newItems = (lastToolArgs.items ?? []) as Array<{ type: string }>;
+              const addedCounts = countItemsByType(newItems);
+              const hasAdded = newItems.length > 0;
+              const hasDeleted = deleteCount !== 0;
+
+              let summary: string;
+              if (deleteCount === -1) {
+                summary = `replaced with ${formatItemCounts(addedCounts)}`;
+              } else if (hasAdded && hasDeleted) {
+                summary = `updated ${formatItemCounts(addedCounts)}`;
+              } else if (hasAdded) {
+                summary = `added ${formatItemCounts(addedCounts)}`;
+              } else if (hasDeleted) {
+                summary = `deleted ${deleteCount} item${deleteCount !== 1 ? 's' : ''}`;
+              } else {
+                summary = 'no changes';
+              }
+
+              console.log(`  ${check} ${toolLabel}: ${summary}`);
+              break;
+            }
+            case 'getVideoSummary': {
+              const videoId = lastToolArgs.videoId as number;
+              console.log(`  ${check} ${toolLabel}: video ${videoId}`);
+              break;
+            }
+            default:
+              console.log(`  ${check} ${toolLabel}`);
+          }
+
+          spinner.text = 'Thinking...';
           spinner.start();
           break;
-        case 'tool_execution_end':
-          if (event.isError) {
-            spinner.stop();
-            console.log(chalk.red(`  [${event.toolName}] failed`));
-            spinner.start();
-          }
-          break;
+        }
         case 'turn_end': {
           spinner.stop();
           const msg = event.message;
           if (msg && 'usage' in msg) {
             const assistantMsg = msg as AssistantMessage;
-            const { usage } = assistantMsg;
-            totalCost += usage.cost.total;
-            const totalInput = usage.input + usage.cacheRead;
-            const cacheStr = totalInput > 0 && usage.cacheRead > 0
-              ? `, ${Math.round((usage.cacheRead / totalInput) * 100)}% cached`
-              : '';
-            console.log(chalk.dim(`  Cost: $${usage.cost.total < 0.01 ? usage.cost.total.toFixed(4) : usage.cost.total.toFixed(2)}${cacheStr}`));
+            totalCost += assistantMsg.usage.cost.total;
             if (assistantMsg.stopReason === 'error') {
-              console.log(chalk.red(`  Error: ${assistantMsg.errorMessage ?? 'unknown error'}`));
+              const raw = assistantMsg.errorMessage ?? 'unknown error';
+              try {
+                const parsed = JSON.parse(raw);
+                const inner = parsed?.error ?? parsed;
+                const detail = inner.message ?? raw;
+                console.log(chalk.red(`  Error from Gemini API: ${detail}`));
+              } catch {
+                console.log(chalk.red(`  Error: ${raw}`));
+              }
             }
           }
           // Collect assistant text for display after agent stops
@@ -220,23 +315,13 @@ export async function storyCommand(
   };
   process.on('unhandledRejection', rejectionHandler);
 
-  // Build initial prompt
-  let initialMessage: string;
-  if (story?.storyline) {
-    // Resume: inject current state
-    const timelineItemsJson = toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null;
-    initialMessage = storyResumePrompt(
-      story.storyline,
-      timelineItemsJson,
-      videoSummaryData,
-      facts,
-      styleReference,
-      musicSummaryData,
-    );
-  } else {
-    // New story
-    initialMessage = storyUserPrompt(videoSummaryData, facts, options.hint ?? '', styleReference, musicSummaryData);
-  }
+  // Build context prompt (project info only, no instructions)
+  const contextMessage = storyContextPrompt(videoSummaryData, facts, {
+    storyline: story?.storyline ?? undefined,
+    timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
+    styleReference,
+    musicSummaries: musicSummaryData,
+  });
 
   // Helper to run agent and display response, catching errors
   async function runAgent(message: string): Promise<void> {
@@ -259,6 +344,7 @@ export async function storyCommand(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
       musicNames,
+      toolsCtx.currentStoryName ?? undefined,
     );
     if (timelineLines.length > 0) {
       console.log('');
@@ -268,17 +354,21 @@ export async function storyCommand(
     }
   }
 
-  // Run initial prompt (or skip with --no-intro)
-  let pendingContext: string | null = null;
-  if (options.intro === false) {
-    // Defer context injection until the user's first message
-    pendingContext = initialMessage;
+  // Inject context and hint as standalone user messages (no response triggered)
+  const userMsg = (text: string) => ({ role: 'user' as const, content: text, timestamp: Date.now() });
+  agent.appendMessage(userMsg(contextMessage));
+  if (options.hint) {
+    agent.appendMessage(userMsg(`Direction from the user: ${options.hint}`));
+  }
 
+  // Run initial prompt (or skip with --no-intro)
+  if (options.intro === false) {
     // Print timeline if available
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
       musicNames,
+      toolsCtx.currentStoryName ?? undefined,
     );
     if (timelineLines.length > 0) {
       for (const line of timelineLines) {
@@ -287,7 +377,10 @@ export async function storyCommand(
     }
   } else {
     agent.setTools([]);
-    await runAgent(initialMessage);
+    const introInstruction = story?.storyline
+      ? 'Briefly introduce the current storyline and timeline state, then wait for my direction.'
+      : 'Briefly introduce what these source videos contain and wait for my direction before proceeding.';
+    await runAgent(introInstruction);
   }
   agent.setTools(allTools);
 
@@ -321,12 +414,7 @@ export async function storyCommand(
       spinner.text = 'Thinking...';
       spinner.start();
 
-      let message = userInput;
-      if (pendingContext) {
-        message = pendingContext + '\n\n---\n\n' + userInput;
-        pendingContext = null;
-      }
-      await runAgent(message);
+      await runAgent(userInput);
     }
   } finally {
     rl.close();
@@ -339,7 +427,7 @@ export async function storyCommand(
   if (toolsCtx.currentStoryId) {
     const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();
     if (finalStory) {
-      console.log(chalk.green(`Story saved: "${finalStory.title}" (${finalStory.name})`));
+      console.log(chalk.green(`Story saved: ${finalStory.title} (${finalStory.name})`));
       if (finalStory.timeline) {
         const cmd = chalk.bold.cyan;
         console.log(chalk.cyan(`You can ${cmd('montai preview')}, ${cmd('montai export')}, or ${cmd(`montai render ${finalStory.name}`)}.`));

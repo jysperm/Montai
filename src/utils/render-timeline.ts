@@ -61,11 +61,11 @@ interface AudioSpan {
 }
 
 function colorOverlay(text: string): string {
-  return chalk.yellow(text);
+  return chalk.magenta(text);
 }
 
 function colorAudio(text: string): string {
-  return chalk.magenta(text);
+  return chalk.green(text);
 }
 
 function renderAudioLane(lane: AudioSpan[], trackWidth: number): string {
@@ -111,7 +111,7 @@ function renderLane(lane: OverlaySpan[], trackWidth: number): string {
   return result;
 }
 
-export function renderTimeline(items: TimelineItem[], terminalWidth: number, musicNames?: Map<number, string>): string[] {
+export function renderTimeline(items: TimelineItem[], terminalWidth: number, musicNames?: Map<number, string>, storyName?: string): string[] {
   const clips = items.filter((i): i is ClipItem => i.type === 'clip');
   if (clips.length === 0) return [];
 
@@ -180,6 +180,14 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   }
   if (audioCount > 0) {
     summary += `, ${audioCount} audio`;
+  }
+  if (storyName) {
+    const gap = trackWidth - summary.length - storyName.length;
+    if (gap >= 2) {
+      summary += ' '.repeat(gap) + storyName;
+    } else {
+      summary += '  ' + storyName;
+    }
   }
 
   // Map overlays to column spans

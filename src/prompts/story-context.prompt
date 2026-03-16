@@ -1,29 +1,45 @@
-Create a storyline and timeline for an edited video from these source videos.
+{{#if storyline}}
+Resuming an existing story edit.
+{{else}}
+Creating a new video edit from source footage.
+{{/if}}
 
 {{#if facts}}
-Project Facts:
+## Project Facts
+
 {{{facts}}}
 
 {{/if}}
-Video Summaries:
+{{#if storyline}}
+## Current Storyline
+
+{{{storyline}}}
+
+{{/if}}
+{{#if timelineItems}}
+## Current Timeline Items
+
+```json
+{{{timelineItems}}}
+```
+
+{{/if}}
+## Video Summaries
+
 {{#each videoSummaries}}
 --- Video ID {{this.videoId}} ({{this.filename}}) ---
 {{this.summary}}
 
 {{/each}}
 {{#if musicSummaries}}
-Music Library:
+## Music Library
+
 {{#each musicSummaries}}
 --- Music ID {{this.musicId}} ({{this.filename}}) ---
 {{this.summary}}
 
 {{/each}}
 {{/if}}
-{{#if hint}}
-Direction from the user: {{hint}}
-{{/if}}
-
-Briefly introduce what these source videos contain and wait for my direction before proceeding.
 {{#if styleReference}}
 
 ## Writing Style Reference

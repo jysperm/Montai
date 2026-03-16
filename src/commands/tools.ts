@@ -25,6 +25,7 @@ export interface StoryToolsContext {
   allMusic: (typeof music.$inferSelect)[];
   allMusicSummaries: (typeof musicSummaries.$inferSelect)[];
   currentStoryId: number | null;
+  currentStoryName: string | null;
   currentItems: TimelineItem[];
 }
 
@@ -77,6 +78,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
           .get();
         ctx.currentStoryId = result.id;
       }
+      ctx.currentStoryName = params.name;
 
       const textContent: TextContent = {
         type: 'text' as const,

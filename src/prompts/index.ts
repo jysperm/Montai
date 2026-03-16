@@ -17,8 +17,7 @@ const templates = {
   mergeFacts: loadTemplate('merge-facts'),
   projectOverview: loadTemplate('project-overview'),
   storySystem: loadTemplate('story-system'),
-  storyUser: loadTemplate('story-user'),
-  storyResume: loadTemplate('story-resume'),
+  storyContext: loadTemplate('story-context'),
 };
 
 const languageNames: Record<string, string> = {
@@ -75,36 +74,23 @@ export function storySystemPrompt(language: string, overlayLanguages: string[], 
   });
 }
 
-export function storyUserPrompt(
+export function storyContextPrompt(
   videoSummaries: { videoId: number; filename: string; summary: string }[],
   facts: string | null,
-  hint: string,
-  styleReference?: string | null,
-  musicSummaries?: { musicId: number; filename: string; summary: string }[],
+  options?: {
+    storyline?: string;
+    timelineItems?: string | null;
+    styleReference?: string | null;
+    musicSummaries?: { musicId: number; filename: string; summary: string }[];
+  },
 ): string {
-  return templates.storyUser({
+  const opts = options ?? {};
+  return templates.storyContext({
     videoSummaries,
     facts: facts || null,
-    hint: hint || null,
-    styleReference: styleReference || null,
-    musicSummaries: musicSummaries && musicSummaries.length > 0 ? musicSummaries : null,
-  });
-}
-
-export function storyResumePrompt(
-  storyline: string,
-  timelineItems: string | null,
-  videoSummaries: { videoId: number; filename: string; summary: string }[],
-  facts: string | null,
-  styleReference?: string | null,
-  musicSummaries?: { musicId: number; filename: string; summary: string }[],
-): string {
-  return templates.storyResume({
-    storyline,
-    timelineItems: timelineItems || null,
-    videoSummaries,
-    facts: facts || null,
-    styleReference: styleReference || null,
-    musicSummaries: musicSummaries && musicSummaries.length > 0 ? musicSummaries : null,
+    storyline: opts.storyline || null,
+    timelineItems: opts.timelineItems || null,
+    styleReference: opts.styleReference || null,
+    musicSummaries: opts.musicSummaries && opts.musicSummaries.length > 0 ? opts.musicSummaries : null,
   });
 }
