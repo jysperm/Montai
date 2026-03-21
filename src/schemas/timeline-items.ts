@@ -136,7 +136,7 @@ export function expandTimeline(
       }
 
       return {
-        text: overlay.text,
+        text: overlay.text.replace(/\\n/g, '\n'),
         startTimeSeconds: Math.max(0, startTime),
         endTimeSeconds: endTime,
         position: overlay.position,
