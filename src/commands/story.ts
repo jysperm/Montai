@@ -39,6 +39,19 @@ function formatDuration(seconds: number): string {
   return `${totalSec}s`;
 }
 
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const seconds = Math.floor(diff / 1000);
+  const minutes = Math.floor(seconds / 60);
+  const hours = Math.floor(minutes / 60);
+  const days = Math.floor(hours / 24);
+
+  if (days > 0) return `${days} day${days !== 1 ? 's' : ''} ago`;
+  if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
+  if (minutes > 0) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
+  return 'just now';
+}
+
 function countItemsByType(items: Array<{ type: string }>): { clips: number; overlays: number; audio: number } {
   return {
     clips: items.filter(i => i.type === 'clip').length,
@@ -71,8 +84,15 @@ export async function storyCommand(
       console.log(chalk.dim('No stories yet. Run "montai story" to create one.'));
     } else {
       for (const s of allStories) {
-        const hasTimeline = s.timeline ? chalk.green('timeline') : chalk.dim('no timeline');
-        console.log(`  ${chalk.cyan(s.name)}  ${s.title}  [${hasTimeline}]  ${chalk.dim(s.updatedAt)}`);
+        let status: string;
+        if (s.timeline) {
+          const items = JSON.parse(s.timeline) as Array<{ type: string }>;
+          status = chalk.green(formatItemCounts(countItemsByType(items)));
+        } else {
+          status = chalk.dim('empty');
+        }
+        const ago = formatTimeAgo(s.updatedAt);
+        console.log(`  ${chalk.cyan(s.name)}  ${s.title}  [${status}]  ${chalk.dim(ago)}`);
       }
     }
     return;

@@ -4,7 +4,7 @@ import { Command } from 'commander';
 import { analyzeCommand } from './commands/analyze.js';
 import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
-import { studioCommand } from './commands/studio.js';
+import { previewCommand } from './commands/preview.js';
 import { exportCommand } from './commands/export.js';
 
 function printFullHelp(program: Command) {
@@ -80,7 +80,7 @@ program
 program
   .command('preview [name]')
   .description('Open Remotion Studio for preview')
-  .action(studioCommand);
+  .action(previewCommand);
 
 program.action(() => {
   printFullHelp(program);

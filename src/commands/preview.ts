@@ -5,7 +5,7 @@ import { getDb } from '../db/index.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 
-export async function studioCommand(name?: string) {
+export async function previewCommand(name?: string) {
   const config = loadProjectConfig();
   const db = getDb();
 

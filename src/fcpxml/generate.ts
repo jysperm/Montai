@@ -532,7 +532,10 @@ export function generateFcpxml(
     } else {
       audioClipOffset = toRational(parentEffectiveStart + deltaInClip, fps);
     }
-    const audioClipDuration = toRational(audio.endTimeSeconds - audio.startTimeSeconds, fps);
+    // Duration must be computed in sequential coordinates (same as overlays),
+    // since FCPXML spine uses the sequential model where transitions don't shorten total duration.
+    const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
+    const audioClipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
     const audioClipStart = toRational(audio.audioStartSeconds, fps);
 
     // Build volume adjustment with fade
