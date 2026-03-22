@@ -63,6 +63,10 @@ montai export --davinci    # for DaVinci Resolve
 
 All commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
 
+## Interactive Story Editing
+
+The `montai story` command opens an interactive session where you chat with AI to craft your storyline and timeline. You can use any language to iteratively refine the edit — adjust pacing, reorder scenes, add or remove clips, and tweak transitions — all through natural conversation.
+
 ## Export .fcpxml
 
 `montai export` generates FCPXML 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. FCPXML preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
@@ -94,7 +98,6 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | `story [name]` | Interactive storyline + timeline editing session |
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
-| `story --hint <text>` | Initial direction hint for new story |
 | `export` | Export FCPXML from a timeline |
 | `export --fcp` | Optimize for Final Cut Pro (default) |
 | `export --davinci` | Optimize for DaVinci Resolve |
@@ -118,7 +121,7 @@ my-vlog-project/
 
 |  | Final Cut Pro | DaVinci Resolve | Remotion |
 |--|---------------|-----------------|----------|
-| Color depth | Preserves source (8/10bit) | Preserves source (8/10bit) | 8bit only |
+| Color depth | Passthrough (8/10bit) | Passthrough (8/10bit) | 8bit only |
 | Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
 | Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
 | Text overlays | All positions | Centered only | All positions |

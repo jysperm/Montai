@@ -22,6 +22,9 @@ import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
 import { getStoryTools } from './tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
+import { exportCommand } from './export.js';
+import { renderCommand } from './render.js';
+import { previewCommand } from './preview.js';
 
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -149,7 +152,7 @@ export async function storyCommand(
   }
 
   if (story) {
-    console.log(chalk.blue(`Resuming story: ${story.title} (${story.name})`));
+    console.log(chalk.green(`Resuming story: ${story.title} ${chalk.cyan(story.name)}`));
   } else {
     console.log(chalk.blue('Starting new story...'));
   }
@@ -235,7 +238,7 @@ export async function storyCommand(
               const title = lastToolArgs.title as string;
               const storyName = lastToolArgs.name as string;
               const narrative = lastToolArgs.narrative as string;
-              console.log(`  ${check} ${toolLabel}: ${title} (${storyName})`);
+              console.log(`  ${check} ${toolLabel}: ${title}  ${chalk.cyan(storyName)}`);
               for (const line of narrative.split('\n')) {
                 console.log(chalk.dim(`    ${line}`));
               }
@@ -356,7 +359,8 @@ export async function storyCommand(
     spinner.stop();
 
     if (lastAssistantText) {
-      console.log(`\n${lastAssistantText.trimEnd()}`);
+      const formatted = lastAssistantText.trimEnd().replace(/\*\*(.+?)\*\*/g, (_, text) => chalk.bold(text));
+      console.log(`\n${formatted}`);
       lastAssistantText = '';
     }
 
@@ -404,10 +408,81 @@ export async function storyCommand(
   }
   agent.setTools(allTools);
 
+  // Slash commands
+  const slashCommands: Record<string, { description: string; action: (storyName: string) => Promise<void> }> = {
+    export: { description: '.fcpxml from timeline', action: (name) => exportCommand(name) },
+    render: { description: 'video via Remotion', action: (name) => renderCommand(name) },
+    preview: { description: 'open Remotion Studio', action: (name) => previewCommand(name) },
+  };
+  const slashCommandNames = Object.keys(slashCommands);
+
   // Interactive loop
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
+    completer: (line: string) => {
+      if (slashMode) {
+        const partial = line.toLowerCase();
+        // Don't return completions if already an exact match
+        if (slashCommandNames.includes(partial)) return [[], line];
+        const hits = slashCommandNames.filter((c) => c.startsWith(partial));
+        return [hits.length ? hits : [], line];
+      }
+      if (line.startsWith('/')) {
+        const partial = line.slice(1).toLowerCase();
+        if (slashCommandNames.includes(partial)) return [[], line];
+        const hits = slashCommandNames.filter((c) => c.startsWith(partial)).map((c) => `/${c}`);
+        return [hits.length ? hits : [], line];
+      }
+      return [[], line];
+    },
+  });
+
+  // Switch to slash prompt when '/' is typed at the beginning
+  let slashMode = false;
+  let hintLineReserved = false;
+  const normalPrompt = chalk.green('\n> ');
+
+  function formatSlashHint(filter: string): string {
+    return chalk.dim('[tab] to complete: ') + slashCommandNames.map((name) => {
+      const matched = !filter || name.startsWith(filter.toLowerCase());
+      const label = '/' + name;
+      const desc = slashCommands[name].description;
+      return matched ? `${chalk.cyan(label)} ${chalk.dim(desc)}` : chalk.dim(`${label} ${desc}`);
+    }).join('  ');
+  }
+
+  process.stdin.on('keypress', () => {
+    const line = rl.line;
+    if (!slashMode && line.startsWith('/')) {
+      slashMode = true;
+      const rest = line.slice(1);
+      readline.cursorTo(process.stdout, 0);
+      readline.clearLine(process.stdout, 0);
+      if (hintLineReserved) {
+        // Hint line already reserved above — update it and redraw prompt
+        process.stdout.write('\x1b[s\x1b[A\r\x1b[2K' + formatSlashHint(rest) + '\x1b[u');
+        readline.cursorTo(process.stdout, 0);
+        readline.clearLine(process.stdout, 0);
+      } else {
+        // First time: insert hint line above
+        hintLineReserved = true;
+        process.stdout.write(formatSlashHint(rest) + '\n');
+      }
+      process.stdout.write(chalk.cyan('/ ') + rest);
+      (rl as { line: string }).line = rest;
+      (rl as { cursor: number }).cursor = Math.max(0, rl.cursor - 1);
+    } else if (slashMode && line === '') {
+      slashMode = false;
+      // Clear hint line content but keep the line reserved
+      process.stdout.write('\x1b[s\x1b[A\r\x1b[2K\x1b[u');
+      readline.cursorTo(process.stdout, 0);
+      readline.clearLine(process.stdout, 0);
+      process.stdout.write(chalk.green('> '));
+    } else if (slashMode) {
+      // Update hint line above based on current filter
+      process.stdout.write('\x1b[s\x1b[A\r\x1b[2K' + formatSlashHint(line) + '\x1b[u');
+    }
   });
 
   const askQuestion = (prompt: string): Promise<string | null> => {
@@ -422,19 +497,37 @@ export async function storyCommand(
 
   try {
     while (true) {
-      const userInput = await askQuestion(chalk.green('\n> '));
+      slashMode = false;
+      hintLineReserved = false;
+      const userInput = await askQuestion(normalPrompt);
 
       if (userInput === null) {
         // readline closed (ctrl-c, ctrl-d)
         break;
       }
-      if (!userInput.trim()) continue;
-      if (['exit', 'quit', 'q'].includes(userInput.trim().toLowerCase())) break;
+      const trimmed = userInput.trim();
+      if (!trimmed) continue;
 
-      spinner.text = 'Thinking...';
-      spinner.start();
+      if (slashMode) {
+        const cmd = trimmed.toLowerCase();
+        const storyName = toolsCtx.currentStoryName;
+        if (!storyName) {
+          console.log(chalk.red('No story yet. Create a storyline first.'));
+          continue;
+        }
+        const command = slashCommands[cmd];
+        if (command) {
+          await command.action(storyName);
+        } else {
+          console.log(chalk.dim(`Unknown command. Available: ${slashCommandNames.map((c) => '/' + c).join(', ')}`));
+        }
+      } else {
+        if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;
 
-      await runAgent(userInput);
+        spinner.text = 'Thinking...';
+        spinner.start();
+        await runAgent(trimmed);
+      }
     }
   } finally {
     rl.close();
@@ -447,10 +540,10 @@ export async function storyCommand(
   if (toolsCtx.currentStoryId) {
     const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();
     if (finalStory) {
-      console.log(chalk.green(`Story saved: ${finalStory.title} (${finalStory.name})`));
+      console.log(chalk.green(`Story saved: ${finalStory.title} ${chalk.cyan(finalStory.name)}`));
       if (finalStory.timeline) {
-        const cmd = chalk.bold.cyan;
-        console.log(chalk.cyan(`You can ${cmd('montai preview')}, ${cmd('montai export')}, or ${cmd(`montai render ${finalStory.name}`)}.`));
+        const cmd = chalk.bold.green;
+        console.log(chalk.green(`You can ${cmd('montai preview')}, ${cmd('montai export')}, or ${cmd(`montai render ${finalStory.name}`)}.`));
       }
     }
   }

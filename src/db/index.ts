@@ -24,7 +24,28 @@ export function getDb(dbPath = './montai.db') {
 
 export async function initDb(dbPath = './montai.db') {
   const instance = getDb(dbPath);
-  const { statementsToExecute } = await pushSQLiteSchema(schema, instance as any);
+
+  // Suppress drizzle-kit's "[✓] Pulling schema from database..." message
+  // but pass through any other output (e.g. interactive conflict resolution prompts)
+  const originalStdoutWrite = process.stdout.write.bind(process.stdout);
+  const originalConsoleLog = console.log.bind(console);
+  process.stdout.write = function (chunk: any, ...args: any[]) {
+    if (typeof chunk === 'string' && chunk.includes('Pulling schema from database')) return true;
+    return originalStdoutWrite(chunk, ...args);
+  } as typeof process.stdout.write;
+  console.log = function (...args: any[]) {
+    const msg = args.map(String).join(' ');
+    if (msg.includes('Pulling schema from database')) return;
+    originalConsoleLog(...args);
+  };
+
+  let statementsToExecute: string[];
+  try {
+    ({ statementsToExecute } = await pushSQLiteSchema(schema, instance as any));
+  } finally {
+    process.stdout.write = originalStdoutWrite;
+    console.log = originalConsoleLog;
+  }
   for (let statement of statementsToExecute) {
     // drizzle-kit may generate CREATE INDEX without IF NOT EXISTS after column renames
     statement = statement.replace(/^CREATE (UNIQUE )?INDEX (?!IF)/g, 'CREATE $1INDEX IF NOT EXISTS ');
