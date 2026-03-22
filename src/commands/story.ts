@@ -3,7 +3,7 @@ import ora from 'ora';
 import * as readline from 'readline';
 import { eq, desc } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
-import { getModel, type AssistantMessage } from '@mariozechner/pi-ai';
+import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
 import {
   videos,
@@ -20,6 +20,7 @@ import {
 } from '../prompts/index.js';
 import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
+import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { getStoryTools } from './tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
 import { exportCommand } from './export.js';
@@ -206,11 +207,19 @@ export async function storyCommand(
 
   let lastAssistantText = '';
   let lastToolArgs: Record<string, unknown> = {};
+  let debugStep = 0;
+  let debugTurnStartTime = 0;
 
   agent.subscribe((event) => {
     try {
       switch (event.type) {
         case 'turn_start':
+          debugStep++;
+          debugTurnStartTime = Date.now();
+          logRequest(
+            agent.state.messages as Message[],
+            agent.state.systemPrompt,
+          );
           spinner.stop();
           resetWatchCount();
           spinner.text = 'Thinking...';
@@ -222,6 +231,7 @@ export async function storyCommand(
           break;
         case 'tool_execution_end': {
           spinner.stop();
+          logToolCall(event.toolName, lastToolArgs, event.result);
 
           if (event.isError) {
             console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: failed`);
@@ -294,6 +304,13 @@ export async function storyCommand(
           const msg = event.message;
           if (msg && 'usage' in msg) {
             const assistantMsg = msg as AssistantMessage;
+            logStep({
+              step: debugStep,
+              model: assistantMsg.model,
+              usage: assistantMsg.usage,
+              durationMs: Date.now() - debugTurnStartTime,
+            });
+            logResponse(assistantMsg);
             totalCost += assistantMsg.usage.cost.total;
             if (assistantMsg.stopReason === 'error') {
               const raw = assistantMsg.errorMessage ?? 'unknown error';

@@ -8,10 +8,11 @@ import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { existsSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { videoAnalysisPrompt, mergeFactsPrompt, projectOverviewPrompt } from '../prompts/index.js';
-import { getModel, complete } from '@mariozechner/pi-ai';
+import { getModel } from '@mariozechner/pi-ai';
 import { syncAndAnalyzeVideos, showVideoSummary, listVideos } from '../analyzer/video.js';
 import { syncAndAnalyzeMusic, showMusicSummary, listMusic } from '../analyzer/music.js';
 import { assertComplete, getTextContent, formatCost } from '../analyzer/utils.js';
+import { completeWithLogging } from '../utils/llm-logging.js';
 
 async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
   const resolvedPath = resolve(configPath);
@@ -59,7 +60,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Merging fact...').start();
 
-    const result = await complete(model, {
+    const result = await completeWithLogging(model, {
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }],
     }, { apiKey });
     assertComplete(result);
@@ -120,7 +121,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Generating project overview...').start();
 
-    const result = await complete(model, {
+    const result = await completeWithLogging(model, {
       messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }],
     }, { apiKey });
     assertComplete(result);

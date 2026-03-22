@@ -12,6 +12,7 @@ import { musicAnalysisPrompt } from '../prompts/index.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
 import { AsyncQueue, assertComplete, getTextContent, extractJson, formatDuration, formatCost } from './utils.js';
+import { completeWithLogging } from '../utils/llm-logging.js';
 
 const mimeTypeMap: Record<string, string> = {
   '.mp3': 'audio/mpeg',
@@ -244,7 +245,7 @@ export async function syncAndAnalyzeMusic(
       ];
 
       const t0 = Date.now();
-      const analysisResult = await complete(model, { messages }, { apiKey });
+      const analysisResult = await completeWithLogging(model, { messages }, { apiKey });
       assertComplete(analysisResult);
       const analysisText = getTextContent(analysisResult);
       totalCost += analysisResult.usage.cost.total;

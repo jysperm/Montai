@@ -104,6 +104,13 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | `render [name]` | Render video via Remotion |
 | `preview` | Open Remotion Studio for preview |
 
+Debug logging for LLM calls via the `DEBUG` env var:
+
+```bash
+DEBUG=montai:*,-montai:*:verbose montai story    # print each LLM call
+DEBUG=montai:* montai story                      # including full message contents
+```
+
 ## Project Structure
 
 ```
