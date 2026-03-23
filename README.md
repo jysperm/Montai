@@ -12,6 +12,7 @@ npm ci && npm link
 
 Prerequisites:
 
+- Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
 - [Gemini API key](https://aistudio.google.com/apikeys) — set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable
 
