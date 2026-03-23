@@ -6,6 +6,7 @@ import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
 import { previewCommand } from './commands/preview.js';
 import { exportCommand } from './commands/export.js';
+import { archiveCommand } from './commands/archive.js';
 
 function printFullHelp(program: Command) {
   console.log(`${chalk.bold('montai')} — AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
@@ -70,17 +71,26 @@ program
   .description('Export FCPXML from a timeline')
   .option('--fcp', 'Optimize for Final Cut Pro (default)')
   .option('--davinci', 'Optimize for DaVinci Resolve')
+  .option('--from-archived', 'Use archived videos as source')
   .action(exportCommand);
 
 program
   .command('render [name]')
   .description('Render video via Remotion')
+  .option('--from-archived', 'Use archived videos as source')
   .action(renderCommand);
 
 program
   .command('preview [name]')
   .description('Open Remotion Studio for preview')
+  .option('--from-archived', 'Use archived videos as source')
   .action(previewCommand);
+
+program
+  .command('archive')
+  .description('Archive original video clips referenced by timelines (video files only)')
+  .option('--encode [spec]', 'Encode: output | 720p,crf=20,fps=30,8bit (default: passthrough)')
+  .action(archiveCommand);
 
 program.action(() => {
   printFullHelp(program);

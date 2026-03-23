@@ -103,6 +103,7 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | `export --davinci` | Optimize for DaVinci Resolve |
 | `render [name]` | Render video via Remotion |
 | `preview` | Open Remotion Studio for preview |
+| `archive` | Archive original video clips referenced by timelines |
 
 Debug logging for LLM calls via the `DEBUG` env var:
 
@@ -111,17 +112,26 @@ DEBUG=montai:*,-montai:*:verbose montai story    # print each LLM call
 DEBUG=montai:* montai story                      # including full message contents
 ```
 
+## Archiving
+
+Montai can be used to curate interesting segments from a large amount of raw footage. After creating stories, you may want to delete the original files to free up space. `montai archive` extracts the video segments referenced by all timelines into the `archived/` directory (video files only).
+
+By default, `montai archive` uses passthrough mode to preserve original quality without re-encoding. Use `--encode` to re-encode using project output settings, or `--encode 720p,crf=20,fps=30,8bit` to customize the encoding spec.
+
+After archiving, use `--from-archived` on `render`, `preview`, or `export` to work from the archived clips instead of the original files. The time offsets are automatically remapped based on the archived filenames.
+
 ## Project Structure
 
 ```
 my-vlog-project/
-  montai.yaml          # Project config
-  AGENTS.md            # Optional: instructions/knowledge for the LLM
-  STYLE.md             # Optional: writing style reference from previous scripts
-  montai.db            # SQLite database (auto-created)
   .montai/             # Cache (transcoded videos, specs)
-  output/               # Rendered videos
-  fcpxml/               # Generated FCPXML files
+  archived/            # Archived video clips (montai archive)
+  fcpxml/              # Generated FCPXML files
+  output/              # Rendered videos
+  AGENTS.md            # Optional: instructions/knowledge for the LLM
+  montai.db            # SQLite database (auto-created)
+  montai.yaml          # Project config
+  STYLE.md             # Optional: writing style reference from previous scripts
 ```
 
 ## Output Compatibility

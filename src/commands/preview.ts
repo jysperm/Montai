@@ -4,13 +4,18 @@ import { fileURLToPath } from 'url';
 import { getDb } from '../db/index.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
+import { remapToArchived } from '../utils/archived-videos.js';
 
-export async function previewCommand(name?: string) {
+export async function previewCommand(name?: string, options?: { fromArchived?: boolean }) {
   const config = loadProjectConfig();
   const db = getDb();
 
-  const specs = loadExpandedTimelines(db, config, name);
+  let specs = loadExpandedTimelines(db, config, name);
   if (!specs) return;
+
+  if (options?.fromArchived) {
+    specs = remapToArchived(specs);
+  }
 
   // Prepare public dir with video hard links and timelines.json
   const publicDir = preparePublicDir(specs);
