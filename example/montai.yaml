@@ -1,6 +1,6 @@
 assets:
   videos:
-    - .
+    - ./footage/
   music:
     - ./musics/
 language: zh

@@ -15,4 +15,4 @@ Merge the new fact into the list. Rules:
 - Resolve contradictions: if the new fact contradicts an existing one, keep the new fact
 - Keep each fact concise and self-contained
 - Do not add a heading — return only the bullet list
-- Write in {{languageName}}
+- Write in {{langName language}}

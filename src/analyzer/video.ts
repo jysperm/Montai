@@ -8,7 +8,7 @@ import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { statSync } from 'fs';
 import { uploadVideoToGemini } from '../gemini/upload.js';
-import { videoAnalysisPrompt } from '../prompts/index.js';
+import { renderPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
@@ -327,7 +327,7 @@ export async function syncAndAnalyzeVideos(
 
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const currentContext = db.select().from(projectContext).get();
-      const analysisPrompt = videoAnalysisPrompt(config.language, currentContext?.facts, agentInstructions);
+      const analysisPrompt = renderPrompt('analyze-video', { language: config.language, facts: currentContext?.facts ?? null, agentInstructions: agentInstructions ?? null });
 
       const messages: Message[] = [
         {

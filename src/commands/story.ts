@@ -13,11 +13,8 @@ import {
   music,
   musicAnalyses,
 } from '../db/schema.js';
-import { loadProjectConfig, serializeVideoAnalysis, serializeMusicAnalysis, readProjectFile } from '../utils/project.js';
-import {
-  storySystemPrompt,
-  storyContextPrompt,
-} from '../prompts/index.js';
+import { loadProjectConfig, readProjectFile } from '../utils/project.js';
+import { renderPrompt, languageNames } from '../prompts/index.js';
 import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
@@ -116,7 +113,12 @@ export async function storyCommand(
     return {
       videoId: s.videoId,
       filename: video?.filename ?? 'unknown',
-      summary: serializeVideoAnalysis(s),
+      overview: s.overview,
+      location: s.location,
+      timeOfDay: s.timeOfDay,
+      segments: JSON.parse(s.segments),
+      highlights: JSON.parse(s.highlights),
+      technicalNotes: s.technicalNotes,
     };
   });
 
@@ -128,7 +130,8 @@ export async function storyCommand(
     return {
       musicId: s.musicId,
       filename: track?.filename ?? 'unknown',
-      summary: serializeMusicAnalysis(s),
+      overview: s.overview,
+      segments: JSON.parse(s.segments),
     };
   });
 
@@ -171,6 +174,8 @@ export async function storyCommand(
   const toolsCtx = {
     db,
     config,
+    languageName: languageNames[config.language] ?? config.language,
+    overlayLanguageNames: config.effects.languages.map((l) => languageNames[l] ?? l).join(' and '),
     allVideos,
     allVideoAnalyses,
     allMusic,
@@ -196,7 +201,11 @@ export async function storyCommand(
   // Create agent
   const agent = new Agent({
     initialState: {
-      systemPrompt: storySystemPrompt(config.language, config.effects.languages, agentInstructions),
+      systemPrompt: renderPrompt('story-system', {
+        language: config.language,
+        overlayLanguages: config.effects.languages,
+        agentInstructions: agentInstructions ?? null,
+      }),
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
@@ -356,11 +365,13 @@ export async function storyCommand(
   process.on('unhandledRejection', rejectionHandler);
 
   // Build context prompt (project info only, no instructions)
-  const contextMessage = storyContextPrompt(videoAnalysisData, facts, {
-    storyline: story?.storyline ?? undefined,
+  const contextMessage = renderPrompt('story-context', {
+    videoAnalyses: videoAnalysisData,
+    facts: facts ?? null,
+    storyline: story?.storyline ?? null,
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
-    styleReference,
-    musicAnalyses: musicAnalysisData,
+    styleReference: styleReference ?? null,
+    musicAnalyses: musicAnalysisData.length > 0 ? musicAnalysisData : null,
   });
 
   // Helper to run agent and display response, catching errors

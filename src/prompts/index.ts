@@ -1,96 +1,56 @@
 import Handlebars from 'handlebars';
-import { readFileSync } from 'fs';
-import { resolve, dirname } from 'path';
+import { readFileSync, readdirSync } from 'fs';
+import { resolve, dirname, basename } from 'path';
 import { fileURLToPath } from 'url';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const promptsDir = __dirname;
 
-function loadTemplate(name: string): HandlebarsTemplateDelegate {
-  const source = readFileSync(resolve(promptsDir, `${name}.prompt`), 'utf-8');
-  return Handlebars.compile(source, { noEscape: true });
-}
-
-const templates = {
-  videoAnalysis: loadTemplate('video-analysis'),
-  musicAnalysis: loadTemplate('music-analysis'),
-  mergeFacts: loadTemplate('merge-facts'),
-  projectOverview: loadTemplate('project-overview'),
-  storySystem: loadTemplate('story-system'),
-  storyContext: loadTemplate('story-context'),
-};
-
-const languageNames: Record<string, string> = {
+export const languageNames: Record<string, string> = {
   zh: 'Chinese',
   ja: 'Japanese',
   en: 'English',
 };
 
-export function langName(language: string): string {
-  return languageNames[language] ?? language;
-}
+Handlebars.registerHelper('langName', (language: string) => languageNames[language] ?? language);
 
-function formatOverlayLanguageInstruction(languages: string[]): string {
-  const names = languages.map(langName);
+Handlebars.registerHelper('overlayLanguageInstruction', (languages: string[]) => {
+  const names = languages.map((l) => languageNames[l] ?? l);
   if (names.length === 1) {
     return `Write all overlay text (titles, captions, subtitles) in ${names[0]}.`;
   }
   return `Write all overlay text (titles, captions, subtitles) in ${names.join(' and ')}. Each overlay should include all languages.`;
+});
+
+// Load all .prompt files as both compiled templates and partials
+const templates: Record<string, HandlebarsTemplateDelegate> = {};
+
+for (const file of readdirSync(promptsDir)) {
+  if (!file.endsWith('.prompt')) continue;
+  const name = basename(file, '.prompt');
+  const source = readFileSync(resolve(promptsDir, file), 'utf-8');
+  templates[name] = Handlebars.compile(source, { noEscape: true });
+  Handlebars.registerPartial(name, source);
 }
 
-export function videoAnalysisPrompt(language: string, facts?: string | null, agentInstructions?: string | null): string {
-  return templates.videoAnalysis({ languageName: langName(language), facts: facts || null, agentInstructions: agentInstructions || null });
+export function renderPrompt(name: string, data: Record<string, unknown>): string {
+  return templates[name](data);
 }
 
-export function musicAnalysisPrompt(language: string, agentInstructions?: string | null): string {
-  return templates.musicAnalysis({ languageName: langName(language), agentInstructions: agentInstructions || null });
+export interface VideoAnalysisData {
+  videoId: number;
+  filename: string;
+  overview: string;
+  location?: string | null;
+  timeOfDay?: string | null;
+  segments: { startTime: string; endTime: string; description: string; qualityNotes?: string; speechContent?: string }[];
+  highlights: { startTime: string; endTime: string; reason: string }[];
+  technicalNotes?: string | null;
 }
 
-export function mergeFactsPrompt(existingFacts: string | null, newFact: string, language: string): string {
-  return templates.mergeFacts({
-    existingFacts: existingFacts || null,
-    newFact,
-    languageName: langName(language),
-  });
-}
-
-export function projectOverviewPrompt(
-  facts: string | null,
-  videoAnalyses: { videoId: number; filename: string; overview: string; location: string | null; timeOfDay: string | null }[],
-  language: string,
-): string {
-  return templates.projectOverview({
-    facts: facts || null,
-    videoAnalyses,
-    languageName: langName(language),
-  });
-}
-
-export function storySystemPrompt(language: string, overlayLanguages: string[], agentInstructions?: string | null): string {
-  return templates.storySystem({
-    languageName: langName(language),
-    overlayLanguageInstruction: formatOverlayLanguageInstruction(overlayLanguages),
-    agentInstructions: agentInstructions || null,
-  });
-}
-
-export function storyContextPrompt(
-  videoAnalyses: { videoId: number; filename: string; summary: string }[],
-  facts: string | null,
-  options?: {
-    storyline?: string;
-    timelineItems?: string | null;
-    styleReference?: string | null;
-    musicAnalyses?: { musicId: number; filename: string; summary: string }[];
-  },
-): string {
-  const opts = options ?? {};
-  return templates.storyContext({
-    videoAnalyses,
-    facts: facts || null,
-    storyline: opts.storyline || null,
-    timelineItems: opts.timelineItems || null,
-    styleReference: opts.styleReference || null,
-    musicAnalyses: opts.musicAnalyses && opts.musicAnalyses.length > 0 ? opts.musicAnalyses : null,
-  });
+export interface MusicAnalysisData {
+  musicId: number;
+  filename: string;
+  overview: string;
+  segments: { startTime: string; endTime: string; description: string }[];
 }

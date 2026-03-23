@@ -4,10 +4,7 @@ export const VideoSegmentSchema = z.object({
   startTime: z.string(),
   endTime: z.string(),
   description: z.string(),
-  tags: z.array(z.string()),
-  mood: z.string(),
-  quality: z.enum(['high', 'medium', 'low']),
-  hasSpeech: z.boolean(),
+  qualityNotes: z.string().optional(),
   speechContent: z.string().optional(),
 });
 
@@ -15,7 +12,6 @@ export const VideoAnalysisSchema = z.object({
   overview: z.string(),
   location: z.string().optional(),
   timeOfDay: z.string().optional(),
-  mainSubjects: z.array(z.string()),
   segments: z.array(VideoSegmentSchema),
   highlights: z.array(
     z.object({

@@ -5,9 +5,8 @@ import { parse as parseYaml } from 'yaml';
 import { ProjectConfigSchema, type ProjectConfig } from '../schemas/project.js';
 import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
-import type { InferSelectModel } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { stories, videos, videoAnalyses, music, musicAnalyses } from '../db/schema.js';
+import { stories, videos, music } from '../db/schema.js';
 import { expandTimeline, type TimelineItem } from '../schemas/timeline-items.js';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
 
@@ -103,17 +102,6 @@ export function getMusicFilename(filepath: string): string {
   return basename(filepath);
 }
 
-type MusicAnalysisRow = InferSelectModel<typeof musicAnalyses>;
-
-export function serializeMusicAnalysis(row: MusicAnalysisRow): string {
-  return JSON.stringify({
-    overview: row.overview,
-    segments: JSON.parse(row.segments),
-  });
-}
-
-type VideoAnalysisRow = InferSelectModel<typeof videoAnalyses>;
-
 /**
  * Load timelines from the database, expanding raw TimelineItems into ExpandedTimeline format.
  * If name is given, loads that single story; otherwise loads all stories with timelines.
@@ -155,13 +143,3 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   });
 }
 
-export function serializeVideoAnalysis(row: VideoAnalysisRow): string {
-  return JSON.stringify({
-    overview: row.overview,
-    location: row.location,
-    timeOfDay: row.timeOfDay,
-    segments: JSON.parse(row.segments),
-    highlights: JSON.parse(row.highlights),
-    technicalNotes: row.technicalNotes,
-  });
-}

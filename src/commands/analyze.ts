@@ -7,7 +7,7 @@ import { videos, videoAnalyses, projectContext } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { existsSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
-import { videoAnalysisPrompt, mergeFactsPrompt, projectOverviewPrompt } from '../prompts/index.js';
+import { renderPrompt } from '../prompts/index.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { syncAndAnalyzeVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
 import { syncAndAnalyzeMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
@@ -54,7 +54,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
   if (options.addFact) {
     const existing = db.select().from(projectContext).get();
-    const prompt = mergeFactsPrompt(existing?.facts ?? null, options.addFact, config.language);
+    const prompt = renderPrompt('merge-facts', { existingFacts: existing?.facts ?? null, newFact: options.addFact, language: config.language });
 
     const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
@@ -116,7 +116,7 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       return;
     }
 
-    const prompt = projectOverviewPrompt(existing?.facts ?? null, allAnalyses, config.language);
+    const prompt = renderPrompt('project-overview', { facts: existing?.facts ?? null, videoAnalyses: allAnalyses, language: config.language });
     const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Generating project overview...').start();

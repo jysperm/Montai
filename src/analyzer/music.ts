@@ -8,7 +8,7 @@ import { getAudioMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { extname } from 'path';
 import { uploadMusicToGemini } from '../gemini/upload.js';
-import { musicAnalysisPrompt } from '../prompts/index.js';
+import { renderPrompt } from '../prompts/index.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
 import { AsyncQueue, assertComplete, getTextContent, extractJson, formatDuration, formatCost } from './utils.js';
@@ -234,7 +234,7 @@ export async function syncAndAnalyzeMusic(
       };
 
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      const analysisPrompt = musicAnalysisPrompt(config.language, agentInstructions);
+      const analysisPrompt = renderPrompt('analyze-music', { language: config.language, agentInstructions: agentInstructions ?? null });
 
       const messages: Message[] = [
         {

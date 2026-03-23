@@ -28,7 +28,7 @@ Creating a new video edit from source footage.
 
 {{#each videoAnalyses}}
 --- Video ID {{this.videoId}} ({{this.filename}}) ---
-{{this.summary}}
+{{> video-analysis this}}
 
 {{/each}}
 {{#if musicAnalyses}}
@@ -36,7 +36,7 @@ Creating a new video edit from source footage.
 
 {{#each musicAnalyses}}
 --- Music ID {{this.musicId}} ({{this.filename}}) ---
-{{this.summary}}
+{{> music-analysis this}}
 
 {{/each}}
 {{/if}}

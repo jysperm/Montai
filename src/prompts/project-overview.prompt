@@ -21,4 +21,4 @@ Generate a project overview that synthesizes the information above. Cover:
 - Time span and progression
 
 Output a Markdown bullet list only (each line starts with "- "). Do not add a heading.
-Write in {{languageName}}.
+Write in {{langName language}}.

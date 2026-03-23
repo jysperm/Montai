@@ -3,9 +3,8 @@ import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
 import { stories, type videoAnalyses, type music, type musicAnalyses } from '../db/schema.js';
-import { langName } from '../prompts/index.js';
+import { renderPrompt, type VideoAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
-import { serializeVideoAnalysis } from '../utils/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import {
@@ -21,6 +20,8 @@ const MAX_VIDEO_FILES_PER_TURN = 10;
 export interface StoryToolsContext {
   db: MontaiDb;
   config: ProjectConfig;
+  languageName: string;
+  overlayLanguageNames: string;
   allVideos: { id: number; path: string; filename: string }[];
   allVideoAnalyses: (typeof videoAnalyses.$inferSelect)[];
   allMusic: (typeof music.$inferSelect)[];
@@ -36,11 +37,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const updateStorylineTool = {
     name: 'updateStoryline',
     label: 'Update Storyline',
-    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${langName(ctx.config.language)}.`,
+    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${ctx.languageName}.`,
     parameters: Type.Object({
       name: Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival")' }),
-      title: Type.String({ description: `Human-readable title for the video, in ${langName(ctx.config.language)}` }),
-      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${langName(ctx.config.language)}` }),
+      title: Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}` }),
+      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${ctx.languageName}` }),
     }),
     async execute(
       _toolCallId: string,
@@ -92,7 +93,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const updateTimelineTool = {
     name: 'updateTimeline',
     label: 'Update Timeline',
-    description: `Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement. Overlay text must be in ${ctx.config.effects.languages.map(langName).join(' and ')}.`,
+    description: `Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement. Overlay text must be in ${ctx.overlayLanguageNames}.`,
     parameters: Type.Object({
       index: Type.Number({ description: 'Position to start modifying' }),
       deleteCount: Type.Number({ description: 'Number of items to remove (-1 = all from index)' }),
@@ -225,10 +226,20 @@ export function getStoryTools(ctx: StoryToolsContext) {
       params: { videoId: number },
     ) {
       const analysis = ctx.allVideoAnalyses.find((s) => s.videoId === params.videoId);
+      const video = ctx.allVideos.find((v) => v.id === params.videoId);
       const textContent: TextContent = {
         type: 'text' as const,
         text: analysis
-          ? `Analysis for video ${params.videoId}:\n${serializeVideoAnalysis(analysis)}`
+          ? `Analysis for video ${params.videoId}:\n${renderPrompt('video-analysis', {
+              videoId: params.videoId,
+              filename: video?.filename ?? 'unknown',
+              overview: analysis.overview,
+              location: analysis.location,
+              timeOfDay: analysis.timeOfDay,
+              segments: JSON.parse(analysis.segments),
+              highlights: JSON.parse(analysis.highlights),
+              technicalNotes: analysis.technicalNotes,
+            } satisfies VideoAnalysisData).trim()}`
           : `No analysis found for video ${params.videoId}`,
       };
       return { content: [textContent], details: {} };
