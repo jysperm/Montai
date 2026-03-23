@@ -6,7 +6,7 @@ import { music, musicAnalyses } from '../db/schema.js';
 import { resolveMusicFiles, getMusicFilename, readProjectFile } from '../utils/project.js';
 import { getAudioMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
-import { extname } from 'path';
+import { extname, resolve, basename } from 'path';
 import { uploadMusicToGemini } from '../gemini/upload.js';
 import { renderPrompt } from '../prompts/index.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
@@ -24,11 +24,21 @@ const mimeTypeMap: Record<string, string> = {
 };
 
 export function showMusicAnalysis(db: MontaiDb, filename: string): void {
-  const track = db
+  // First try matching by filename (basename)
+  let track = db
     .select()
     .from(music)
-    .where(eq(music.filename, filename))
+    .where(eq(music.filename, basename(filename)))
     .get();
+  // If no match, try resolving as a path
+  if (!track) {
+    const resolvedPath = resolve(filename);
+    track = db
+      .select()
+      .from(music)
+      .where(eq(music.path, resolvedPath))
+      .get();
+  }
 
   if (!track) {
     console.log(chalk.red(`Music "${filename}" not found.`));
@@ -156,11 +166,21 @@ export async function syncAndAnalyzeMusic(
   let musicToAnalyze;
 
   if (options?.reRun) {
+    // First try matching by filename (basename)
     musicToAnalyze = db
       .select({ id: music.id, filename: music.filename, path: music.path })
       .from(music)
-      .where(eq(music.filename, options.reRun))
+      .where(eq(music.filename, basename(options.reRun)))
       .all();
+    // If no match, try resolving as a path
+    if (musicToAnalyze.length === 0) {
+      const resolvedPath = resolve(options.reRun);
+      musicToAnalyze = db
+        .select({ id: music.id, filename: music.filename, path: music.path })
+        .from(music)
+        .where(eq(music.path, resolvedPath))
+        .all();
+    }
     if (musicToAnalyze.length === 0) {
       console.log(chalk.red(`Music "${options.reRun}" not found.`));
       return { totalCost: 0 };

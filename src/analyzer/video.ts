@@ -7,6 +7,7 @@ import { resolveVideoFiles, getVideoFilename, readProjectFile } from '../utils/p
 import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { statSync } from 'fs';
+import { resolve, basename } from 'path';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { renderPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -42,11 +43,21 @@ function parseTimeToSeconds(time: string): number {
 }
 
 export function showVideoAnalysis(db: MontaiDb, filename: string): void {
-  const video = db
+  // First try matching by filename (basename)
+  let video = db
     .select()
     .from(videos)
-    .where(eq(videos.filename, filename))
+    .where(eq(videos.filename, basename(filename)))
     .get();
+  // If no match, try resolving as a path
+  if (!video) {
+    const resolvedPath = resolve(filename);
+    video = db
+      .select()
+      .from(videos)
+      .where(eq(videos.path, resolvedPath))
+      .get();
+  }
 
   if (!video) {
     console.log(chalk.red(`Video "${filename}" not found.`));
@@ -252,11 +263,21 @@ export async function syncAndAnalyzeVideos(
   let videosToAnalyze;
 
   if (options?.reRun) {
+    // First try matching by filename (basename)
     videosToAnalyze = db
       .select()
       .from(videos)
-      .where(eq(videos.filename, options.reRun))
+      .where(eq(videos.filename, basename(options.reRun)))
       .all();
+    // If no match, try resolving as a path
+    if (videosToAnalyze.length === 0) {
+      const resolvedPath = resolve(options.reRun);
+      videosToAnalyze = db
+        .select()
+        .from(videos)
+        .where(eq(videos.path, resolvedPath))
+        .all();
+    }
     if (videosToAnalyze.length === 0) {
       console.log(chalk.red(`Video "${options.reRun}" not found.`));
       return { totalCost: 0 };
