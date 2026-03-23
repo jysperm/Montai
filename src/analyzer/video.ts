@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { videos, videoSummaries, projectContext } from '../db/schema.js';
+import { videos, videoAnalyses, projectContext } from '../db/schema.js';
 import { resolveVideoFiles, getVideoFilename, readProjectFile } from '../utils/project.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
@@ -41,7 +41,7 @@ function parseTimeToSeconds(time: string): number {
   return parts[0] ?? 0;
 }
 
-export function showVideoSummary(db: MontaiDb, filename: string): void {
+export function showVideoAnalysis(db: MontaiDb, filename: string): void {
   const video = db
     .select()
     .from(videos)
@@ -53,13 +53,13 @@ export function showVideoSummary(db: MontaiDb, filename: string): void {
     return;
   }
 
-  const summary = db
+  const analysis = db
     .select()
-    .from(videoSummaries)
-    .where(eq(videoSummaries.videoId, video.id))
+    .from(videoAnalyses)
+    .where(eq(videoAnalyses.videoId, video.id))
     .get();
 
-  if (!summary) {
+  if (!analysis) {
     console.log(chalk.yellow(`Video "${filename}" has not been analyzed yet.`));
     return;
   }
@@ -67,14 +67,14 @@ export function showVideoSummary(db: MontaiDb, filename: string): void {
   console.log(chalk.cyan(`\n${video.filename}`) + chalk.dim(` (ID: ${video.id}${video.durationSeconds ? `, ${video.durationSeconds}s` : ''})`));
 
   console.log(`\n${chalk.bold('Overview')}`);
-  console.log(summary.overview);
+  console.log(analysis.overview);
 
-  if (summary.location || summary.timeOfDay) {
-    const parts = [summary.location, summary.timeOfDay].filter(Boolean);
+  if (analysis.location || analysis.timeOfDay) {
+    const parts = [analysis.location, analysis.timeOfDay].filter(Boolean);
     console.log(`\n${chalk.bold('Location / Time')}  ${parts.join(' · ')}`);
   }
 
-  const segments = JSON.parse(summary.segments) as Array<Record<string, string>>;
+  const segments = JSON.parse(analysis.segments) as Array<Record<string, string>>;
   if (segments.length > 0) {
     console.log(`\n${chalk.bold('Segments')}`);
     for (const seg of segments) {
@@ -88,7 +88,7 @@ export function showVideoSummary(db: MontaiDb, filename: string): void {
     }
   }
 
-  const highlights = JSON.parse(summary.highlights) as Array<Record<string, string>>;
+  const highlights = JSON.parse(analysis.highlights) as Array<Record<string, string>>;
   if (highlights.length > 0) {
     console.log(`\n${chalk.bold('Highlights')}`);
     for (const hl of highlights) {
@@ -96,9 +96,9 @@ export function showVideoSummary(db: MontaiDb, filename: string): void {
     }
   }
 
-  if (summary.technicalNotes) {
+  if (analysis.technicalNotes) {
     console.log(`\n${chalk.bold('Technical Notes')}`);
-    console.log(`  ${summary.technicalNotes}`);
+    console.log(`  ${analysis.technicalNotes}`);
   }
 
   console.log();
@@ -120,23 +120,23 @@ export function listVideos(db: MontaiDb): void {
 
     console.log(chalk.cyan(`${video.id}. ${video.filename}`) + (meta.length ? chalk.dim(` (${meta.join(', ')})`) : ''));
 
-    const summary = db
+    const analysis = db
       .select()
-      .from(videoSummaries)
-      .where(eq(videoSummaries.videoId, video.id))
+      .from(videoAnalyses)
+      .where(eq(videoAnalyses.videoId, video.id))
       .get();
 
-    if (!summary) {
+    if (!analysis) {
       console.log(chalk.dim('   (not analyzed)\n'));
       continue;
     }
 
     const tags: string[] = [];
 
-    if (summary.timeOfDay) tags.push(summary.timeOfDay);
+    if (analysis.timeOfDay) tags.push(analysis.timeOfDay);
 
     if (video.durationSeconds) {
-      const highlights = JSON.parse(summary.highlights) as Array<{ startTime: string; endTime: string }>;
+      const highlights = JSON.parse(analysis.highlights) as Array<{ startTime: string; endTime: string }>;
       if (highlights.length > 0) {
         let highlightSeconds = 0;
         for (const hl of highlights) {
@@ -151,7 +151,7 @@ export function listVideos(db: MontaiDb): void {
       console.log(`   ${tags.join(chalk.dim(' | '))}`);
     }
 
-    console.log(chalk.dim(`   ${summary.overview.replace(/\n/g, ' ')}`));
+    console.log(chalk.dim(`   ${analysis.overview.replace(/\n/g, ' ')}`));
     console.log();
   }
 }
@@ -265,8 +265,8 @@ export async function syncAndAnalyzeVideos(
     videosToAnalyze = db
       .select({ id: videos.id, filename: videos.filename, path: videos.path, md5: videos.md5, durationSeconds: videos.durationSeconds })
       .from(videos)
-      .leftJoin(videoSummaries, eq(videos.id, videoSummaries.videoId))
-      .where(isNull(videoSummaries.id))
+      .leftJoin(videoAnalyses, eq(videos.id, videoAnalyses.videoId))
+      .where(isNull(videoAnalyses.id))
       .orderBy(asc(videos.filename))
       .all();
   }
@@ -353,7 +353,7 @@ export async function syncAndAnalyzeVideos(
         parsedAnalysis = { overview: analysisText };
       }
 
-      const summaryFields = {
+      const analysisFields = {
         overview: String(parsedAnalysis.overview ?? ''),
         location: parsedAnalysis.location ? String(parsedAnalysis.location) : null,
         timeOfDay: parsedAnalysis.timeOfDay ? String(parsedAnalysis.timeOfDay) : null,
@@ -362,20 +362,20 @@ export async function syncAndAnalyzeVideos(
         technicalNotes: parsedAnalysis.technicalNotes ? String(parsedAnalysis.technicalNotes) : null,
       };
 
-      const existingSummary = db
+      const existingAnalysis = db
         .select()
-        .from(videoSummaries)
-        .where(eq(videoSummaries.videoId, video.id))
+        .from(videoAnalyses)
+        .where(eq(videoAnalyses.videoId, video.id))
         .get();
 
-      if (existingSummary) {
-        db.update(videoSummaries)
-          .set(summaryFields)
-          .where(eq(videoSummaries.videoId, video.id))
+      if (existingAnalysis) {
+        db.update(videoAnalyses)
+          .set(analysisFields)
+          .where(eq(videoAnalyses.videoId, video.id))
           .run();
       } else {
-        db.insert(videoSummaries)
-          .values({ videoId: video.id, ...summaryFields })
+        db.insert(videoAnalyses)
+          .values({ videoId: video.id, ...analysisFields })
           .run();
       }
 

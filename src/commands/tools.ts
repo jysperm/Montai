@@ -2,10 +2,10 @@ import { eq } from 'drizzle-orm';
 import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
-import { stories, type videoSummaries, type music, type musicSummaries } from '../db/schema.js';
+import { stories, type videoAnalyses, type music, type musicAnalyses } from '../db/schema.js';
 import { langName } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
-import { serializeVideoSummary } from '../utils/project.js';
+import { serializeVideoAnalysis } from '../utils/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import {
@@ -22,9 +22,9 @@ export interface StoryToolsContext {
   db: MontaiDb;
   config: ProjectConfig;
   allVideos: { id: number; path: string; filename: string }[];
-  allSummaries: (typeof videoSummaries.$inferSelect)[];
+  allVideoAnalyses: (typeof videoAnalyses.$inferSelect)[];
   allMusic: (typeof music.$inferSelect)[];
-  allMusicSummaries: (typeof musicSummaries.$inferSelect)[];
+  allMusicAnalyses: (typeof musicAnalyses.$inferSelect)[];
   currentStoryId: number | null;
   currentStoryName: string | null;
   currentItems: TimelineItem[];
@@ -213,10 +213,10 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
-  const getVideoSummaryTool = {
-    name: 'getVideoSummary',
-    label: 'Get Video Summary',
-    description: 'Retrieve the stored analysis summary for a video.',
+  const getVideoAnalysisTool = {
+    name: 'getVideoAnalysis',
+    label: 'Get Video Analysis',
+    description: 'Retrieve the stored analysis for a video.',
     parameters: Type.Object({
       videoId: Type.Number({ description: 'The video ID' }),
     }),
@@ -224,18 +224,18 @@ export function getStoryTools(ctx: StoryToolsContext) {
       _toolCallId: string,
       params: { videoId: number },
     ) {
-      const summary = ctx.allSummaries.find((s) => s.videoId === params.videoId);
+      const analysis = ctx.allVideoAnalyses.find((s) => s.videoId === params.videoId);
       const textContent: TextContent = {
         type: 'text' as const,
-        text: summary
-          ? `Summary for video ${params.videoId}:\n${serializeVideoSummary(summary)}`
-          : `No summary found for video ${params.videoId}`,
+        text: analysis
+          ? `Analysis for video ${params.videoId}:\n${serializeVideoAnalysis(analysis)}`
+          : `No analysis found for video ${params.videoId}`,
       };
       return { content: [textContent], details: {} };
     },
   };
 
-  const tools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoSummaryTool];
+  const tools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool];
 
   return {
     tools,

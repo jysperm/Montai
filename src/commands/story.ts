@@ -7,13 +7,13 @@ import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-
 import { initDb } from '../db/index.js';
 import {
   videos,
-  videoSummaries,
+  videoAnalyses,
   projectContext,
   stories,
   music,
-  musicSummaries,
+  musicAnalyses,
 } from '../db/schema.js';
-import { loadProjectConfig, serializeVideoSummary, serializeMusicSummary, readProjectFile } from '../utils/project.js';
+import { loadProjectConfig, serializeVideoAnalysis, serializeMusicAnalysis, readProjectFile } from '../utils/project.js';
 import {
   storySystemPrompt,
   storyContextPrompt,
@@ -104,31 +104,31 @@ export async function storyCommand(
 
   // Load video data
   const allVideos = db.select().from(videos).all();
-  const allSummaries = db.select().from(videoSummaries).all();
+  const allVideoAnalyses = db.select().from(videoAnalyses).all();
 
-  if (allSummaries.length === 0) {
-    console.log(chalk.red('No video summaries found. Run "montai analyze" first.'));
+  if (allVideoAnalyses.length === 0) {
+    console.log(chalk.red('No video analyses found. Run "montai analyze" first.'));
     return;
   }
 
-  const videoSummaryData = allSummaries.map((s) => {
+  const videoAnalysisData = allVideoAnalyses.map((s) => {
     const video = allVideos.find((v) => v.id === s.videoId);
     return {
       videoId: s.videoId,
       filename: video?.filename ?? 'unknown',
-      summary: serializeVideoSummary(s),
+      summary: serializeVideoAnalysis(s),
     };
   });
 
   // Load music data
   const allMusic = db.select().from(music).all();
-  const allMusicSummaries = db.select().from(musicSummaries).all();
-  const musicSummaryData = allMusicSummaries.map((s) => {
+  const allMusicAnalyses = db.select().from(musicAnalyses).all();
+  const musicAnalysisData = allMusicAnalyses.map((s) => {
     const track = allMusic.find((m) => m.id === s.musicId);
     return {
       musicId: s.musicId,
       filename: track?.filename ?? 'unknown',
-      summary: serializeMusicSummary(s),
+      summary: serializeMusicAnalysis(s),
     };
   });
 
@@ -172,9 +172,9 @@ export async function storyCommand(
     db,
     config,
     allVideos,
-    allSummaries,
+    allVideoAnalyses,
     allMusic,
-    allMusicSummaries,
+    allMusicAnalyses,
     currentStoryId: story?.id ?? null,
     currentStoryName: story?.name ?? null,
     currentItems: [] as TimelineItem[],
@@ -286,7 +286,7 @@ export async function storyCommand(
               console.log(`  ${check} ${toolLabel}: ${summary}`);
               break;
             }
-            case 'getVideoSummary': {
+            case 'getVideoAnalysis': {
               const videoId = lastToolArgs.videoId as number;
               console.log(`  ${check} ${toolLabel}: video ${videoId}`);
               break;
@@ -356,11 +356,11 @@ export async function storyCommand(
   process.on('unhandledRejection', rejectionHandler);
 
   // Build context prompt (project info only, no instructions)
-  const contextMessage = storyContextPrompt(videoSummaryData, facts, {
+  const contextMessage = storyContextPrompt(videoAnalysisData, facts, {
     storyline: story?.storyline ?? undefined,
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
     styleReference,
-    musicSummaries: musicSummaryData,
+    musicAnalyses: musicAnalysisData,
   });
 
   // Helper to run agent and display response, catching errors

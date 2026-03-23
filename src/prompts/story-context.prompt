@@ -24,17 +24,17 @@ Creating a new video edit from source footage.
 ```
 
 {{/if}}
-## Video Summaries
+## Video Analyses
 
-{{#each videoSummaries}}
+{{#each videoAnalyses}}
 --- Video ID {{this.videoId}} ({{this.filename}}) ---
 {{this.summary}}
 
 {{/each}}
-{{#if musicSummaries}}
+{{#if musicAnalyses}}
 ## Music Library
 
-{{#each musicSummaries}}
+{{#each musicAnalyses}}
 --- Music ID {{this.musicId}} ({{this.filename}}) ---
 {{this.summary}}
 

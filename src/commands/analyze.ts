@@ -3,14 +3,14 @@ import ora from 'ora';
 import * as readline from 'readline';
 import { asc, eq } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
-import { videos, videoSummaries, projectContext } from '../db/schema.js';
+import { videos, videoAnalyses, projectContext } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { existsSync, writeFileSync } from 'fs';
 import { resolve } from 'path';
 import { videoAnalysisPrompt, mergeFactsPrompt, projectOverviewPrompt } from '../prompts/index.js';
 import { getModel } from '@mariozechner/pi-ai';
-import { syncAndAnalyzeVideos, showVideoSummary, listVideos } from '../analyzer/video.js';
-import { syncAndAnalyzeMusic, showMusicSummary, listMusic } from '../analyzer/music.js';
+import { syncAndAnalyzeVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
+import { syncAndAnalyzeMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
 import { assertComplete, getTextContent, formatCost } from '../analyzer/utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
 
@@ -98,25 +98,25 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
       return;
     }
 
-    const allSummaries = db
+    const allAnalyses = db
       .select({
-        videoId: videoSummaries.videoId,
+        videoId: videoAnalyses.videoId,
         filename: videos.filename,
-        overview: videoSummaries.overview,
-        location: videoSummaries.location,
-        timeOfDay: videoSummaries.timeOfDay,
+        overview: videoAnalyses.overview,
+        location: videoAnalyses.location,
+        timeOfDay: videoAnalyses.timeOfDay,
       })
-      .from(videoSummaries)
-      .innerJoin(videos, eq(videoSummaries.videoId, videos.id))
+      .from(videoAnalyses)
+      .innerJoin(videos, eq(videoAnalyses.videoId, videos.id))
       .orderBy(asc(videos.filename))
       .all();
 
-    if (allSummaries.length === 0) {
-      console.log(chalk.yellow('No video summaries yet. Run `montai analyze` first.'));
+    if (allAnalyses.length === 0) {
+      console.log(chalk.yellow('No video analyses yet. Run `montai analyze` first.'));
       return;
     }
 
-    const prompt = projectOverviewPrompt(existing?.facts ?? null, allSummaries, config.language);
+    const prompt = projectOverviewPrompt(existing?.facts ?? null, allAnalyses, config.language);
     const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
     const spinner = ora('Generating project overview...').start();
@@ -151,8 +151,8 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
   }
 
   if (options.show) {
-    showVideoSummary(db, options.show);
-    showMusicSummary(db, options.show);
+    showVideoAnalysis(db, options.show);
+    showMusicAnalysis(db, options.show);
     return;
   }
 

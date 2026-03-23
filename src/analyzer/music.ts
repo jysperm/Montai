@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { music, musicSummaries } from '../db/schema.js';
+import { music, musicAnalyses } from '../db/schema.js';
 import { resolveMusicFiles, getMusicFilename, readProjectFile } from '../utils/project.js';
 import { getAudioMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
@@ -23,7 +23,7 @@ const mimeTypeMap: Record<string, string> = {
   '.ogg': 'audio/ogg',
 };
 
-export function showMusicSummary(db: MontaiDb, filename: string): void {
+export function showMusicAnalysis(db: MontaiDb, filename: string): void {
   const track = db
     .select()
     .from(music)
@@ -35,13 +35,13 @@ export function showMusicSummary(db: MontaiDb, filename: string): void {
     return;
   }
 
-  const summary = db
+  const analysis = db
     .select()
-    .from(musicSummaries)
-    .where(eq(musicSummaries.musicId, track.id))
+    .from(musicAnalyses)
+    .where(eq(musicAnalyses.musicId, track.id))
     .get();
 
-  if (!summary) {
+  if (!analysis) {
     console.log(chalk.yellow(`Music "${filename}" has not been analyzed yet.`));
     return;
   }
@@ -49,9 +49,9 @@ export function showMusicSummary(db: MontaiDb, filename: string): void {
   console.log(chalk.cyan(`\n${track.filename}`) + chalk.dim(` (ID: ${track.id}${track.durationSeconds ? `, ${track.durationSeconds}s` : ''})`));
 
   console.log(`\n${chalk.bold('Overview')}`);
-  console.log(summary.overview);
+  console.log(analysis.overview);
 
-  const segments = JSON.parse(summary.segments) as Array<Record<string, string>>;
+  const segments = JSON.parse(analysis.segments) as Array<Record<string, string>>;
   if (segments.length > 0) {
     console.log(`\n${chalk.bold('Segments')}`);
     for (const seg of segments) {
@@ -78,18 +78,18 @@ export function listMusic(db: MontaiDb): void {
 
     console.log(chalk.cyan(`${track.id}. ${track.filename}`) + (meta.length ? chalk.dim(` (${meta.join(', ')})`) : ''));
 
-    const summary = db
+    const analysis = db
       .select()
-      .from(musicSummaries)
-      .where(eq(musicSummaries.musicId, track.id))
+      .from(musicAnalyses)
+      .where(eq(musicAnalyses.musicId, track.id))
       .get();
 
-    if (!summary) {
+    if (!analysis) {
       console.log(chalk.dim('   (not analyzed)\n'));
       continue;
     }
 
-    console.log(chalk.dim(`   ${summary.overview.replace(/\n/g, ' ')}`));
+    console.log(chalk.dim(`   ${analysis.overview.replace(/\n/g, ' ')}`));
     console.log();
   }
 }
@@ -165,16 +165,16 @@ export async function syncAndAnalyzeMusic(
       console.log(chalk.red(`Music "${options.reRun}" not found.`));
       return { totalCost: 0 };
     }
-    // Delete existing summaries so they get re-analyzed
+    // Delete existing analyses so they get re-analyzed
     for (const track of musicToAnalyze) {
-      db.delete(musicSummaries).where(eq(musicSummaries.musicId, track.id)).run();
+      db.delete(musicAnalyses).where(eq(musicAnalyses.musicId, track.id)).run();
     }
   } else {
     musicToAnalyze = db
       .select({ id: music.id, filename: music.filename, path: music.path })
       .from(music)
-      .leftJoin(musicSummaries, eq(music.id, musicSummaries.musicId))
-      .where(isNull(musicSummaries.id))
+      .leftJoin(musicAnalyses, eq(music.id, musicAnalyses.musicId))
+      .where(isNull(musicAnalyses.id))
       .orderBy(asc(music.filename))
       .all();
   }
@@ -257,7 +257,7 @@ export async function syncAndAnalyzeMusic(
         parsed = { overview: analysisText };
       }
 
-      db.insert(musicSummaries)
+      db.insert(musicAnalyses)
         .values({
           musicId: track.id,
           overview: String(parsed.overview ?? ''),

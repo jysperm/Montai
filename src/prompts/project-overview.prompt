@@ -5,8 +5,8 @@ Project Facts (provided by the user):
 {{{facts}}}
 
 {{/if}}
-Video Summaries:
-{{#each videoSummaries}}
+Video Analyses:
+{{#each videoAnalyses}}
 --- Video {{this.videoId}}: {{this.filename}} ---
 {{this.overview}}
 {{#if this.location}}Location: {{this.location}}{{/if}}

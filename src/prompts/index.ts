@@ -56,12 +56,12 @@ export function mergeFactsPrompt(existingFacts: string | null, newFact: string, 
 
 export function projectOverviewPrompt(
   facts: string | null,
-  videoSummaries: { videoId: number; filename: string; overview: string; location: string | null; timeOfDay: string | null }[],
+  videoAnalyses: { videoId: number; filename: string; overview: string; location: string | null; timeOfDay: string | null }[],
   language: string,
 ): string {
   return templates.projectOverview({
     facts: facts || null,
-    videoSummaries,
+    videoAnalyses,
     languageName: langName(language),
   });
 }
@@ -75,22 +75,22 @@ export function storySystemPrompt(language: string, overlayLanguages: string[], 
 }
 
 export function storyContextPrompt(
-  videoSummaries: { videoId: number; filename: string; summary: string }[],
+  videoAnalyses: { videoId: number; filename: string; summary: string }[],
   facts: string | null,
   options?: {
     storyline?: string;
     timelineItems?: string | null;
     styleReference?: string | null;
-    musicSummaries?: { musicId: number; filename: string; summary: string }[];
+    musicAnalyses?: { musicId: number; filename: string; summary: string }[];
   },
 ): string {
   const opts = options ?? {};
   return templates.storyContext({
-    videoSummaries,
+    videoAnalyses,
     facts: facts || null,
     storyline: opts.storyline || null,
     timelineItems: opts.timelineItems || null,
     styleReference: opts.styleReference || null,
-    musicSummaries: opts.musicSummaries && opts.musicSummaries.length > 0 ? opts.musicSummaries : null,
+    musicAnalyses: opts.musicAnalyses && opts.musicAnalyses.length > 0 ? opts.musicAnalyses : null,
   });
 }

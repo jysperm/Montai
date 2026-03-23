@@ -11,7 +11,7 @@ export const VideoSegmentSchema = z.object({
   speechContent: z.string().optional(),
 });
 
-export const VideoSummarySchema = z.object({
+export const VideoAnalysisSchema = z.object({
   overview: z.string(),
   location: z.string().optional(),
   timeOfDay: z.string().optional(),
@@ -28,4 +28,4 @@ export const VideoSummarySchema = z.object({
 });
 
 export type VideoSegment = z.infer<typeof VideoSegmentSchema>;
-export type VideoSummary = z.infer<typeof VideoSummarySchema>;
+export type VideoAnalysis = z.infer<typeof VideoAnalysisSchema>;

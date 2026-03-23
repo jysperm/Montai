@@ -20,7 +20,7 @@ export const videos = sqliteTable('videos', {
   startTimecode: text('start_timecode'),   // e.g. "15:03:38;24"
 });
 
-export const videoSummaries = sqliteTable('video_summaries', {
+export const videoAnalyses = sqliteTable('video_analyses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   videoId: integer('video_id')
     .notNull()
@@ -61,7 +61,7 @@ export const music = sqliteTable('music', {
   channels: integer('channels'),
 });
 
-export const musicSummaries = sqliteTable('music_summaries', {
+export const musicAnalyses = sqliteTable('music_analyses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   musicId: integer('music_id')
     .notNull()

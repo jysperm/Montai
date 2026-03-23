@@ -12,7 +12,7 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 - **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
 - **Dual output**: `export` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
 - **Static Remotion project**: The Remotion project lives inside Montai's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
-- **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storyline narratives). Only outputs that are consumed programmatically (e.g. VideoSummary, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
+- **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storyline narratives). Only outputs that are consumed programmatically (e.g. VideoAnalysis, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
 
 ### Historical Note
 
@@ -40,7 +40,7 @@ effects:
   languages: [zh, en]           # Subtitle / caption languages
 ```
 
-`language` controls the language used for all internal text: video analysis summaries, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
+`language` controls the language used for all internal text: video analyses, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
 Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
@@ -54,11 +54,11 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 
 ### Tables
 
-- **videos** — Discovered video files (whether analyzed is determined by joining video_summaries)
-- **video_summaries** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
+- **videos** — Discovered video files (whether analyzed is determined by joining video_analyses)
+- **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
 - **music** — Discovered music files (id, filename, path, md5, durationSeconds, sampleRate, channels)
-- **music_summaries** — Per-music LLM analysis results (overview, segments JSON)
-- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video summaries and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video summaries change.
+- **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
+- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video analyses and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video analyses change.
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **gemini_files** — Cached Gemini File API references for uploaded videos and music files (videoId or musicId, both nullable)
 
@@ -72,20 +72,20 @@ Runs a 3-stage concurrent pipeline for videos, followed by a 2-stage pipeline fo
 
 1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.montai/transcoded/` and reused until the source file changes.
 2. **Upload** — Upload transcoded video to LLM File API (or reuse cached ref if still active in `gemini_files` table).
-3. **Analyze** — Send video + prompt to get structured VideoSummary JSON, store in `video_summaries`. If project facts exist (from `--add-fact`), they are included as context in the analysis prompt.
+3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If project facts exist (from `--add-fact`), they are included as context in the analysis prompt.
 
 While video N is being analyzed, video N+1 can be uploading, and video N+2 can be transcoding.
 
 **Music pipeline** — simpler 2-stage pipelined pipeline (no transcoding needed):
 
 1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table with `musicId`).
-2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_summaries`.
+2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`.
 
 Additionally, `montai analyze --add-fact <text>` adds a user-provided fact to the project context. An LLM merges the new fact into the existing facts list, deduplicating and resolving contradictions.
 
-`montai analyze --project` shows an AI-generated project overview that synthesizes all video summaries and user facts into a bullet list describing what the project is about, key locations, people, themes, and time span. The overview is cached and automatically regenerated when facts or video summaries change.
+`montai analyze --project` shows an AI-generated project overview that synthesizes all video analyses and user facts into a bullet list describing what the project is about, key locations, people, themes, and time span. The overview is cached and automatically regenerated when facts or video analyses change.
 
-Supports resume: skips videos that already have a row in `video_summaries` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
+Supports resume: skips videos that already have a row in `video_analyses` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 
 ### 2. Story (`montai story [name]`)
 
@@ -95,7 +95,7 @@ Uses an agent loop with tools:
 - `updateStoryline(name, title, narrative)` — Save/update the storyline
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startSeconds, endSeconds)` — Watch a video segment
-- `getVideoSummary(videoId)` — Retrieve stored summary
+- `getVideoAnalysis(videoId)` — Retrieve stored analysis
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
