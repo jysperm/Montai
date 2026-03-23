@@ -11,6 +11,7 @@ import { transcodeForUpload } from '../utils/transcode.js';
 import {
   TimelineItemSchema,
   spliceTimelineItems,
+  sanitizeTimelineItems,
   type TimelineItem,
 } from '../schemas/timeline-items.js';
 import { z } from 'zod';
@@ -114,20 +115,8 @@ export function getStoryTools(ctx: StoryToolsContext) {
         }
       }
 
-      const allItems = spliceTimelineItems(ctx.currentItems, params.index, params.deleteCount, newItems);
-      const clipCount = allItems.filter((i) => i.type === 'clip').length;
-      for (const item of allItems) {
-        if (item.type === 'overlay') {
-          const endClip = item.endClip ?? item.startClip;
-          if (item.startClip >= clipCount || endClip >= clipCount) {
-            const errorText: TextContent = {
-              type: 'text' as const,
-              text: `Error: overlay "${item.text}" references clip index ${item.startClip}/${endClip} but there are only ${clipCount} clips (0-${clipCount - 1}). Fix the startClip/endClip values.`,
-            };
-            return { content: [errorText], details: {}, isError: true };
-          }
-        }
-      }
+      const splicedItems = spliceTimelineItems(ctx.currentItems, params.index, params.deleteCount, newItems);
+      const { items: allItems, corrections } = sanitizeTimelineItems(splicedItems);
 
       ctx.currentItems = allItems;
 
@@ -154,9 +143,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
       const audioCount = ctx.currentItems.filter((i) => i.type === 'audio').length;
       const parts = [`${finalClipCount} clips`, `${overlayCount} overlays`];
       if (audioCount > 0) parts.push(`${audioCount} audio`);
+      let resultText = `Timeline updated: ${ctx.currentItems.length} items (${parts.join(', ')})`;
+      if (corrections.length > 0) {
+        resultText += `\nCorrections applied:\n${corrections.map((c) => `- ${c}`).join('\n')}`;
+      }
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Timeline updated: ${ctx.currentItems.length} items (${parts.join(', ')})`,
+        text: resultText,
       };
       return { content: [textContent], details: {} };
     },

@@ -62,6 +62,13 @@ export function expandTimeline(
 ): ExpandedTimeline {
   const res = resolveResolution(config.output.resolution);
 
+  // Sanitize items before expansion
+  const { items: sanitizedItems, corrections } = sanitizeTimelineItems(items);
+  items = sanitizedItems;
+  if (corrections.length > 0) {
+    console.warn(`Timeline "${storyName}" sanitized:\n${corrections.map((c) => `  - ${c}`).join('\n')}`);
+  }
+
   // Extract clip items in order
   const clipItems = items.filter((item): item is ClipItem => item.type === 'clip');
 
@@ -107,11 +114,6 @@ export function expandTimeline(
       const startClipIdx = overlay.startClip;
       const endClipIdx = overlay.endClip ?? overlay.startClip;
 
-      if (startClipIdx >= clipItems.length || endClipIdx >= clipItems.length) {
-        console.warn(`Warning: overlay "${overlay.text}" references invalid clip index (startClip=${startClipIdx}, endClip=${endClipIdx}, total clips=${clipItems.length}), skipping`);
-        return null;
-      }
-
       // Resolve start time
       let startTime: number;
       if (overlay.startOffset >= 0) {
@@ -136,14 +138,13 @@ export function expandTimeline(
       }
 
       return {
-        text: overlay.text.replace(/\\n/g, '\n'),
+        text: overlay.text,
         startTimeSeconds: Math.max(0, startTime),
         endTimeSeconds: endTime,
         position: overlay.position,
         style: overlay.style,
       };
-    })
-    .filter((o): o is NonNullable<typeof o> => o !== null);
+    });
 
   // Build audio tracks from audio items
   const audioTracks = items
@@ -151,11 +152,6 @@ export function expandTimeline(
     .map((audio) => {
       const startClipIdx = audio.startClip;
       const endClipIdx = audio.endClip ?? audio.startClip;
-
-      if (startClipIdx >= clipItems.length || endClipIdx >= clipItems.length) {
-        console.warn(`Warning: audio item references invalid clip index (startClip=${startClipIdx}, endClip=${endClipIdx}, total clips=${clipItems.length}), skipping`);
-        return null;
-      }
 
       // Resolve start/end times (same logic as overlays)
       let startTime: number;
@@ -197,8 +193,7 @@ export function expandTimeline(
         fadeInSeconds: audio.fadeInSeconds,
         fadeOutSeconds: audio.fadeOutSeconds,
       };
-    })
-    .filter((a): a is NonNullable<typeof a> => a !== null);
+    });
 
   return {
     name: storyName,
@@ -210,6 +205,46 @@ export function expandTimeline(
     textOverlays,
     audioTracks,
   };
+}
+
+/**
+ * Post-process timeline items: fix common LLM errors and return corrections.
+ * Called after splice in updateTimeline, before writing to DB.
+ */
+export function sanitizeTimelineItems(
+  items: TimelineItem[],
+): { items: TimelineItem[]; corrections: string[] } {
+  const corrections: string[] = [];
+  const clipCount = items.filter((i) => i.type === 'clip').length;
+  const maxClipIndex = clipCount - 1;
+
+  for (const item of items) {
+    if (item.type === 'overlay' || item.type === 'audio') {
+      const label = item.type === 'overlay'
+        ? `Overlay "${item.text.slice(0, 30)}"`
+        : `Audio item${item.musicId ? ` (musicId=${item.musicId})` : ''}`;
+
+      // Clamp startClip
+      if (item.startClip > maxClipIndex) {
+        corrections.push(`${label}: startClip clamped from ${item.startClip} to ${maxClipIndex} (total clips: ${clipCount})`);
+        item.startClip = maxClipIndex;
+      }
+
+      // Clamp endClip
+      if (item.endClip !== undefined && item.endClip > maxClipIndex) {
+        corrections.push(`${label}: endClip clamped from ${item.endClip} to ${maxClipIndex} (total clips: ${clipCount})`);
+        item.endClip = maxClipIndex;
+      }
+    }
+
+    // Fix escaped newlines in overlay text
+    if (item.type === 'overlay' && item.text.includes('\\n')) {
+      corrections.push(`Overlay "${item.text.slice(0, 30)}": escaped \\\\n replaced with newline`);
+      item.text = item.text.replace(/\\n/g, '\n');
+    }
+  }
+
+  return { items, corrections };
 }
 
 /**
