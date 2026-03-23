@@ -9,7 +9,7 @@ import { exportCommand } from './commands/export.js';
 import { archiveCommand } from './commands/archive.js';
 
 function printFullHelp(program: Command) {
-  console.log(`${chalk.bold('montai')} — AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
+  console.log(`${chalk.bold('montai')} — AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
 
   function printCommands(commands: readonly Command[], indent: number) {
     const pad = ' '.repeat(indent);
@@ -40,7 +40,7 @@ const program = new Command();
 
 program
   .name('montai')
-  .description('AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs')
+  .description('AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs')
   .version('0.1.0')
   .addHelpCommand(false)
   .helpOption(false);

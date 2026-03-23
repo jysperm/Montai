@@ -16,14 +16,14 @@ Return a JSON object with this exact structure:
 {
   "overview": "Brief overall description of the video content",
   "location": "Where the video was filmed (if identifiable)",
-  "timeOfDay": "Approximate time of day (morning/afternoon/evening/night)",
+  "timeOfDay": "Approximate time of day (morning/afternoon/evening/night/indoor)",
   "segments": [
     {
       "startTime": "MM:SS",
       "endTime": "MM:SS",
       "description": "What happens in this segment",
-      "qualityNotes": "Notable technical issues if any (shaky, dark, overexposed, out of focus, etc.)",
-      "speechContent": "Brief transcription or description of speech if any"
+      "qualityNotes": "Notable technical issues (shaky, dark, overexposed, out of focus, subject obstruction, etc.), or empty string if none",
+      "speechContent": "Brief transcription of speech, or description of notable ambient sound, or empty string if none"
     }
   ],
   "highlights": [
@@ -35,6 +35,17 @@ Return a JSON object with this exact structure:
   ],
   "technicalNotes": "Any notable technical issues affecting the entire video"
 }
+
+## Writing style
+
+Write concise, factual descriptions. Focus on WHAT is in the frame (subjects, actions, events), not HOW it looks (colors, textures, visual impressions). Every word should help a video editor decide whether and where to cut.
+
+Rules:
+- Start descriptions directly with the content — never open with filler like "this video shows" or "this segment captures".
+- Do not include subjective or aesthetic commentary (e.g. "dreamlike", "adds a lively atmosphere", "真实体验"). Stick to observable facts.
+- Do not repeat information that belongs in other fields — e.g. time of day or location should not appear in the overview.
+- Write only in the specified language. Do not add translations or annotations in other languages.
+- technicalNotes is strictly for technical issues. Do not include subjective impressions.
 
 Be precise with timestamps. Identify all distinct segments, even brief ones. Mark highlights that would make good cuts for an edited vlog.
 {{#if agentInstructions}}

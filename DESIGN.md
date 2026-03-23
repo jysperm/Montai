@@ -1,6 +1,6 @@
 # Montai
 
-AI-powered tool that extracts storylines from unscripted footage and generates edited vlogs.
+AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs.
 
 ## Architecture Overview
 
