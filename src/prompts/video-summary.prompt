@@ -1,0 +1,13 @@
+Overview: {{{overview}}}
+{{#if location}}
+Location: {{location}}
+{{/if}}
+{{#if timeOfDay}}
+Time: {{timeOfDay}}
+{{/if}}
+{{#if highlights}}
+Highlights:
+{{#each highlights}}
+- {{this.startTime}}-{{this.endTime}}: {{this.reason}}
+{{/each}}
+{{/if}}

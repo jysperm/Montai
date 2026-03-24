@@ -26,17 +26,37 @@ Creating a new video edit from source footage.
 {{/if}}
 ## Video Analyses
 
-{{#each videoAnalyses}}
+{{#each fullVideoAnalyses}}
 --- Video ID {{this.videoId}} ({{this.filename}}) ---
 {{> video-analysis this}}
 
 {{/each}}
-{{#if musicAnalyses}}
+{{#if summaryVideoAnalyses}}
+### Other Videos (summary only)
+
+Segments, speech content, quality notes, and technical notes are omitted. Use `getVideoAnalysis` to retrieve full details.
+
+{{#each summaryVideoAnalyses}}
+--- Video ID {{this.videoId}} ({{this.filename}}) ---
+{{> video-summary this}}
+
+{{/each}}
+{{/if}}
 ## Music Library
 
-{{#each musicAnalyses}}
+{{#each fullMusicAnalyses}}
 --- Music ID {{this.musicId}} ({{this.filename}}) ---
 {{> music-analysis this}}
+
+{{/each}}
+{{#if summaryMusicAnalyses}}
+### Other Music (summary only)
+
+Segments are omitted. Use `getMusicAnalysis` to retrieve full details.
+
+{{#each summaryMusicAnalyses}}
+--- Music ID {{this.musicId}} ({{this.filename}}) ---
+{{> music-summary this}}
 
 {{/each}}
 {{/if}}

@@ -3,7 +3,7 @@ import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
 import { stories, type videoAnalyses, type music, type musicAnalyses } from '../db/schema.js';
-import { renderPrompt, type VideoAnalysisData } from '../prompts/index.js';
+import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -39,18 +39,28 @@ export function getStoryTools(ctx: StoryToolsContext) {
     label: 'Update Storyline',
     description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${ctx.languageName}.`,
     parameters: Type.Object({
-      name: Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival")' }),
+      name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Omit to keep the existing name' })),
       title: Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}` }),
       narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${ctx.languageName}` }),
     }),
     async execute(
       _toolCallId: string,
-      params: { name: string; title: string; narrative: string },
+      params: { name?: string; title: string; narrative: string },
     ) {
-      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(params.name)) {
+      const name = params.name ?? ctx.currentStoryName;
+
+      if (!name) {
         const errorText: TextContent = {
           type: 'text' as const,
-          text: `Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${params.name}"`,
+          text: 'Error: name is required when creating a new story.',
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
+      if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${name}"`,
         };
         return { content: [errorText], details: {}, isError: true };
       }
@@ -60,7 +70,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
       if (ctx.currentStoryId) {
         ctx.db.update(stories)
           .set({
-            name: params.name,
+            name,
             title: params.title,
             storyline: params.narrative,
             updatedAt: now,
@@ -70,7 +80,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
       } else {
         const result = ctx.db.insert(stories)
           .values({
-            name: params.name,
+            name,
             title: params.title,
             storyline: params.narrative,
             createdAt: now,
@@ -80,11 +90,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
           .get();
         ctx.currentStoryId = result.id;
       }
-      ctx.currentStoryName = params.name;
+      ctx.currentStoryName = name;
 
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Storyline saved: "${params.title}" (${params.name})`,
+        text: `Storyline saved: "${params.title}" (${name})`,
       };
       return { content: [textContent], details: {} };
     },
@@ -246,7 +256,35 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
-  const tools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool];
+  const getMusicAnalysisTool = {
+    name: 'getMusicAnalysis',
+    label: 'Get Music Analysis',
+    description: 'Retrieve the stored analysis for a music track.',
+    parameters: Type.Object({
+      musicId: Type.Number({ description: 'The music ID' }),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { musicId: number },
+    ) {
+      const analysis = ctx.allMusicAnalyses.find((s) => s.musicId === params.musicId);
+      const track = ctx.allMusic.find((m) => m.id === params.musicId);
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: analysis
+          ? `Analysis for music ${params.musicId}:\n${renderPrompt('music-analysis', {
+              musicId: params.musicId,
+              filename: track?.filename ?? 'unknown',
+              overview: analysis.overview,
+              segments: JSON.parse(analysis.segments),
+            } satisfies MusicAnalysisData).trim()}`
+          : `No analysis found for music ${params.musicId}`,
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
+  const tools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool];
 
   return {
     tools,
