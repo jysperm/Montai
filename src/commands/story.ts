@@ -300,6 +300,11 @@ export async function storyCommand(
               console.log(`  ${check} ${toolLabel}: video ${videoId}`);
               break;
             }
+            case 'getMusicAnalysis': {
+              const musicId = lastToolArgs.musicId as number;
+              console.log(`  ${check} ${toolLabel}: music ${musicId}`);
+              break;
+            }
             default:
               console.log(`  ${check} ${toolLabel}`);
           }
@@ -365,13 +370,39 @@ export async function storyCommand(
   process.on('unhandledRejection', rejectionHandler);
 
   // Build context prompt (project info only, no instructions)
+  // When timeline exists, split videos/music into referenced (full) and unreferenced (summary)
+  const hasTimeline = toolsCtx.currentItems.length > 0;
+  let fullVideoAnalyses = videoAnalysisData;
+  let summaryVideoAnalyses: typeof videoAnalysisData = [];
+  let fullMusicAnalyses = musicAnalysisData;
+  let summaryMusicAnalyses: typeof musicAnalysisData = [];
+
+  if (hasTimeline) {
+    const referencedVideoIds = new Set(
+      toolsCtx.currentItems.filter((i) => i.type === 'clip').map((i) => (i as { videoId: number }).videoId),
+    );
+    fullVideoAnalyses = videoAnalysisData.filter((v) => referencedVideoIds.has(v.videoId));
+    summaryVideoAnalyses = videoAnalysisData.filter((v) => !referencedVideoIds.has(v.videoId));
+
+    const hasAudioItems = toolsCtx.currentItems.some((i) => i.type === 'audio');
+    if (hasAudioItems) {
+      const referencedMusicIds = new Set(
+        toolsCtx.currentItems.filter((i) => i.type === 'audio').map((i) => (i as { musicId?: number }).musicId).filter((id): id is number => id != null),
+      );
+      fullMusicAnalyses = musicAnalysisData.filter((m) => referencedMusicIds.has(m.musicId));
+      summaryMusicAnalyses = musicAnalysisData.filter((m) => !referencedMusicIds.has(m.musicId));
+    }
+  }
+
   const contextMessage = renderPrompt('story-context', {
-    videoAnalyses: videoAnalysisData,
+    fullVideoAnalyses: fullVideoAnalyses.length > 0 ? fullVideoAnalyses : null,
+    summaryVideoAnalyses: summaryVideoAnalyses.length > 0 ? summaryVideoAnalyses : null,
     facts: facts ?? null,
     storyline: story?.storyline ?? null,
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
     styleReference: styleReference ?? null,
-    musicAnalyses: musicAnalysisData.length > 0 ? musicAnalysisData : null,
+    fullMusicAnalyses: fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,
+    summaryMusicAnalyses: summaryMusicAnalyses.length > 0 ? summaryMusicAnalyses : null,
   });
 
   // Helper to run agent and display response, catching errors
@@ -480,7 +511,10 @@ export async function storyCommand(
     }).join('  ');
   }
 
-  process.stdin.on('keypress', () => {
+  process.stdin.on('keypress', (_str: string, key: { name?: string }) => {
+    // Skip Enter — readline already consumed the line and cleared rl.line to '',
+    // which would incorrectly reset slashMode before the main loop checks it.
+    if (key && (key.name === 'return' || key.name === 'enter')) return;
     const line = rl.line;
     if (!slashMode && line.startsWith('/')) {
       slashMode = true;
