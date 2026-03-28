@@ -43,7 +43,7 @@ export function formatArchiveTime(seconds: number): string {
 export function remapToArchived(specs: ExpandedTimeline[]): ExpandedTimeline[] {
   const archiveDir = resolve(ARCHIVE_DIR);
   if (!existsSync(archiveDir)) {
-    console.error(chalk.red(`Error: ${ARCHIVE_DIR}/ directory not found.`));
+    console.log(chalk.red(`${ARCHIVE_DIR}/ directory not found.`));
     process.exit(1);
   }
 
@@ -61,7 +61,7 @@ export function remapToArchived(specs: ExpandedTimeline[]): ExpandedTimeline[] {
   }
 
   if (archives.length === 0) {
-    console.error(chalk.red(`Error: no archived video files found in ${ARCHIVE_DIR}/`));
+    console.log(chalk.red(`No archived video files found in ${ARCHIVE_DIR}/`));
     process.exit(1);
   }
 
@@ -76,7 +76,7 @@ export function remapToArchived(specs: ExpandedTimeline[]): ExpandedTimeline[] {
       );
 
       if (!archive) {
-        console.warn(chalk.yellow(
+        console.log(chalk.yellow(
           `Warning: no archived file covers clip ${clip.clipId} ` +
           `(${sourceFilename} ${clip.startTimeSeconds}s-${clip.endTimeSeconds}s)`
         ));

@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { z } from 'zod';
 import type { ProjectConfig } from './project.js';
 import { resolveResolution } from './project.js';
@@ -66,7 +67,7 @@ export function expandTimeline(
   const { items: sanitizedItems, corrections } = sanitizeTimelineItems(items);
   items = sanitizedItems;
   if (corrections.length > 0) {
-    console.warn(`Timeline "${storyName}" sanitized:\n${corrections.map((c) => `  - ${c}`).join('\n')}`);
+    console.log(chalk.yellow(`Timeline "${storyName}" sanitized:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
   }
 
   // Extract clip items in order
@@ -179,7 +180,7 @@ export function expandTimeline(
           // Warn if music duration is insufficient
           const neededDuration = (endTime - startTime) + audio.audioStartSeconds;
           if (musicFile.durationSeconds && neededDuration > musicFile.durationSeconds) {
-            console.warn(`Warning: music "${musicFile.path}" duration (${musicFile.durationSeconds}s) may be insufficient for audio item (needs ~${Math.round(neededDuration)}s)`);
+            console.log(chalk.yellow(`Warning: music "${musicFile.path}" duration (${musicFile.durationSeconds}s) may be insufficient for audio item (needs ~${Math.round(neededDuration)}s)`));
           }
         }
       }

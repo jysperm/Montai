@@ -15,24 +15,12 @@ import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
 import { AsyncQueue, assertComplete, getTextContent, extractJson, formatDuration, formatCost } from './utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
-
-function formatFileSize(bytes: number): string {
-  if (bytes < 1024) return `${bytes}B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)}KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)}MB`;
-}
+import { formatDuration as formatDurationHuman, formatFileSize } from '../utils/format.js';
 
 function formatCacheRate(usage: { input: number; cacheRead: number }): string | null {
   const total = usage.input + usage.cacheRead;
   if (total === 0 || usage.cacheRead === 0) return null;
   return `${Math.round((usage.cacheRead / total) * 100)}% cached`;
-}
-
-function formatDurationHuman(seconds: number): string {
-  const m = Math.floor(seconds / 60);
-  const s = seconds % 60;
-  if (m > 0) return `${m}m${s}s`;
-  return `${s}s`;
 }
 
 function parseTimeToSeconds(time: string): number {
@@ -119,7 +107,7 @@ export function listVideos(db: MontaiDb): void {
   const allVideos = db.select().from(videos).orderBy(asc(videos.filename)).all();
 
   if (allVideos.length === 0) {
-    console.log(chalk.yellow('No videos in database.'));
+    console.log(chalk.dim('No videos in database.'));
     return;
   }
 
@@ -175,11 +163,11 @@ export async function syncAndAnalyzeVideos(
 ): Promise<{ totalCost: number }> {
   const videoFiles = resolveVideoFiles(config);
   if (videoFiles.length === 0) {
-    console.log(chalk.red('No video files found. Check your montai.yaml paths.'));
+    console.log(chalk.red('No videos found. Check your montai.yaml paths.'));
     return { totalCost: 0 };
   }
 
-  console.log(chalk.blue(`Found ${videoFiles.length} video file(s)`));
+  console.log(chalk.blue(`Found ${videoFiles.length} video(s)`));
 
   // Sync discovered videos to database
   for (const filepath of videoFiles) {
@@ -293,7 +281,7 @@ export async function syncAndAnalyzeVideos(
   }
 
   if (videosToAnalyze.length === 0) {
-    console.log(chalk.green('All videos already analyzed. Use --re-run <filename> to re-analyze.'));
+    console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--re-run <filename>')} to re-analyze.`));
     return { totalCost: 0 };
   }
 

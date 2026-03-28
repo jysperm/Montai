@@ -29,8 +29,8 @@ function expandTilde(filepath: string): string {
 export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
   const resolvedPath = resolve(configPath);
   if (!existsSync(resolvedPath)) {
-    console.error(`Error: Config file not found: ${resolvedPath}`);
-    console.error('Run "montai analyze" to create a montai.yaml, or run this command from a Montai project directory.');
+    console.log(chalk.red(`Config file not found: ${resolvedPath}`));
+    console.log(`Run ${chalk.bold('montai analyze')} to create a montai.yaml, or run from a Montai project directory.`);
     process.exit(1);
   }
   const raw = readFileSync(resolvedPath, 'utf-8');
@@ -59,7 +59,7 @@ export function resolveVideoFiles(config: ProjectConfig): string[] {
         }
       }
     } catch {
-      console.warn(`Warning: could not access path: ${resolved}`);
+      console.log(chalk.yellow(`Warning: could not access path: ${resolved}`));
     }
   }
 
@@ -91,7 +91,7 @@ export function resolveMusicFiles(config: ProjectConfig): string[] {
         }
       }
     } catch {
-      console.warn(`Warning: could not access path: ${resolved}`);
+      console.log(chalk.yellow(`Warning: could not access path: ${resolved}`));
     }
   }
 
@@ -128,8 +128,8 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
     console.log(
       chalk.red(
         name
-          ? `Timeline "${name}" not found. Run "montai story" first.`
-          : 'No timelines found. Run "montai story" first.',
+          ? `Timeline "${name}" not found. Run ${chalk.bold('montai story')} first.`
+          : `No timelines found. Run ${chalk.bold('montai story')} first.`,
       ),
     );
     return null;

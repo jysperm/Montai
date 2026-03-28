@@ -76,7 +76,7 @@ export function listMusic(db: MontaiDb): void {
   const allMusic = db.select().from(music).orderBy(asc(music.filename)).all();
 
   if (allMusic.length === 0) {
-    console.log(chalk.yellow('No music in database.'));
+    console.log(chalk.dim('No music files in database.'));
     return;
   }
 
@@ -200,7 +200,7 @@ export async function syncAndAnalyzeMusic(
   }
 
   if (musicToAnalyze.length === 0) {
-    console.log(chalk.green('All music files already analyzed. Use --re-run <filename> to re-analyze.'));
+    console.log(chalk.green(`All music files already analyzed. Use ${chalk.bold('--re-run <filename>')} to re-analyze.`));
     return { totalCost: 0 };
   }
 

@@ -17,6 +17,8 @@ import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
 import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
+import { formatDuration, formatTimeAgo, countItemsByType, formatItemCounts } from '../utils/format.js';
+import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { getStoryTools } from './tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
@@ -28,45 +30,6 @@ function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
-}
-
-function formatDuration(seconds: number): string {
-  const totalSec = Math.round(seconds);
-  if (totalSec >= 60) {
-    const m = Math.floor(totalSec / 60);
-    const s = totalSec % 60;
-    return s > 0 ? `${m}m${s}s` : `${m}m`;
-  }
-  return `${totalSec}s`;
-}
-
-function formatTimeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days} day${days !== 1 ? 's' : ''} ago`;
-  if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-  if (minutes > 0) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-  return 'just now';
-}
-
-function countItemsByType(items: Array<{ type: string }>): { clips: number; overlays: number; audio: number } {
-  return {
-    clips: items.filter(i => i.type === 'clip').length,
-    overlays: items.filter(i => i.type === 'overlay').length,
-    audio: items.filter(i => i.type === 'audio').length,
-  };
-}
-
-function formatItemCounts(counts: { clips: number; overlays: number; audio: number }): string {
-  const parts: string[] = [];
-  if (counts.clips > 0) parts.push(`${counts.clips} clip${counts.clips !== 1 ? 's' : ''}`);
-  if (counts.overlays > 0) parts.push(`${counts.overlays} overlay${counts.overlays !== 1 ? 's' : ''}`);
-  if (counts.audio > 0) parts.push(`${counts.audio} audio`);
-  return parts.join(', ') || 'nothing';
 }
 
 export async function storyCommand(
@@ -82,7 +45,7 @@ export async function storyCommand(
   if (options.list) {
     const allStories = db.select().from(stories).orderBy(desc(stories.id)).all();
     if (allStories.length === 0) {
-      console.log(chalk.dim('No stories yet. Run "montai story" to create one.'));
+      console.log(chalk.dim(`No stories yet. Run ${chalk.reset.bold('montai story')} to create one.`));
     } else {
       for (const s of allStories) {
         let status: string;
@@ -104,7 +67,7 @@ export async function storyCommand(
   const allVideoAnalyses = db.select().from(videoAnalyses).all();
 
   if (allVideoAnalyses.length === 0) {
-    console.log(chalk.red('No video analyses found. Run "montai analyze" first.'));
+    console.log(chalk.red(`No video analyses found. Run ${chalk.bold('montai analyze')} first.`));
     return;
   }
 
@@ -597,7 +560,7 @@ export async function storyCommand(
 
   process.removeListener('unhandledRejection', rejectionHandler);
 
-  console.log(chalk.dim(`\nTotal cost: $${totalCost < 0.01 ? totalCost.toFixed(4) : totalCost.toFixed(2)}`));
+  console.log(chalk.dim(`\nTotal cost: ${formatCost(totalCost)}`));
 
   if (toolsCtx.currentStoryId) {
     const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();

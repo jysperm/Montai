@@ -1,3 +1,4 @@
+import chalk from 'chalk';
 import { mkdirSync, linkSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { resolve, basename } from 'path';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
@@ -23,8 +24,8 @@ export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[
       }
 
       if (!existsSync(absoluteSource)) {
-        console.error(`Error: Video file not found: ${absoluteSource}`);
-        console.error('The stored timeline may contain outdated paths. Try re-running "montai story" to regenerate the timeline.');
+        console.log(chalk.red(`Video file not found: ${absoluteSource}`));
+        console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
         process.exit(1);
       }
 
@@ -46,8 +47,8 @@ export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[
       }
 
       if (!existsSync(absoluteSource)) {
-        console.error(`Error: Audio file not found: ${absoluteSource}`);
-        console.error('The stored timeline may contain outdated paths. Try re-running "montai story" to regenerate the timeline.');
+        console.log(chalk.red(`Audio file not found: ${absoluteSource}`));
+        console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
         process.exit(1);
       }
 

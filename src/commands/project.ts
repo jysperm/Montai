@@ -9,22 +9,7 @@ import { renderPrompt } from '../prompts/index.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { assertComplete, getTextContent } from '../analyzer/utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
-
-function formatDuration(seconds: number): string {
-  const totalSec = Math.round(seconds);
-  const h = Math.floor(totalSec / 3600);
-  const m = Math.floor((totalSec % 3600) / 60);
-  const s = totalSec % 60;
-  if (h > 0) return s > 0 ? `${h}h${m}m${s}s` : m > 0 ? `${h}h${m}m` : `${h}h`;
-  if (m > 0) return s > 0 ? `${m}m${s}s` : `${m}m`;
-  return `${s}s`;
-}
-
-function formatBytes(bytes: number): string {
-  if (bytes >= 1e9) return `${(bytes / 1e9).toFixed(1)} GB`;
-  if (bytes >= 1e6) return `${(bytes / 1e6).toFixed(1)} MB`;
-  return `${(bytes / 1e3).toFixed(0)} KB`;
-}
+import { formatDuration, formatTimeAgo, formatFileSize, countItemsByType, formatItemCounts } from '../utils/format.js';
 
 function formatVideoSpec(v: { width: number | null; height: number | null; fps: string | null; bitDepth: number | null; colorTransfer: string | null }): string {
   const parts: string[] = [];
@@ -56,30 +41,6 @@ function formatVideoSpec(v: { width: number | null; height: number | null; fps: 
   }
 
   return parts.join(' ');
-}
-
-function formatTimeAgo(iso: string): string {
-  const diff = Date.now() - new Date(iso).getTime();
-  const seconds = Math.floor(diff / 1000);
-  const minutes = Math.floor(seconds / 60);
-  const hours = Math.floor(minutes / 60);
-  const days = Math.floor(hours / 24);
-
-  if (days > 0) return `${days} day${days !== 1 ? 's' : ''} ago`;
-  if (hours > 0) return `${hours} hour${hours !== 1 ? 's' : ''} ago`;
-  if (minutes > 0) return `${minutes} minute${minutes !== 1 ? 's' : ''} ago`;
-  return 'just now';
-}
-
-function formatItemCounts(items: Array<{ type: string }>): string {
-  const clips = items.filter(i => i.type === 'clip').length;
-  const overlays = items.filter(i => i.type === 'overlay').length;
-  const audio = items.filter(i => i.type === 'audio').length;
-  const parts: string[] = [];
-  if (clips > 0) parts.push(`${clips} clip${clips !== 1 ? 's' : ''}`);
-  if (overlays > 0) parts.push(`${overlays} overlay${overlays !== 1 ? 's' : ''}`);
-  if (audio > 0) parts.push(`${audio} audio`);
-  return parts.join(', ') || 'nothing';
 }
 
 function getFileSize(path: string): number {
@@ -130,7 +91,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
       console.log(chalk.bold('Project Facts'));
       console.log(existing.facts);
     } else {
-      console.log(chalk.yellow('No project facts yet. Use `montai project --add-fact "<text>"` to add one.'));
+      console.log(chalk.dim(`No project facts yet. Use ${chalk.reset.bold('montai project --add-fact "<text>"')} to add one.`));
     }
     return;
   }
@@ -159,7 +120,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
       .all();
 
     if (allAnalyses.length === 0) {
-      console.log(chalk.dim('No video analyses yet — run `montai analyze` to generate overview.'));
+      console.log(chalk.dim(`No video analyses yet — run ${chalk.reset.bold('montai analyze')} to generate overview.`));
     } else {
       const prompt = renderPrompt('project-overview', { facts: existing?.facts ?? null, videoAnalyses: allAnalyses, language: config.language });
       const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
@@ -187,7 +148,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
       let status: string;
       if (s.timeline) {
         const items = JSON.parse(s.timeline) as Array<{ type: string }>;
-        status = chalk.green(formatItemCounts(items));
+        status = chalk.green(formatItemCounts(countItemsByType(items)));
       } else {
         status = chalk.dim('empty');
       }
@@ -211,7 +172,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     const maxCountWidth = Math.max(...Array.from(specCounts.values()).map(c => String(c).length));
     console.log();
     console.log(chalk.bold('Videos'));
-    console.log(chalk.dim(`  ${allVideos.length} files, ${formatDuration(totalDuration)}, ${formatBytes(totalSize)}`));
+    console.log(chalk.dim(`  ${allVideos.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
     for (const [spec, count] of specCounts.entries()) {
       const label = count > 1 ? `${String(count).padStart(maxCountWidth)}× ${spec}` : `${' '.repeat(maxCountWidth + 2)}${spec}`;
       console.log(`  ${label}`);
@@ -225,7 +186,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     const totalSize = allMusic.reduce((sum, m) => sum + getFileSize(m.path), 0);
     console.log();
     console.log(chalk.bold('Music Library'));
-    console.log(chalk.dim(`  ${allMusic.length} files, ${formatDuration(totalDuration)}, ${formatBytes(totalSize)}`));
+    console.log(chalk.dim(`  ${allMusic.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
   }
 
   // --- Settings ---

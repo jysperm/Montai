@@ -107,7 +107,7 @@ function resolveEncoder(opts: EncodeOptions): { codec: string; pixFmt: string; q
         qualityArgs: ['-q:v', String(vtQuality)],
       };
     }
-    console.warn(chalk.yellow('Warning: no 10-bit HEVC encoder found (libx265 or hevc_videotoolbox), falling back to libx264 8-bit'));
+    console.log(chalk.yellow('Warning: no 10-bit HEVC encoder found (libx265 or hevc_videotoolbox), falling back to libx264 8-bit'));
     return {
       codec: 'libx264',
       pixFmt: 'yuv420p',
@@ -154,12 +154,12 @@ export async function archiveCommand(
   for (const [videoId, segments] of segmentsPerVideo) {
     const video = videoMap.get(videoId);
     if (!video) {
-      console.warn(chalk.yellow(`Warning: video id ${videoId} not found in database, skipping`));
+      console.log(chalk.yellow(`Warning: video id ${videoId} not found in database, skipping`));
       continue;
     }
 
     if (!existsSync(video.path)) {
-      console.warn(chalk.yellow(`Warning: video file not found: ${video.path}, skipping`));
+      console.log(chalk.yellow(`Warning: video file not found: ${video.path}, skipping`));
       continue;
     }
 
