@@ -403,7 +403,7 @@ export async function syncAndAnalyzeVideos(
       const currentCtx = db.select().from(projectContext).get();
       if (currentCtx) {
         db.update(projectContext)
-          .set({ generatedOverviewStale: true })
+          .set({ overviewStale: true })
           .where(eq(projectContext.id, currentCtx.id))
           .run();
       }

@@ -58,7 +58,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
 - **music** — Discovered music files (id, filename, path, md5, durationSeconds, sampleRate, channels)
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
-- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai analyze --add-fact`. Also stores an AI-generated project overview (`generated_overview`) that synthesizes all video analyses and user facts, viewable via `montai analyze --project`. The overview is cached and auto-invalidated (`generated_overview_stale`) when facts or video analyses change.
+- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai project --add-fact`. Also stores an AI-generated project overview (`overview`) that synthesizes all video analyses and user facts, viewable via `montai project`. The overview is cached and auto-invalidated (`overview_stale`) when facts or video analyses change.
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **gemini_files** — Cached Gemini File API references for uploaded videos and music files (videoId or musicId, both nullable)
 
@@ -72,7 +72,7 @@ Runs a 3-stage concurrent pipeline for videos, followed by a 2-stage pipeline fo
 
 1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.montai/transcoded/` and reused until the source file changes.
 2. **Upload** — Upload transcoded video to LLM File API (or reuse cached ref if still active in `gemini_files` table).
-3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If project facts exist (from `--add-fact`), they are included as context in the analysis prompt.
+3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If project facts exist (from `montai project --add-fact`), they are included as context in the analysis prompt.
 
 While video N is being analyzed, video N+1 can be uploading, and video N+2 can be transcoding.
 
@@ -81,9 +81,7 @@ While video N is being analyzed, video N+1 can be uploading, and video N+2 can b
 1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table with `musicId`).
 2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`.
 
-Additionally, `montai analyze --add-fact <text>` adds a user-provided fact to the project context. An LLM merges the new fact into the existing facts list, deduplicating and resolving contradictions.
-
-`montai analyze --project` shows an AI-generated project overview that synthesizes all video analyses and user facts into a bullet list describing what the project is about, key locations, people, themes, and time span. The overview is cached and automatically regenerated when facts or video analyses change.
+If project facts exist (from `montai project --add-fact`), they are included as context in the analysis prompt.
 
 Supports resume: skips videos that already have a row in `video_analyses` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 

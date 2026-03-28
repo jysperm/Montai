@@ -92,10 +92,9 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | Command | Description |
 |---------|-------------|
 | `analyze` | Upload videos to Gemini, generate per-video summaries |
-| `analyze --add-fact <text>` | Add a project fact (AI merges into existing facts) |
-| `analyze --project` | Show AI-generated project overview (regenerates if stale) |
 | `analyze --list` | List all videos and their analysis status |
 | `analyze --show <filename>` | Show the stored summary for a video |
+| `project` | Show project overview and manage facts |
 | `story [name]` | Interactive storyline + timeline editing session |
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |

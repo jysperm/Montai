@@ -7,6 +7,7 @@ import { renderCommand } from './commands/render.js';
 import { previewCommand } from './commands/preview.js';
 import { exportCommand } from './commands/export.js';
 import { archiveCommand } from './commands/archive.js';
+import { projectCommand } from './commands/project.js';
 
 function printFullHelp(program: Command) {
   console.log(`${chalk.bold('montai')} — AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
@@ -53,9 +54,14 @@ program
   .option('--re-run <filename>', 'Re-analyze a specific video or music file by filename')
   .option('--show <filename>', 'Show the stored summary for a video or music file')
   .option('--list', 'List all videos and music files with analysis status')
-  .option('--add-fact <text>', 'Add a project fact (AI merges into existing facts)')
-  .option('--project', 'Show AI-generated project overview (regenerates if stale)')
   .action(analyzeCommand);
+
+program
+  .command('project')
+  .description('Show project overview, stats, and manage facts')
+  .option('--add-fact <text>', 'Add a project fact (AI merges into existing facts)')
+  .option('--facts', 'Show current project facts')
+  .action(projectCommand);
 
 program
   .command('story [name]')
