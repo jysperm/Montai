@@ -23,6 +23,7 @@ export const OverlayItemSchema = z.object({
   endOffset: z.number().default(0),
   position: z.enum(['top-left', 'top-right', 'center', 'bottom-left', 'bottom-center', 'bottom-right']),
   style: z.enum(['title', 'subtitle', 'caption']),
+  animation: z.enum(['none', 'fade', 'slide', 'pop']).default('none'),
 });
 
 export const AudioItemSchema = z.object({
@@ -144,6 +145,9 @@ export function expandTimeline(
         endTimeSeconds: endTime,
         position: overlay.position,
         style: overlay.style,
+        animation: overlay.animation && overlay.animation !== 'none'
+          ? { type: overlay.animation, durationSeconds: 0.3 }
+          : undefined,
       };
     });
 

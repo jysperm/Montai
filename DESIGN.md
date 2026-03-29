@@ -155,6 +155,7 @@ OverlayItem {
   endOffset: number            // seconds from clip end (0 = clip end, positive = from start)
   position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   style: 'title' | 'subtitle' | 'caption'
+  animation: 'none' | 'fade' | 'slide' | 'pop'  // default 'none'
 }
 
 AudioItem {
@@ -208,6 +209,10 @@ ExpandedOverlay {
   endTimeSeconds: number
   position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   style: 'title' | 'subtitle' | 'caption'
+  animation?: {                  // expanded from OverlayItem's enum, with default duration filled in
+    type: 'fade' | 'slide' | 'pop'
+    durationSeconds: number      // default 0.3
+  }
 }
 
 ExpandedAudio {
@@ -237,11 +242,13 @@ Generates FCPXML 1.11 format XML. Maps clips to `<asset-clip>`, transitions to `
 
 Transition types map to FCP FxPlug effects: fade → Cross Dissolve, slide → Slide, wipe → Wipe. DaVinci Resolve only reliably imports Cross Dissolve; Slide and Wipe fall back to dissolve.
 
-Text overlays use the Essential Title Motion template, which is the most compatible across FCP and DaVinci. Font sizes and text shadow match Remotion's rendering. The `caption` style's background box cannot be replicated since Essential Title has no background element.
+Text overlays use three Essential Titles Motion templates based on animation type: Essential Title (no animation / slide), Essential Fade (fade animation), and Essential Scale (pop animation). Font sizes and text shadow match Remotion's rendering. The `caption` style's background box cannot be replicated since Essential Title has no background element.
+
+Overlay animations: fade and pop use FCP's built-in Essential Fade / Essential Scale templates, which handle the animation internally. Slide is implemented manually via Position param `keyframeAnimation` (the Essential Titles family has no slide template). The slide distance is computed dynamically to ensure text fully exits the frame.
 
 Title positioning uses Essential Title's Motion template params. The template has a fixed 3840×2160 canvas with paragraph margins (left=-1600, right=1600, top=562, bottom=-700). Positioning is achieved by shifting the title object's Position param (`key="9999/10085/10086/1/100/101"`); horizontal alignment uses the standard `<text-style alignment>` attribute, vertical positioning is computed from font size. This works in FCP; DaVinci ignores Motion template params so titles render at center there.
 
-The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
+The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, overlay animations, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
 
 ## Gemini Integration
 

@@ -1,5 +1,5 @@
 import React, { useCallback } from 'react';
-import { AbsoluteFill, Audio, Sequence, staticFile } from 'remotion';
+import { AbsoluteFill, Audio, Sequence, staticFile, useCurrentFrame, interpolate } from 'remotion';
 import { Video } from '@remotion/media';
 import { TransitionSeries, linearTiming, type TransitionPresentation } from '@remotion/transitions';
 import { fade } from '@remotion/transitions/fade';
@@ -17,12 +17,18 @@ interface EditClip {
   transition: { type: string; durationSeconds: number; direction?: string };
 }
 
+interface OverlayAnimation {
+  type: 'fade' | 'slide' | 'pop';
+  durationSeconds: number;
+}
+
 interface TextOverlay {
   text: string;
   startTimeSeconds: number;
   endTimeSeconds: number;
   position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right';
   style: 'title' | 'subtitle' | 'caption';
+  animation?: OverlayAnimation;
 }
 
 interface AudioTrack {
@@ -69,8 +75,93 @@ function getTextStyle(style: TextOverlay['style'], s: number) {
       background: 'rgba(0,0,0,0.6)',
       padding: `${Math.round(4 * s)}px ${Math.round(12 * s)}px`,
       borderRadius: Math.round(4 * s),
+      display: 'inline-block' as const,
     };
   }
+}
+
+function OverlayContent({
+  overlay,
+  scale,
+  fps,
+  durationFrames,
+}: {
+  overlay: TextOverlay;
+  scale: number;
+  fps: number;
+  durationFrames: number;
+}) {
+  const frame = useCurrentFrame();
+  const pos = getPositionStyle(overlay.position, scale);
+  const textStyle = getTextStyle(overlay.style, scale);
+
+  const anim = overlay.animation;
+  const animFrames = anim
+    ? Math.min(Math.round(anim.durationSeconds * fps), Math.floor(durationFrames / 3))
+    : 0;
+
+  let opacity = 1;
+  let extraTransform = '';
+
+  if (anim && animFrames > 0) {
+    const enterEnd = animFrames;
+    const exitStart = durationFrames - animFrames;
+
+    if (anim.type === 'fade') {
+      opacity = interpolate(frame, [0, enterEnd, exitStart, durationFrames], [0, 1, 1, 0], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+    } else if (anim.type === 'slide') {
+      const slideDistance = Math.round(150 * scale);
+      const isTop = overlay.position.startsWith('top');
+      const direction = isTop ? -1 : 1;
+
+      // Positional motion only — no opacity fade. Text starts off-screen and slides in,
+      // so opacity isn't needed and combining it would halve the visible animation duration.
+      const slideOffset = interpolate(
+        frame,
+        [0, enterEnd, exitStart, durationFrames],
+        [slideDistance * direction, 0, 0, slideDistance * direction],
+        { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+      );
+
+      extraTransform = `translateY(${slideOffset}px)`;
+    } else if (anim.type === 'pop') {
+      const scaleVal = interpolate(
+        frame,
+        [0, enterEnd, exitStart, durationFrames],
+        [0.7, 1, 1, 0.7],
+        { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' },
+      );
+
+      opacity = interpolate(frame, [0, enterEnd, exitStart, durationFrames], [0, 1, 1, 0], {
+        extrapolateLeft: 'clamp',
+        extrapolateRight: 'clamp',
+      });
+
+      extraTransform = `scale(${scaleVal})`;
+    }
+  }
+
+  const baseTransform = pos.transform ?? '';
+  const combinedTransform = [baseTransform, extraTransform].filter(Boolean).join(' ') || undefined;
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        fontFamily: 'ui-sans-serif, system-ui, sans-serif',
+        color: 'white',
+        pointerEvents: 'none',
+        ...pos,
+        opacity,
+        transform: combinedTransform,
+      }}
+    >
+      <div style={{ ...textStyle, whiteSpace: 'pre-line' }}>{overlay.text}</div>
+    </div>
+  );
 }
 
 function getTransition(type: string, direction?: string): TransitionPresentation<Record<string, unknown>> | null {
@@ -246,22 +337,15 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
         const durationFrames = Math.round(
           (overlay.endTimeSeconds - overlay.startTimeSeconds) * fps,
         );
-        const pos = getPositionStyle(overlay.position, scale);
-        const style = getTextStyle(overlay.style, scale);
 
         return (
           <Sequence key={i} from={startFrame} durationInFrames={durationFrames}>
-            <div
-              style={{
-                position: 'absolute',
-                fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-                color: 'white',
-                pointerEvents: 'none',
-                ...pos,
-              }}
-            >
-              <div style={{ ...style, whiteSpace: 'pre-line' }}>{overlay.text}</div>
-            </div>
+            <OverlayContent
+              overlay={overlay}
+              scale={scale}
+              fps={fps}
+              durationFrames={durationFrames}
+            />
           </Sequence>
         );
       })}
