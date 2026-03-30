@@ -1,0 +1,395 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`generateFcpxml > audio auto-loop: DaVinci uses alternating lanes 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r4" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+        <effect id="r3" name="Audio Cross Fade" uid="FFAudioTransition" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r4">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="audio-asset-1" start="0/1s" duration="480000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///test/music.wav" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="loop-davinci">
+                <sequence format="r1" duration="750/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="750/25s" start="0/25s" format="r4" tcFormat="NDF">
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music.wav" offset="0/25s" duration="250/25s" start="0/25s">
+
+                            <adjust-volume amount="-10dB">
+                                <param name="amount" value="-10dB">
+                                    <fadeIn type="linear" duration="50/25s"/>
+                                    <fadeOut type="linear" duration="25/25s"/>
+                                </param>
+                            </adjust-volume>
+                        </asset-clip>
+                        <asset-clip ref="audio-asset-1" lane="-2" name="music.wav" offset="225/25s" duration="250/25s" start="0/25s">
+
+                            <adjust-volume amount="-10dB">
+                                <param name="amount" value="-10dB">
+                                    <fadeIn type="linear" duration="25/25s"/>
+                                    <fadeOut type="linear" duration="25/25s"/>
+                                </param>
+                            </adjust-volume>
+                        </asset-clip>
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music.wav" offset="450/25s" duration="175/25s" start="0/25s">
+
+                            <adjust-volume amount="-10dB">
+                                <param name="amount" value="-10dB">
+                                    <fadeIn type="linear" duration="25/25s"/>
+                                    <fadeOut type="linear" duration="50/25s"/>
+                                </param>
+                            </adjust-volume>
+                        </asset-clip>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > audio auto-loop: FCP uses spine with transitions 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r4" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+        <effect id="r3" name="Audio Cross Fade" uid="FFAudioTransition" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r4">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="audio-asset-1" start="0/1s" duration="480000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///test/music.wav" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="loop-fcp">
+                <sequence format="r1" duration="750/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="750/25s" start="0/25s" format="r4" tcFormat="NDF">
+                        <spine lane="-1" offset="0/25s">
+                            <asset-clip ref="audio-asset-1" name="music.wav" offset="0/25s" duration="238/25s" start="0/25s">
+
+                                <adjust-volume amount="-10dB">
+                                    <param name="amount" value="-10dB">
+                                        <fadeIn type="linear" duration="50/25s"/>
+                                    </param>
+                                </adjust-volume>
+                            </asset-clip>
+                            <transition name="Cross Dissolve" offset="225/25s" duration="25/25s">
+                                <filter-video ref="r2" name="Cross Dissolve" />
+                                <filter-audio ref="r3" name="Audio Cross Fade" />
+                            </transition>
+                            <asset-clip ref="audio-asset-1" name="music.wav" offset="238/25s" duration="225/25s" start="13/25s">
+
+                                <adjust-volume amount="-10dB"/>
+                            </asset-clip>
+                            <transition name="Cross Dissolve" offset="450/25s" duration="25/25s">
+                                <filter-video ref="r2" name="Cross Dissolve" />
+                                <filter-audio ref="r3" name="Audio Cross Fade" />
+                            </transition>
+                            <asset-clip ref="audio-asset-1" name="music.wav" offset="463/25s" duration="213/25s" start="13/25s">
+
+                                <adjust-volume amount="-10dB">
+                                    <param name="amount" value="-10dB">
+                                        <fadeOut type="linear" duration="50/25s"/>
+                                    </param>
+                                </adjust-volume>
+                            </asset-clip>
+                        </spine>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > clip with text overlay 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r3">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="overlay-test">
+                <sequence format="r1" duration="500/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="500/25s" start="0/25s" format="r3" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Hello World" offset="50/25s" duration="150/25s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -928"/>
+                            <text>
+                                <text-style ref="ts1" alignment="center">Hello World</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > overlay animations: fade, slide, pop 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r5" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
+        <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r5">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="anim-test">
+                <sequence format="r1" duration="750/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="750/25s" start="0/25s" format="r5" tcFormat="NDF">
+                        <title ref="r3" lane="1" name="Fade In" offset="0/25s" duration="125/25s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -928"/>
+                            <text>
+                                <text-style ref="ts1" alignment="center">Fade In</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                        <title ref="r2" lane="2" name="Slide Up" offset="150/25s" duration="150/25s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101">
+                                <keyframeAnimation>
+                                    <keyframe time="0/1s" value="-1740 -1330" interp="linear"/>
+                                    <keyframe time="8/25s" value="-1740 -928"/>
+                                    <keyframe time="143/25s" value="-1740 -928" interp="linear"/>
+                                    <keyframe time="150/25s" value="-1740 -1330"/>
+                                </keyframeAnimation>
+                            </param>
+                            <text>
+                                <text-style ref="ts2" alignment="left">Slide Up</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                        <title ref="r4" lane="3" name="Pop" offset="325/25s" duration="125/25s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="center">Pop</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > single audio track with volume and fades 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="audio-asset-1" start="0/1s" duration="480000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///test/music.wav" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="audio-test">
+                <sequence format="r1" duration="750/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="750/25s" start="0/25s" format="r2" tcFormat="NDF">
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music.wav" offset="0/25s" duration="250/25s" start="50/25s">
+
+                            <adjust-volume amount="-10dB">
+                                <param name="amount" value="-10dB">
+                                    <fadeIn type="linear" duration="25/25s"/>
+                                    <fadeOut type="linear" duration="25/25s"/>
+                                </param>
+                            </adjust-volume>
+                        </asset-clip>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > single clip without audio or overlays 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="basic">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="125/25s" format="r2" tcFormat="NDF" />
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > slide and wipe transitions with direction params 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r5" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Slide" uid="FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648" />
+        <effect id="r3" name="Wipe" uid="FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8" />
+        <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r5">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="asset-2" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r5">
+            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="slide-wipe">
+                <sequence format="r1" duration="1250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="375/25s" start="125/25s" format="r5" tcFormat="NDF" />
+                    <transition offset="362/25s" duration="26/25s">
+                        <filter-video ref="r2" name="Slide">
+                            <param name="Direction" key="4" value="2" />
+                        </filter-video>
+                        <filter-audio ref="r4" name="Audio Cross Fade" />
+                    </transition>
+                    <asset-clip ref="asset-2" name="video2.mp4" offset="375/25s" duration="500/25s" start="250/25s" format="r5" tcFormat="NDF" />
+                    <transition offset="868/25s" duration="14/25s">
+                        <filter-video ref="r3" name="Wipe">
+                            <param name="Direction" key="13" value="1" />
+                        </filter-video>
+                        <filter-audio ref="r4" name="Audio Cross Fade" />
+                    </transition>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="875/25s" duration="375/25s" start="7/25s" format="r5" tcFormat="NDF" />
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > two clips with fade transition 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r4" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <effect id="r2" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
+        <effect id="r3" name="Audio Cross Fade" uid="FFAudioTransition" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r4">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="asset-2" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r4">
+            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="transition-test">
+                <sequence format="r1" duration="875/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="375/25s" start="125/25s" format="r4" tcFormat="NDF" />
+                    <transition offset="362/25s" duration="26/25s">
+                        <filter-video ref="r2" name="Cross Dissolve" />
+                        <filter-audio ref="r3" name="Audio Cross Fade" />
+                    </transition>
+                    <asset-clip ref="asset-2" name="video2.mp4" offset="375/25s" duration="500/25s" start="250/25s" format="r4" tcFormat="NDF" />
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > video with start timecode uses frame-based offset 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="107999892/30000s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="tc-test">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="108150042/30000s" format="r2" tcFormat="NDF" />
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;

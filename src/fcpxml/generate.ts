@@ -1,233 +1,12 @@
 import { basename } from 'path';
 import type { ExpandedTimeline, ExpandedClip, ExpandedOverlay } from '../schemas/timeline.js';
 
-function toRational(seconds: number, fps: number): string {
-  const frames = Math.round(seconds * fps);
-  return `${frames}/${fps}s`;
-}
-
-function escapeXml(str: string): string {
-  return str
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;');
-}
-
-/** Sanitize a string for use in FCP name attributes (no "/" or newlines allowed). */
-function fcpName(str: string): string {
-  return escapeXml(str.replace(/\//g, '-').replace(/[\r\n]+/g, ' '));
-}
-
-// FCP built-in effect UIDs.
-// DaVinci Resolve only reliably maps Cross Dissolve during FCPXML import;
-// Slide and Wipe fall back to dissolve (DaVinci FCPXML import limitation).
-const TITLE_EFFECT_UID = '.../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti';
-const TITLE_FADE_UID = '.../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti';
-const TITLE_SCALE_UID = '.../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti';
-const CROSS_DISSOLVE_UID = 'FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265';
-const SLIDE_UID = 'FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648';
-const WIPE_UID = 'FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8';
-const AUDIO_CROSSFADE_UID = 'FFAudioTransition';
-
-// Direction mapping: Remotion direction → FCP param value
-// Slide: param key "4", Wipe: param key "13"
-// FCP names transitions by the direction of motion (e.g. "Slide Left" = content moves left = new clip enters from right)
-function fcpDirectionValue(direction?: string): string {
-  switch (direction) {
-    case 'from-right': return '0';   // Left variant
-    case 'from-bottom': return '1';  // Up variant
-    case 'from-left': return '2';    // Right variant
-    case 'from-top': return '3';     // Down variant
-    default: return '0';             // default: from-right (Left variant)
-  }
-}
-
-function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
-  const filename = basename(clip.sourceFile);
-  const seen = new Set<string>();
-  let index = 0;
-  for (const c of clips) {
-    const fn = basename(c.sourceFile);
-    if (!seen.has(fn)) {
-      index++;
-      seen.add(fn);
-    }
-    if (fn === filename) return `asset-${index}`;
-  }
-  return 'asset-1';
-}
-
-// Essential Title positioning via Motion template params.
-// The template has a fixed 3840×2160 canvas (origin at center, X right+, Y up+).
-// All font sizes, shadow dimensions, and position coordinates must be expressed in
-// this template space. For a 1080p project, the template is scaled 2× to fit,
-// so template values = project values × 2. The scale factor is always
-// TMPL_HEIGHT / 1080 = 2, independent of project resolution.
+// Essential Title template constants (3840×2160 canvas, origin at center)
 const TMPL_HALF_W = 1920;
 const TMPL_HALF_H = 1080;
 const TMPL_MARGIN = 80;  // 40px at 1080p × 2
-const TMPL_SCALE = 2;    // 2160 / 1080
-
-// Position key for Essential Title (Properties > Transform > Position)
-const POS_KEY = '9999/10085/10086/1/100/101';
-
-// Line height factor accounts for FCP's default line spacing + font ascender/descender.
-const LINE_HEIGHT = 1.5;
-
-/**
- * Compute the Position parameter values for Essential Title placement.
- * Returns null for center with single line (uses template default).
- *
- * The template has a fixed 3840×2160 canvas (origin at center, X right+, Y up+).
- * FCP center-aligns text at Position.X regardless of text-style alignment, so
- * for left/right positions we shift Position.X to place text near the frame edge.
- * DaVinci ignores Motion template params — titles render at center there regardless.
- */
-function fcpTitlePositionValues(
-  position: string, fontSizeTmpl: number, lineCount: number,
-): { posX: number; posY: number } | null {
-  // Essential Title template default Position.Y = 69 compensates for paragraph
-  // margin asymmetry. Setting Position overrides this default, so we must include it.
-  const TMPL_DEFAULT_Y = 69;
-
-  if (position === 'center') {
-    if (lineCount <= 1) return null;
-    // Multi-line center text: push up to compensate for extra lines below center.
-    const centerAdjust = TMPL_DEFAULT_Y + Math.round((lineCount - 1) * fontSizeTmpl * LINE_HEIGHT / 2);
-    return { posX: 0, posY: centerAdjust };
-  }
-
-  // Horizontal: place text center so a typical subtitle's edge aligns at roughly
-  // TMPL_MARGIN from the frame edge, matching vertical margin.
-  const TYPICAL_TEXT_HALF_W = 100; // ~50px at 1080p
-  const xLeft = -TMPL_HALF_W + TMPL_MARGIN + TYPICAL_TEXT_HALF_W;
-  const xRight = TMPL_HALF_W - TMPL_MARGIN - TYPICAL_TEXT_HALF_W;
-
-  // Vertical: position text center so its bottom/top edge sits at frame margin.
-  // LINE_HEIGHT accounts for FCP's actual rendered line height (spacing + metrics).
-  // TMPL_DEFAULT_Y is intentionally excluded here — it corrects center-position text
-  // for paragraph-margin asymmetry but causes unequal top/bottom margins at edges.
-  const halfTextHeight = Math.round(lineCount * fontSizeTmpl * LINE_HEIGHT / 2);
-  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfTextHeight;
-  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfTextHeight;
-
-  let posX = 0, posY = 0;
-  switch (position) {
-    case 'top-left':      posX = xLeft;  posY = yTop;    break;
-    case 'top-right':     posX = xRight; posY = yTop;    break;
-    case 'bottom-left':   posX = xLeft;  posY = yBottom; break;
-    case 'bottom-center': posX = 0;      posY = yBottom; break;
-    case 'bottom-right':  posX = xRight; posY = yBottom; break;
-    default: return null;
-  }
-
-  return { posX, posY };
-}
-
-function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1): string {
-  const pos = fcpTitlePositionValues(position, fontSizeTmpl, lineCount);
-  if (!pos) return '';
-  return `\n${indent}<param name="Position" key="${POS_KEY}" value="${pos.posX} ${pos.posY}"/>`;
-}
-
-/**
- * Generate slide animation XML (Position keyframeAnimation).
- * Fade and pop use dedicated Essential Fade / Essential Scale templates instead.
- */
-function makeSlideAnimationXml(
-  animation: ExpandedOverlay['animation'],
-  position: string,
-  basePos: { posX: number; posY: number },
-  durationSeconds: number,
-  fps: number,
-  indent: string,
-): string {
-  if (!animation || animation.type !== 'slide' || durationSeconds <= 0) return '';
-  const animDur = Math.min(animation.durationSeconds, durationSeconds / 3);
-  if (animDur < 0.01) return '';
-
-  const animDurRat = toRational(animDur, fps);
-  const endStartRat = toRational(durationSeconds - animDur, fps);
-  const durationRat = toRational(durationSeconds, fps);
-  const I = indent;
-
-  // The distance must be large enough to move text fully off-screen (past the
-  // template canvas edge at ±TMPL_HALF_H), accounting for text height. 250 covers
-  // the worst case (2-line title at fontSize 160, halfTextHeight ≈ 240).
-  const distToEdge = TMPL_HALF_H - Math.abs(basePos.posY);
-  const SLIDE_DISTANCE = position === 'center' ? 300 : Math.max(300, distToEdge + 250);
-  const isTop = position.startsWith('top');
-  const slideY = isTop
-    ? basePos.posY + SLIDE_DISTANCE   // start above, slide down
-    : basePos.posY - SLIDE_DISTANCE;  // start below, slide up
-
-  return [
-    `${I}<param name="Position" key="${POS_KEY}">`,
-    `${I}    <keyframeAnimation>`,
-    `${I}        <keyframe time="0/1s" value="${basePos.posX} ${slideY}" interp="linear"/>`,
-    `${I}        <keyframe time="${animDurRat}" value="${basePos.posX} ${basePos.posY}"/>`,
-    `${I}        <keyframe time="${endStartRat}" value="${basePos.posX} ${basePos.posY}" interp="linear"/>`,
-    `${I}        <keyframe time="${durationRat}" value="${basePos.posX} ${slideY}"/>`,
-    `${I}    </keyframeAnimation>`,
-    `${I}</param>`,
-  ].join('\n');
-}
-
-function makeTitleXml(
-  text: string,
-  tsId: string,
-  fontSize: number,
-  bold: boolean,
-  shadowOffset: number,
-  shadowBlur: number,
-  offset: string,
-  duration: string,
-  indent: string,
-  effectRef: string,
-  position: string,
-  lane: number = 1,
-  animation?: ExpandedOverlay['animation'],
-  durationSeconds: number = 0,
-  fps: number = 50,
-): string {
-  const alignment = position === 'center' || position === 'bottom-center'
-    ? 'center' : position.endsWith('-left') ? 'left' : 'right';
-  const boldAttr = bold ? ' bold="1"' : '';
-  // Match Remotion's textShadow: 0 2px 8px rgba(0,0,0,0.8)
-  const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
-  const lineCount = text.split('\n').length;
-  const basePos = fcpTitlePositionValues(position, fontSize, lineCount);
-
-  // Slide animation: Position is animated via keyframeAnimation.
-  // Fade and pop use dedicated Essential Fade / Essential Scale templates (no manual animation).
-  const slideXml = makeSlideAnimationXml(animation, position, basePos ?? { posX: 0, posY: 0 }, durationSeconds, fps, `${indent}    `);
-
-  const positionParams = slideXml ? '' : fcpTitleParams(position, `${indent}    `, fontSize, lineCount);
-
-  // DTD order: param*, text*, text-style-def*
-  const lines = [
-    `${indent}<title ref="${effectRef}" lane="${lane}" name="${fcpName(text)}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
-  ];
-
-  if (slideXml) {
-    lines.push(slideXml);
-  }
-
-  lines.push(
-    `${indent}    <text>`,
-    `${indent}        <text-style ref="${tsId}" alignment="${alignment}">${escapeXml(text)}</text-style>`,
-    `${indent}    </text>`,
-    `${indent}    <text-style-def id="${tsId}">`,
-    `${indent}        <text-style font="Helvetica Neue" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1"${boldAttr} alignment="${alignment}"${shadowAttrs} />`,
-    `${indent}    </text-style-def>`,
-  );
-
-  lines.push(`${indent}</title>`);
-
-  return lines.join('\n');
-}
+const POS_KEY = '9999/10085/10086/1/100/101'; // Position param key
+const LINE_HEIGHT = 1.5;  // FCP's default line spacing + font metrics
 
 export interface VideoFormatInfo {
   width: number;
@@ -242,50 +21,6 @@ export interface VideoFormatInfo {
   audioChannels?: number | null;
   audioSampleRate?: number | null;
   startTimecode?: string | null;   // e.g. "15:03:38;24"
-}
-
-/**
- * Parse a timecode string (HH:MM:SS:FF or HH:MM:SS;FF) to a frame count
- * in the video rate timebase.
- *
- * For high frame rate video (>30fps), the container's tmcd track stores
- * timecodes at the base rate (e.g. 30fps for 59.94fps video, 25fps for 50fps).
- * We parse at the base rate and scale up to match the video rate, ensuring
- * our computed start time matches what FCP reads from the file.
- */
-function parseTimecodeToFrames(tc: string, fpsNum: number, fpsDen: number): number {
-  const isDF = tc.includes(';');
-  const parts = tc.split(/[:;]/);
-  const h = parseInt(parts[0], 10);
-  const m = parseInt(parts[1], 10);
-  const s = parseInt(parts[2], 10);
-  const f = parseInt(parts[3], 10);
-  const nomFps = Math.round(fpsNum / fpsDen); // e.g. 60 for 59.94, 30 for 29.97
-
-  // High frame rates use a half-rate (or quarter-rate) timecode track.
-  // Parse at the base rate, then scale to the video rate.
-  const tcMultiplier = nomFps > 30 ? Math.ceil(nomFps / 30) : 1;
-  const tcNomFps = Math.round(nomFps / tcMultiplier);
-
-  let tcFrames: number;
-  if (isDF) {
-    // Drop-frame at base rate: D=2 for 29.97fps base
-    const D = tcNomFps === 30 ? 2 : 0;
-    const totalMinutes = h * 60 + m;
-    const dropMinutes = totalMinutes - Math.floor(totalMinutes / 10);
-    tcFrames = h * 3600 * tcNomFps + m * 60 * tcNomFps + s * tcNomFps + f - D * dropMinutes;
-  } else {
-    tcFrames = h * 3600 * tcNomFps + m * 60 * tcNomFps + s * tcNomFps + f;
-  }
-
-  return tcFrames * tcMultiplier;
-}
-
-/**
- * Convert a frame count to a rational FCPXML time string using the source fps.
- */
-function framesToRational(frames: number, fpsNum: number, fpsDen: number): string {
-  return `${frames * fpsDen}/${fpsNum}s`;
 }
 
 export function mapFcpxmlColorSpace(meta: VideoFormatInfo): string | null {
@@ -320,6 +55,17 @@ export function generateFcpxml(
   // 2× (Essential Title template canvas is 3840×2160), DaVinci needs 1× (reads
   // text-style fontSize directly).
   const target = options?.target ?? 'fcp';
+
+  // FCP built-in effect UIDs
+  const TITLE_EFFECT_UID = '.../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti';
+  const TITLE_FADE_UID = '.../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti';
+  const TITLE_SCALE_UID = '.../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti';
+  const CROSS_DISSOLVE_UID = 'FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265';
+  const SLIDE_UID = 'FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648';
+  const WIPE_UID = 'FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8';
+  const AUDIO_CROSSFADE_UID = 'FFAudioTransition';
+  const TMPL_SCALE = 2;    // 2160 / 1080
+
   const { fps, width, height } = spec;
   let tsCounter = 0;
   const nextTs = () => `ts${++tsCounter}`;
@@ -480,20 +226,13 @@ export function generateFcpxml(
     }
   }
 
-  // Map a time from the overlapping model to the sequential model
-  function overlapToSeq(t: number): number {
-    for (let i = spec.clips.length - 1; i >= 0; i--) {
-      if (t >= clipOverlapStarts[i]) {
-        return clipSeqStarts[i] + (t - clipOverlapStarts[i]);
-      }
-    }
-    return t;
-  }
+  // Shorthand for overlapToSeq with pre-computed arrays
+  const o2s = (t: number) => overlapToSeq(t, clipOverlapStarts, clipSeqStarts);
 
   // Assign overlays to their parent clips (in sequential timeline positions)
   const clipOverlays = new Map<number, typeof spec.textOverlays>();
   for (const overlay of spec.textOverlays) {
-    const seqStart = overlapToSeq(overlay.startTimeSeconds);
+    const seqStart = o2s(overlay.startTimeSeconds);
     for (let i = spec.clips.length - 1; i >= 0; i--) {
       if (seqStart >= clipSeqStarts[i]) {
         if (!clipOverlays.has(i)) clipOverlays.set(i, []);
@@ -588,63 +327,29 @@ export function generateFcpxml(
     }
   }
 
-  // Helper: compute parent clip offset for an audio track's start time
-  function audioParentOffset(audio: AudioTrack): { parentClipIdx: number; offset: string } {
-    const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
-    let parentClipIdx = 0;
-    for (let ci = spec.clips.length - 1; ci >= 0; ci--) {
-      if (audioSeqStart >= clipSeqStarts[ci]) { parentClipIdx = ci; break; }
-    }
-    const parentClip = spec.clips[parentClipIdx];
-    const parentClipFilename = basename(parentClip.sourceFile);
-    const parentTcInfo = assetStartFrames.get(parentClipFilename);
-    const parentEffectiveStart = parentClip.startTimeSeconds + sourceShifts[parentClipIdx];
-    const deltaInClip = audioSeqStart - clipSeqStarts[parentClipIdx];
-    let offset: string;
-    if (parentTcInfo && parentTcInfo.frames > 0) {
-      const clipInFrames = Math.round(parentEffectiveStart * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
-      const deltaFrames = Math.round(deltaInClip * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
-      offset = framesToRational(parentTcInfo.frames + clipInFrames + deltaFrames, parentTcInfo.fpsNum, parentTcInfo.fpsDen);
-    } else {
-      offset = toRational(parentEffectiveStart + deltaInClip, fps);
-    }
-    return { parentClipIdx, offset };
-  }
-
-  // Helper: build volume XML for an audio track
-  function audioVolumeXml(vol: number, fadeInSec: number, fadeOutSec: number, indent: string): string {
-    if (vol === 1 && fadeInSec === 0 && fadeOutSec === 0) return '';
-    const dB = vol === 1 ? '0' : String(Math.round(20 * Math.log10(vol)));
-    if (fadeInSec > 0 || fadeOutSec > 0) {
-      const fadeElements: string[] = [];
-      if (fadeInSec > 0) fadeElements.push(`${indent}            <fadeIn type="linear" duration="${toRational(fadeInSec, fps)}"/>`);
-      if (fadeOutSec > 0) fadeElements.push(`${indent}            <fadeOut type="linear" duration="${toRational(fadeOutSec, fps)}"/>`);
-      return [
-        ``, `${indent}    <adjust-volume amount="${dB}dB">`,
-        `${indent}        <param name="amount" value="${dB}dB">`,
-        ...fadeElements,
-        `${indent}        </param>`, `${indent}    </adjust-volume>`,
-      ].join('\n');
-    }
-    return `\n${indent}    <adjust-volume amount="${dB}dB"/>`;
-  }
+  // Shorthands for top-level helpers with pre-bound context
+  const apo = (startTime: number) => audioParentOffset(
+    startTime, spec.clips, clipOverlapStarts, clipSeqStarts, assetStartFrames, sourceShifts, fps,
+  );
+  const avx = (vol: number, fadeIn: number, fadeOut: number, indent: string) =>
+    audioVolumeXml(vol, fadeIn, fadeOut, indent, fps);
 
   let audioLaneCounter = -1;
   for (const group of audioGroups) {
     const audioLane = audioLaneCounter--;
     const filename = basename(group[0].sourceFile);
     const audioAssetId = audioAssetMap.get(filename)!;
-    const { parentClipIdx, offset: spineOffset } = audioParentOffset(group[0]);
+    const { parentClipIdx, offset: spineOffset } = apo(group[0].startTimeSeconds);
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
 
     if (group.length === 1) {
       // Single audio track: simple anchor item
       const audio = group[0];
-      const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
-      const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
+      const audioSeqStart = o2s(audio.startTimeSeconds);
+      const audioSeqEnd = o2s(audio.endTimeSeconds);
       const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
       const clipStart = toRational(audio.audioStartSeconds, fps);
-      const volXml = audioVolumeXml(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
+      const volXml = avx(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
 
       if (volXml) {
         clipAudioAnchors.get(parentClipIdx)!.push([
@@ -721,7 +426,7 @@ export function generateFcpxml(
           ].join('\n'));
         }
 
-        const volXml = audioVolumeXml(group[gi].volume, sc.fadeIn, sc.fadeOut, SI);
+        const volXml = avx(group[gi].volume, sc.fadeIn, sc.fadeOut, SI);
         const clipOffsetRational = toRational(seqOffset, fps);
         const clipDurationRational = toRational(sc.duration, fps);
         const clipStartRational = toRational(sc.audioStart, fps);
@@ -752,13 +457,13 @@ export function generateFcpxml(
       for (let gi = 0; gi < group.length; gi++) {
         const audio = group[gi];
         const lane = gi % 2 === 0 ? audioLane : audioLane - 1;
-        const { parentClipIdx: clipIdx, offset: clipOffset } = audioParentOffset(audio);
+        const { parentClipIdx: clipIdx, offset: clipOffset } = apo(audio.startTimeSeconds);
         if (!clipAudioAnchors.has(clipIdx)) clipAudioAnchors.set(clipIdx, []);
-        const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
-        const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
+        const audioSeqStart = o2s(audio.startTimeSeconds);
+        const audioSeqEnd = o2s(audio.endTimeSeconds);
         const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
         const clipStart = toRational(audio.audioStartSeconds, fps);
-        const volXml = audioVolumeXml(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
+        const volXml = avx(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
 
         if (volXml) {
           clipAudioAnchors.get(clipIdx)!.push([
@@ -774,7 +479,7 @@ export function generateFcpxml(
     }
   }
 
-  // Generate spine elements
+  // --- Generate spine elements ---
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
     const clipDuration = clipDurations[i];
@@ -875,8 +580,8 @@ export function generateFcpxml(
         const overlay = overlays[oi];
         const fontSize = overlay.style === 'title' ? Math.round(80 * scale) : overlay.style === 'subtitle' ? Math.round(48 * scale) : Math.round(32 * scale);
         const isBold = overlay.style === 'title';
-        const overlaySeqStart = overlapToSeq(overlay.startTimeSeconds);
-        const overlaySeqEnd = overlapToSeq(overlay.endTimeSeconds);
+        const overlaySeqStart = o2s(overlay.startTimeSeconds);
+        const overlaySeqEnd = o2s(overlay.endTimeSeconds);
         const deltaInClip = overlaySeqStart - clipSeqStarts[i];
 
         // Title offset must be in the parent clip's source timebase. When the
@@ -915,7 +620,6 @@ export function generateFcpxml(
 
     seqOffset += clipDuration;
   }
-
   const totalDuration = toRational(seqOffset, fps);
 
   const sequenceColorSpaceAttr = detectedHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
@@ -953,4 +657,227 @@ ${spine.join('\n')}
     </library>
 </fcpxml>
 `;
+}
+
+
+function makeTitleXml(
+  text: string,
+  tsId: string,
+  fontSize: number,
+  bold: boolean,
+  shadowOffset: number,
+  shadowBlur: number,
+  offset: string,
+  duration: string,
+  indent: string,
+  effectRef: string,
+  position: string,
+  lane: number = 1,
+  animation?: ExpandedOverlay['animation'],
+  durationSeconds: number = 0,
+  fps: number = 50,
+): string {
+  const alignment = position === 'center' || position === 'bottom-center'
+    ? 'center' : position.endsWith('-left') ? 'left' : 'right';
+  const boldAttr = bold ? ' bold="1"' : '';
+  const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
+  const lineCount = text.split('\n').length;
+  const basePos = fcpTitlePositionValues(position, fontSize, lineCount);
+
+  const slideXml = makeSlideAnimationXml(animation, position, basePos ?? { posX: 0, posY: 0 }, durationSeconds, fps, `${indent}    `);
+  const positionParams = slideXml ? '' : fcpTitleParams(position, `${indent}    `, fontSize, lineCount);
+
+  const lines = [
+    `${indent}<title ref="${effectRef}" lane="${lane}" name="${fcpName(text)}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
+  ];
+  if (slideXml) lines.push(slideXml);
+  lines.push(
+    `${indent}    <text>`,
+    `${indent}        <text-style ref="${tsId}" alignment="${alignment}">${escapeXml(text)}</text-style>`,
+    `${indent}    </text>`,
+    `${indent}    <text-style-def id="${tsId}">`,
+    `${indent}        <text-style font="Helvetica Neue" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1"${boldAttr} alignment="${alignment}"${shadowAttrs} />`,
+    `${indent}    </text-style-def>`,
+    `${indent}</title>`,
+  );
+  return lines.join('\n');
+}
+
+function fcpTitlePositionValues(
+  position: string, fontSizeTmpl: number, lineCount: number,
+): { posX: number; posY: number } | null {
+  const TMPL_DEFAULT_Y = 69;
+  if (position === 'center') {
+    if (lineCount <= 1) return null;
+    const centerAdjust = TMPL_DEFAULT_Y + Math.round((lineCount - 1) * fontSizeTmpl * LINE_HEIGHT / 2);
+    return { posX: 0, posY: centerAdjust };
+  }
+  const TYPICAL_TEXT_HALF_W = 100;
+  const xLeft = -TMPL_HALF_W + TMPL_MARGIN + TYPICAL_TEXT_HALF_W;
+  const xRight = TMPL_HALF_W - TMPL_MARGIN - TYPICAL_TEXT_HALF_W;
+  const halfTextHeight = Math.round(lineCount * fontSizeTmpl * LINE_HEIGHT / 2);
+  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfTextHeight;
+  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfTextHeight;
+  let posX = 0, posY = 0;
+  switch (position) {
+    case 'top-left':      posX = xLeft;  posY = yTop;    break;
+    case 'top-right':     posX = xRight; posY = yTop;    break;
+    case 'bottom-left':   posX = xLeft;  posY = yBottom; break;
+    case 'bottom-center': posX = 0;      posY = yBottom; break;
+    case 'bottom-right':  posX = xRight; posY = yBottom; break;
+    default: return null;
+  }
+  return { posX, posY };
+}
+
+function makeSlideAnimationXml(
+  animation: ExpandedOverlay['animation'],
+  position: string,
+  basePos: { posX: number; posY: number },
+  durationSeconds: number,
+  fps: number,
+  indent: string,
+): string {
+  if (!animation || animation.type !== 'slide' || durationSeconds <= 0) return '';
+  const animDur = Math.min(animation.durationSeconds, durationSeconds / 3);
+  if (animDur < 0.01) return '';
+  const animDurRat = toRational(animDur, fps);
+  const endStartRat = toRational(durationSeconds - animDur, fps);
+  const durationRat = toRational(durationSeconds, fps);
+  const I = indent;
+  const distToEdge = TMPL_HALF_H - Math.abs(basePos.posY);
+  const SLIDE_DISTANCE = position === 'center' ? 300 : Math.max(300, distToEdge + 250);
+  const isTop = position.startsWith('top');
+  const slideY = isTop ? basePos.posY + SLIDE_DISTANCE : basePos.posY - SLIDE_DISTANCE;
+  return [
+    `${I}<param name="Position" key="${POS_KEY}">`,
+    `${I}    <keyframeAnimation>`,
+    `${I}        <keyframe time="0/1s" value="${basePos.posX} ${slideY}" interp="linear"/>`,
+    `${I}        <keyframe time="${animDurRat}" value="${basePos.posX} ${basePos.posY}"/>`,
+    `${I}        <keyframe time="${endStartRat}" value="${basePos.posX} ${basePos.posY}" interp="linear"/>`,
+    `${I}        <keyframe time="${durationRat}" value="${basePos.posX} ${slideY}"/>`,
+    `${I}    </keyframeAnimation>`,
+    `${I}</param>`,
+  ].join('\n');
+}
+
+function audioParentOffset(
+  startTimeSeconds: number,
+  clips: { sourceFile: string; startTimeSeconds: number }[],
+  clipOverlapStarts: number[],
+  clipSeqStarts: number[],
+  assetStartFrames: Map<string, { frames: number; fpsNum: number; fpsDen: number }>,
+  sourceShifts: number[],
+  fps: number,
+): { parentClipIdx: number; offset: string } {
+  const audioSeqStart = overlapToSeq(startTimeSeconds, clipOverlapStarts, clipSeqStarts);
+  let parentClipIdx = 0;
+  for (let ci = clips.length - 1; ci >= 0; ci--) {
+    if (audioSeqStart >= clipSeqStarts[ci]) { parentClipIdx = ci; break; }
+  }
+  const parentClip = clips[parentClipIdx];
+  const parentClipFilename = basename(parentClip.sourceFile);
+  const parentTcInfo = assetStartFrames.get(parentClipFilename);
+  const parentEffectiveStart = parentClip.startTimeSeconds + sourceShifts[parentClipIdx];
+  const deltaInClip = audioSeqStart - clipSeqStarts[parentClipIdx];
+  let offset: string;
+  if (parentTcInfo && parentTcInfo.frames > 0) {
+    const clipInFrames = Math.round(parentEffectiveStart * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
+    const deltaFrames = Math.round(deltaInClip * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
+    offset = framesToRational(parentTcInfo.frames + clipInFrames + deltaFrames, parentTcInfo.fpsNum, parentTcInfo.fpsDen);
+  } else {
+    offset = toRational(parentEffectiveStart + deltaInClip, fps);
+  }
+  return { parentClipIdx, offset };
+}
+
+function parseTimecodeToFrames(tc: string, fpsNum: number, fpsDen: number): number {
+  const isDF = tc.includes(';');
+  const parts = tc.split(/[:;]/);
+  const h = parseInt(parts[0], 10);
+  const m = parseInt(parts[1], 10);
+  const s = parseInt(parts[2], 10);
+  const f = parseInt(parts[3], 10);
+  const nomFps = Math.round(fpsNum / fpsDen);
+  const tcMultiplier = nomFps > 30 ? Math.ceil(nomFps / 30) : 1;
+  const tcNomFps = Math.round(nomFps / tcMultiplier);
+  let tcFrames: number;
+  if (isDF) {
+    const D = tcNomFps === 30 ? 2 : 0;
+    const totalMinutes = h * 60 + m;
+    const dropMinutes = totalMinutes - Math.floor(totalMinutes / 10);
+    tcFrames = h * 3600 * tcNomFps + m * 60 * tcNomFps + s * tcNomFps + f - D * dropMinutes;
+  } else {
+    tcFrames = h * 3600 * tcNomFps + m * 60 * tcNomFps + s * tcNomFps + f;
+  }
+  return tcFrames * tcMultiplier;
+}
+
+function audioVolumeXml(vol: number, fadeInSec: number, fadeOutSec: number, indent: string, fps: number): string {
+  if (vol === 1 && fadeInSec === 0 && fadeOutSec === 0) return '';
+  const dB = vol === 1 ? '0' : String(Math.round(20 * Math.log10(vol)));
+  if (fadeInSec > 0 || fadeOutSec > 0) {
+    const fadeElements: string[] = [];
+    if (fadeInSec > 0) fadeElements.push(`${indent}            <fadeIn type="linear" duration="${toRational(fadeInSec, fps)}"/>`);
+    if (fadeOutSec > 0) fadeElements.push(`${indent}            <fadeOut type="linear" duration="${toRational(fadeOutSec, fps)}"/>`);
+    return [
+      ``, `${indent}    <adjust-volume amount="${dB}dB">`,
+      `${indent}        <param name="amount" value="${dB}dB">`,
+      ...fadeElements,
+      `${indent}        </param>`, `${indent}    </adjust-volume>`,
+    ].join('\n');
+  }
+  return `\n${indent}    <adjust-volume amount="${dB}dB"/>`;
+}
+
+function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
+  const filename = basename(clip.sourceFile);
+  const seen = new Set<string>();
+  let index = 0;
+  for (const c of clips) {
+    const fn = basename(c.sourceFile);
+    if (!seen.has(fn)) { index++; seen.add(fn); }
+    if (fn === filename) return `asset-${index}`;
+  }
+  return 'asset-1';
+}
+
+function overlapToSeq(t: number, clipOverlapStarts: number[], clipSeqStarts: number[]): number {
+  for (let i = clipOverlapStarts.length - 1; i >= 0; i--) {
+    if (t >= clipOverlapStarts[i]) return clipSeqStarts[i] + (t - clipOverlapStarts[i]);
+  }
+  return t;
+}
+
+function fcpDirectionValue(direction?: string): string {
+  switch (direction) {
+    case 'from-right': return '0';
+    case 'from-bottom': return '1';
+    case 'from-left': return '2';
+    case 'from-top': return '3';
+    default: return '0';
+  }
+}
+
+function escapeXml(str: string): string {
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
+}
+
+function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1): string {
+  const pos = fcpTitlePositionValues(position, fontSizeTmpl, lineCount);
+  if (!pos) return '';
+  return `\n${indent}<param name="Position" key="${POS_KEY}" value="${pos.posX} ${pos.posY}"/>`;
+}
+
+function toRational(seconds: number, fps: number): string {
+  return `${Math.round(seconds * fps)}/${fps}s`;
+}
+
+function framesToRational(frames: number, fpsNum: number, fpsDen: number): string {
+  return `${frames * fpsDen}/${fpsNum}s`;
+}
+
+function fcpName(str: string): string {
+  return escapeXml(str.replace(/\//g, '-').replace(/[\r\n]+/g, ' '));
 }

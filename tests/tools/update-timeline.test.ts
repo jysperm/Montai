@@ -31,7 +31,10 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
       models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3-pro-preview' },
       effects: { languages: ['en'] },
     },
-    allVideos: [{ id: 1, path: '/test/video1.mp4', filename: 'video1.mp4' }],
+    allVideos: [
+      { id: 1, path: '/test/video1.mp4', filename: 'video1.mp4' },
+      { id: 2, path: '/test/video2.mp4', filename: 'video2.mp4' },
+    ],
     allSummaries: [],
     allMusic: [{ id: 1, filename: 'test.mp3', path: '/test/test.mp3', md5: 'abc', type: 'library', generationPrompt: null, durationSeconds: 30, sampleRate: 44100, channels: 2 }],
     allMusicSummaries: [],
@@ -54,7 +57,7 @@ function seedStory(ctx: StoryToolsContext) {
   ctx.currentStoryName = 'test';
 }
 
-describe('updateTimeline post-processing', () => {
+describe('updateTimeline tool', () => {
   let ctx: StoryToolsContext;
   let updateTimeline: { execute: (id: string, params: any) => Promise<any> };
 
@@ -128,5 +131,78 @@ describe('updateTimeline post-processing', () => {
 
     const overlayItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'overlay' }> => i.type === 'overlay')!;
     expect(overlayItem.text).toBe('Line 1\nLine 2');
+  });
+
+  it('removes clips referencing missing videos', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 2,
+      deleteCount: 0,
+      items: [
+        { type: 'clip', videoId: 999, startTimeSeconds: 0, endTimeSeconds: 10 },
+      ],
+    });
+    expect(result.content[0].text).toContain('videoId=999');
+    expect(ctx.currentItems.filter(i => i.type === 'clip')).toHaveLength(2); // only the original 2
+  });
+
+  it('removes audio referencing missing music', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 2,
+      deleteCount: 0,
+      items: [
+        { type: 'audio', startClip: 0, musicId: 999, volume: 0.5 },
+      ],
+    });
+    expect(result.content[0].text).toContain('musicId=999');
+    expect(ctx.currentItems.filter(i => i.type === 'audio')).toHaveLength(0);
+  });
+
+});
+
+describe('updateTimeline auto-loop', () => {
+  let ctx: StoryToolsContext;
+  let updateTimeline: { execute: (id: string, params: any) => Promise<any> };
+
+  beforeEach(async () => {
+    const db = createTestDb();
+    ctx = createContext(db);
+    // Use short 5s music for loop tests
+    ctx.allMusic = [{ id: 1, filename: 'short.mp3', path: '/test/short.mp3', md5: 'x', type: 'library', generationPrompt: null, durationSeconds: 5, sampleRate: 44100, channels: 2 }];
+    seedStory(ctx);
+    const { tools } = getStoryTools(ctx);
+    updateTimeline = tools.find((t) => t.name === 'updateTimeline')!;
+
+    await updateTimeline.execute('setup', {
+      index: 0,
+      deleteCount: -1,
+      items: [
+        { type: 'clip', videoId: 1, startTimeSeconds: 0, endTimeSeconds: 15 },
+        { type: 'clip', videoId: 2, startTimeSeconds: 0, endTimeSeconds: 15 },
+      ],
+    });
+  });
+
+  it('reports auto-loop when music is shorter than clip span', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 2,
+      deleteCount: 0,
+      items: [
+        { type: 'audio', startClip: 0, endClip: 1, musicId: 1, volume: 0.3 },
+      ],
+    });
+    expect(result.content[0].text).toContain('auto-looped');
+    expect(result.content[0].text).toContain('crossfade');
+  });
+
+  it('does not report loop when music is long enough', async () => {
+    ctx.allMusic = [{ id: 1, filename: 'long.mp3', path: '/test/long.mp3', md5: 'y', type: 'library', generationPrompt: null, durationSeconds: 60, sampleRate: 44100, channels: 2 }];
+    const result = await updateTimeline.execute('call-1', {
+      index: 2,
+      deleteCount: 0,
+      items: [
+        { type: 'audio', startClip: 0, musicId: 1, volume: 0.5 },
+      ],
+    });
+    expect(result.content[0].text).not.toContain('auto-looped');
   });
 });
