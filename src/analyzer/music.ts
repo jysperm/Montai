@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import { asc, eq, isNull } from 'drizzle-orm';
+import { and, asc, eq, isNull, or } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
 import { music, musicAnalyses } from '../db/schema.js';
 import { resolveMusicFiles, getMusicFilename, readProjectFile } from '../utils/project.js';
@@ -194,7 +194,10 @@ export async function syncAndAnalyzeMusic(
       .select({ id: music.id, filename: music.filename, path: music.path })
       .from(music)
       .leftJoin(musicAnalyses, eq(music.id, musicAnalyses.musicId))
-      .where(isNull(musicAnalyses.id))
+      .where(and(
+        isNull(musicAnalyses.id),
+        or(eq(music.type, 'library'), isNull(music.type)),
+      ))
       .orderBy(asc(music.filename))
       .all();
   }

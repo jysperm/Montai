@@ -139,7 +139,11 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   const allMusic = db.select().from(music).all();
   return storyRows.map(r => {
     const items = JSON.parse(r.timeline) as TimelineItem[];
-    return expandTimeline(items, config, r.name, allVideos, r.title, allMusic);
+    const { timeline, corrections } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic);
+    if (corrections.length > 0) {
+      console.log(chalk.yellow(`Timeline "${r.name}" corrections:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
+    }
+    return timeline;
   });
 }
 

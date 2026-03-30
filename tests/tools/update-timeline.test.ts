@@ -33,7 +33,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
     },
     allVideos: [{ id: 1, path: '/test/video1.mp4', filename: 'video1.mp4' }],
     allSummaries: [],
-    allMusic: [],
+    allMusic: [{ id: 1, filename: 'test.mp3', path: '/test/test.mp3', md5: 'abc', type: 'library', generationPrompt: null, durationSeconds: 30, sampleRate: 44100, channels: 2 }],
     allMusicSummaries: [],
     currentStoryId: null,
     currentStoryName: null,

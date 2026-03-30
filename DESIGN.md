@@ -36,6 +36,7 @@ output:
 models:
   analysis: gemini-3-flash-preview       # Per-video analysis
   editing: gemini-3-pro-preview         # Story agent loop
+  musicGeneration: lyria-002            # Optional: enables AI music generation
 effects:
   languages: [zh, en]           # Subtitle / caption languages
 ```
@@ -56,7 +57,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 
 - **videos** — Discovered video files (whether analyzed is determined by joining video_analyses)
 - **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
-- **music** — Discovered music files (id, filename, path, md5, durationSeconds, sampleRate, channels)
+- **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 2, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
 - **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai project --add-fact`. Also stores an AI-generated project overview (`overview`) that synthesizes all video analyses and user facts, viewable via `montai project`. The overview is cached and auto-invalidated (`overview_stale`) when facts or video analyses change.
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
@@ -94,6 +95,7 @@ Uses an agent loop with tools:
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startSeconds, endSeconds)` — Watch a video segment
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
+- `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in audio items
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
@@ -164,9 +166,8 @@ AudioItem {
   startOffset: number
   endClip?: number
   endOffset: number
-  musicId?: number              // references music table
+  musicId: number               // references music table (library or generated)
   audioStartSeconds: number     // offset within music file (default 0)
-  generationPrompt?: string     // placeholder for AI music generation
   volume: number
   fadeInSeconds: number          // linear fade in (default 0)
   fadeOutSeconds: number         // linear fade out (default 0)
@@ -250,6 +251,10 @@ Title positioning uses Essential Title's Motion template params. The template ha
 
 The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, overlay animations, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
 
+Audio auto-loop crossfade in FCPXML uses different strategies per target:
+- **FCP**: Loop segments are grouped into a secondary storyline (`<spine>`) with Cross Dissolve transitions between clips. Each clip is shrunk by half the crossfade duration to provide "handles" (extra source media for the transition to borrow). The last clip is extended to compensate for handle shrinkage.
+- **DaVinci**: Loop segments are placed on alternating lanes (-N, -N-1) with individual fadeIn/fadeOut, since DaVinci doesn't support transitions in secondary storylines.
+
 ## Gemini Integration
 
 Uses Gemini 3 preview models (gemini-3-flash-preview, gemini-3-pro-preview) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
@@ -279,8 +284,21 @@ Configurable per-stage via `models` in `montai.yaml`.
 |-------|------------|---------|-----------------|
 | analysis | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3-pro-preview |
 | editing | Yes | gemini-3-pro-preview | gemini-3-flash-preview, gemini-3-pro-preview |
+| musicGeneration | No | N/A | lyria-002 |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.
+
+## Music Generation (Lyria 2)
+
+The `generateMusic` tool in the story agent generates instrumental background music via Google Lyria 2 on Vertex AI. Generated tracks are stored in the unified `music` table (type='generated') and can be referenced by `musicId` like any library track.
+
+- **API**: Vertex AI `lyria-002:predict` endpoint, authenticated via Application Default Credentials (`google-auth-library`)
+- **Environment variables**: `GOOGLE_CLOUD_PROJECT` (required), `GOOGLE_CLOUD_REGION` (optional, defaults to `us-central1`)
+- **Output**: ~30s instrumental WAV at 48kHz stereo, $0.06/clip
+- **Caching**: Generated files stored in `generated-music/` using SHA-256 hash of prompt. Same prompt reuses existing file + DB row.
+- **Reuse**: Previously generated music appears in the story context under "Generated Music" so the LLM can reference it without regenerating. The LLM is prompted to prefer existing tracks (library or generated) before generating new ones.
+- **Auto-loop**: When a music track (library or generated) is shorter than the audio item's timeline span, `expandTimeline()` automatically splits it into multiple `ExpandedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
+- **Analysis**: Only library music is analyzed by Gemini during `montai analyze`. Generated music uses its generation prompt as the description.
 
 ## User Project Directory Structure
 
@@ -298,6 +316,7 @@ my-vlog-project/
       timelines.json            # All timelines for Remotion Studio
       video1.mp4                # Hard link to source video
       track1.mp3                # Hard link to source audio
+  generated-music/               # AI-generated music files (WAV, keyed by prompt hash)
   output/
     <name>.mp4                  # Generated by `montai render`
   fcpxml/

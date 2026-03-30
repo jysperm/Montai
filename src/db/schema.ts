@@ -56,6 +56,8 @@ export const music = sqliteTable('music', {
   filename: text('filename').notNull(),
   path: text('path').notNull().unique(),
   md5: text('md5').notNull(),
+  type: text('type').default('library'),              // 'library' | 'generated'
+  generationPrompt: text('generation_prompt'),         // null for library, the prompt text for generated
   durationSeconds: integer('duration_seconds'),
   sampleRate: integer('sample_rate'),
   channels: integer('channels'),

@@ -60,6 +60,17 @@ Segments are omitted. Use `getMusicAnalysis` to retrieve full details.
 
 {{/each}}
 {{/if}}
+{{#if generatedMusic}}
+### Generated Music
+
+Previously generated background music. Reuse by setting `musicId` in audio items, same as library tracks.
+
+{{#each generatedMusic}}
+--- Music ID {{this.musicId}} (generated, {{this.durationSeconds}}s) ---
+Prompt: {{this.prompt}}
+
+{{/each}}
+{{/if}}
 {{#if styleReference}}
 
 ## Writing Style Reference

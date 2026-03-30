@@ -98,6 +98,15 @@ export async function storyCommand(
     };
   });
 
+  // Load generated music for context
+  const generatedMusicData = allMusic
+    .filter((m) => m.type === 'generated' && m.generationPrompt)
+    .map((m) => ({
+      musicId: m.id,
+      durationSeconds: m.durationSeconds ?? 30,
+      prompt: m.generationPrompt!,
+    }));
+
   const context = db.select().from(projectContext).get();
   const facts = context?.facts ?? null;
 
@@ -131,7 +140,13 @@ export async function storyCommand(
     spinner.start();
   }
 
-  const musicNames = new Map(allMusic.map((m) => [m.id, m.filename]));
+  // Build music names map dynamically to include newly generated music
+  const getMusicNames = () => new Map(toolsCtx.allMusic.map((m) => [
+    m.id,
+    m.type === 'generated'
+      ? `gen:${(m.generationPrompt ?? '').slice(0, 20)}`
+      : m.filename,
+  ]));
 
   // In-memory state
   const toolsCtx = {
@@ -197,6 +212,20 @@ export async function storyCommand(
           spinner.text = 'Thinking...';
           spinner.start();
           break;
+        case 'message_end': {
+          const msg = event.message;
+          if (msg && msg.role === 'assistant' && 'usage' in msg) {
+            const assistantMsg = msg as AssistantMessage;
+            logStep({
+              step: debugStep,
+              model: assistantMsg.model,
+              usage: assistantMsg.usage,
+              durationMs: Date.now() - debugTurnStartTime,
+            });
+            logResponse(assistantMsg);
+          }
+          break;
+        }
         case 'tool_execution_start':
           lastToolArgs = event.args as Record<string, unknown>;
           spinner.text = `${event.toolName}...`;
@@ -268,6 +297,14 @@ export async function storyCommand(
               console.log(`  ${check} ${toolLabel}: music ${musicId}`);
               break;
             }
+            case 'generateMusic': {
+              const prompt = lastToolArgs.prompt as string;
+              const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
+              const idMatch = resultText.match(/Music ID: (\d+)/);
+              const musicId = idMatch ? idMatch[1] : '?';
+              console.log(`  ${check} ${toolLabel}: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}" → musicId ${musicId}`);
+              break;
+            }
             default:
               console.log(`  ${check} ${toolLabel}`);
           }
@@ -281,13 +318,6 @@ export async function storyCommand(
           const msg = event.message;
           if (msg && 'usage' in msg) {
             const assistantMsg = msg as AssistantMessage;
-            logStep({
-              step: debugStep,
-              model: assistantMsg.model,
-              usage: assistantMsg.usage,
-              durationMs: Date.now() - debugTurnStartTime,
-            });
-            logResponse(assistantMsg);
             totalCost += assistantMsg.usage.cost.total;
             if (assistantMsg.stopReason === 'error') {
               const raw = assistantMsg.errorMessage ?? 'unknown error';
@@ -366,6 +396,7 @@ export async function storyCommand(
     styleReference: styleReference ?? null,
     fullMusicAnalyses: fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,
     summaryMusicAnalyses: summaryMusicAnalyses.length > 0 ? summaryMusicAnalyses : null,
+    generatedMusic: generatedMusicData.length > 0 ? generatedMusicData : null,
   });
 
   // Helper to run agent and display response, catching errors
@@ -389,7 +420,7 @@ export async function storyCommand(
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
-      musicNames,
+      getMusicNames(),
       toolsCtx.currentStoryName ?? undefined,
     );
     if (timelineLines.length > 0) {
@@ -413,7 +444,7 @@ export async function storyCommand(
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
       process.stdout.columns || 80,
-      musicNames,
+      getMusicNames(),
       toolsCtx.currentStoryName ?? undefined,
     );
     if (timelineLines.length > 0) {

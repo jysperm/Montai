@@ -351,10 +351,17 @@ export function generateFcpxml(
       usedTransitionTypes.add(trans.type);
     }
   }
-  const crossDissolveId = usedTransitionTypes.has('fade') ? `r${nextResourceId++}` : null;
+  // Detect if audio loops need crossfade transitions
+  const hasAudioLoops = (spec.audioTracks ?? []).some((a, i, arr) => {
+    if (i === 0 || !a.sourceFile) return false;
+    const prev = arr[i - 1];
+    return prev.sourceFile && basename(a.sourceFile) === basename(prev.sourceFile)
+      && a.startTimeSeconds < prev.endTimeSeconds;
+  });
+  const crossDissolveId = (usedTransitionTypes.has('fade') || hasAudioLoops) ? `r${nextResourceId++}` : null;
   const slideId = usedTransitionTypes.has('slide') ? `r${nextResourceId++}` : null;
   const wipeId = usedTransitionTypes.has('wipe') ? `r${nextResourceId++}` : null;
-  const audioCrossfadeId = usedTransitionTypes.size > 0 ? `r${nextResourceId++}` : null;
+  const audioCrossfadeId = (usedTransitionTypes.size > 0 || hasAudioLoops) ? `r${nextResourceId++}` : null;
   let formatIndex = nextResourceId;
 
   let detectedHdr = false;
@@ -546,105 +553,224 @@ export function generateFcpxml(
   const audioAssetMap = new Map<string, string>();
   const clipAudioAnchors = new Map<number, string[]>();
 
+  // Group consecutive same-file overlapping audio tracks (auto-loop segments) for spine transitions.
+  type AudioTrack = NonNullable<typeof spec.audioTracks>[number];
+  const audioGroups: AudioTrack[][] = [];
   for (const audio of spec.audioTracks ?? []) {
     if (!audio.sourceFile) continue;
-    const filename = basename(audio.sourceFile);
+    const prev = audioGroups[audioGroups.length - 1];
+    const prevTrack = prev?.[prev.length - 1];
+    if (prevTrack && basename(audio.sourceFile) === basename(prevTrack.sourceFile)
+        && audio.startTimeSeconds < prevTrack.endTimeSeconds) {
+      prev.push(audio);
+    } else {
+      audioGroups.push([audio]);
+    }
+  }
 
+  // Register audio assets
+  for (const group of audioGroups) {
+    const filename = basename(group[0].sourceFile);
     if (!audioAssetMap.has(filename)) {
       const id = `audio-asset-${audioAssetMap.size + 1}`;
       audioAssetMap.set(filename, id);
-
       const meta = audioMeta?.get(filename);
       const sampleRate = meta?.sampleRate ?? 48000;
       const channels = meta?.channels ?? 2;
       const durationSeconds = meta?.durationSeconds ?? 600;
       const durationTicks = Math.round(durationSeconds * sampleRate);
-
-      const srcUrl = `file://${escapeXml(audio.sourceFile || filename)}`;
-
-      assetLines.push(
-        [
-          `        <asset id="${id}" start="0/1s" duration="${durationTicks}/${sampleRate}s" hasAudio="1" audioSources="1" audioChannels="${channels}" audioRate="${sampleRate}">`,
-          `            <media-rep kind="original-media" src="${srcUrl}" />`,
-          `        </asset>`,
-        ].join('\n')
-      );
+      const srcUrl = `file://${escapeXml(group[0].sourceFile || filename)}`;
+      assetLines.push([
+        `        <asset id="${id}" start="0/1s" duration="${durationTicks}/${sampleRate}s" hasAudio="1" audioSources="1" audioChannels="${channels}" audioRate="${sampleRate}">`,
+        `            <media-rep kind="original-media" src="${srcUrl}" />`,
+        `        </asset>`,
+      ].join('\n'));
     }
+  }
 
-    // Find which clip this audio starts on (sequential timeline coordinates)
+  // Helper: compute parent clip offset for an audio track's start time
+  function audioParentOffset(audio: AudioTrack): { parentClipIdx: number; offset: string } {
     const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
     let parentClipIdx = 0;
     for (let ci = spec.clips.length - 1; ci >= 0; ci--) {
-      if (audioSeqStart >= clipSeqStarts[ci]) {
-        parentClipIdx = ci;
-        break;
-      }
+      if (audioSeqStart >= clipSeqStarts[ci]) { parentClipIdx = ci; break; }
     }
-
-    // Compute offset in the parent clip's local timeline (source timebase)
     const parentClip = spec.clips[parentClipIdx];
     const parentClipFilename = basename(parentClip.sourceFile);
     const parentTcInfo = assetStartFrames.get(parentClipFilename);
     const parentEffectiveStart = parentClip.startTimeSeconds + sourceShifts[parentClipIdx];
     const deltaInClip = audioSeqStart - clipSeqStarts[parentClipIdx];
-
-    const audioAssetId = audioAssetMap.get(filename)!;
-    let audioClipOffset: string;
+    let offset: string;
     if (parentTcInfo && parentTcInfo.frames > 0) {
       const clipInFrames = Math.round(parentEffectiveStart * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
       const deltaFrames = Math.round(deltaInClip * parentTcInfo.fpsNum / parentTcInfo.fpsDen);
-      audioClipOffset = framesToRational(parentTcInfo.frames + clipInFrames + deltaFrames, parentTcInfo.fpsNum, parentTcInfo.fpsDen);
+      offset = framesToRational(parentTcInfo.frames + clipInFrames + deltaFrames, parentTcInfo.fpsNum, parentTcInfo.fpsDen);
     } else {
-      audioClipOffset = toRational(parentEffectiveStart + deltaInClip, fps);
+      offset = toRational(parentEffectiveStart + deltaInClip, fps);
     }
-    // Duration must be computed in sequential coordinates (same as overlays),
-    // since FCPXML spine uses the sequential model where transitions don't shorten total duration.
-    const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
-    const audioClipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
-    const audioClipStart = toRational(audio.audioStartSeconds, fps);
+    return { parentClipIdx, offset };
+  }
 
-    // Build volume adjustment with fade
-    const fadeInSec = audio.fadeInSeconds;
-    const fadeOutSec = audio.fadeOutSeconds;
-    const vol = audio.volume;
-
-    let volumeXml = '';
-    if (vol !== 1 || fadeInSec > 0 || fadeOutSec > 0) {
-      const dB = vol === 1 ? '0' : String(Math.round(20 * Math.log10(vol)));
-      if (fadeInSec > 0 || fadeOutSec > 0) {
-        const fadeElements: string[] = [];
-        if (fadeInSec > 0) {
-          fadeElements.push(`${II}            <fadeIn type="linear" duration="${toRational(fadeInSec, fps)}"/>`);
-        }
-        if (fadeOutSec > 0) {
-          fadeElements.push(`${II}            <fadeOut type="linear" duration="${toRational(fadeOutSec, fps)}"/>`);
-        }
-        volumeXml = [
-          ``,
-          `${II}    <adjust-volume amount="${dB}dB">`,
-          `${II}        <param name="amount" value="${dB}dB">`,
-          ...fadeElements,
-          `${II}        </param>`,
-          `${II}    </adjust-volume>`,
-        ].join('\n');
-      } else {
-        volumeXml = `\n${II}    <adjust-volume amount="${dB}dB"/>`;
-      }
+  // Helper: build volume XML for an audio track
+  function audioVolumeXml(vol: number, fadeInSec: number, fadeOutSec: number, indent: string): string {
+    if (vol === 1 && fadeInSec === 0 && fadeOutSec === 0) return '';
+    const dB = vol === 1 ? '0' : String(Math.round(20 * Math.log10(vol)));
+    if (fadeInSec > 0 || fadeOutSec > 0) {
+      const fadeElements: string[] = [];
+      if (fadeInSec > 0) fadeElements.push(`${indent}            <fadeIn type="linear" duration="${toRational(fadeInSec, fps)}"/>`);
+      if (fadeOutSec > 0) fadeElements.push(`${indent}            <fadeOut type="linear" duration="${toRational(fadeOutSec, fps)}"/>`);
+      return [
+        ``, `${indent}    <adjust-volume amount="${dB}dB">`,
+        `${indent}        <param name="amount" value="${dB}dB">`,
+        ...fadeElements,
+        `${indent}        </param>`, `${indent}    </adjust-volume>`,
+      ].join('\n');
     }
+    return `\n${indent}    <adjust-volume amount="${dB}dB"/>`;
+  }
 
+  let audioLaneCounter = -1;
+  for (const group of audioGroups) {
+    const audioLane = audioLaneCounter--;
+    const filename = basename(group[0].sourceFile);
+    const audioAssetId = audioAssetMap.get(filename)!;
+    const { parentClipIdx, offset: spineOffset } = audioParentOffset(group[0]);
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
-    if (volumeXml) {
-      clipAudioAnchors.get(parentClipIdx)!.push(
-        [
-          `${II}<asset-clip ref="${audioAssetId}" lane="-1" name="${escapeXml(filename)}" offset="${audioClipOffset}" duration="${audioClipDuration}" start="${audioClipStart}">`,
-          `${volumeXml}`,
-          `${II}</asset-clip>`,
-        ].join('\n')
-      );
+
+    if (group.length === 1) {
+      // Single audio track: simple anchor item
+      const audio = group[0];
+      const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
+      const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
+      const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
+      const clipStart = toRational(audio.audioStartSeconds, fps);
+      const volXml = audioVolumeXml(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
+
+      if (volXml) {
+        clipAudioAnchors.get(parentClipIdx)!.push([
+          `${II}<asset-clip ref="${audioAssetId}" lane="${audioLane}" name="${escapeXml(filename)}" offset="${spineOffset}" duration="${clipDuration}" start="${clipStart}">`,
+          `${volXml}`, `${II}</asset-clip>`,
+        ].join('\n'));
+      } else {
+        clipAudioAnchors.get(parentClipIdx)!.push(
+          `${II}<asset-clip ref="${audioAssetId}" lane="${audioLane}" name="${escapeXml(filename)}" offset="${spineOffset}" duration="${clipDuration}" start="${clipStart}" />`
+        );
+      }
+    } else if (target === 'fcp') {
+      // FCP: secondary storyline (spine) with audio crossfade transitions.
+      // FCPXML transitions borrow source media ("handles") from beyond each clip's
+      // visible range. We shrink each clip to leave handles, then extend the last
+      // clip to ensure the spine fully covers the target sequential duration.
+      const targetDuration = group[group.length - 1].endTimeSeconds
+        - group[0].startTimeSeconds;
+
+      // First pass: compute clip starts and durations with handle shrinkage
+      const spineClips: { audioStart: number; duration: number; fadeIn: number; fadeOut: number }[] = [];
+      let totalTransitionDur = 0;
+
+      for (let gi = 0; gi < group.length; gi++) {
+        const audio = group[gi];
+        const isFirst = gi === 0;
+        const isLast = gi === group.length - 1;
+        const trackDuration = audio.endTimeSeconds - audio.startTimeSeconds;
+
+        const crossfadeIn = isFirst ? 0 : (group[gi - 1].endTimeSeconds - audio.startTimeSeconds);
+        const crossfadeOut = isLast ? 0 : (audio.endTimeSeconds - group[gi + 1].startTimeSeconds);
+        const handleIn = crossfadeIn / 2;
+        const handleOut = crossfadeOut / 2;
+        if (!isFirst) totalTransitionDur += crossfadeIn;
+
+        spineClips.push({
+          audioStart: audio.audioStartSeconds + handleIn,
+          duration: trackDuration - handleIn - handleOut,
+          fadeIn: isFirst ? audio.fadeInSeconds : 0,
+          fadeOut: isLast ? audio.fadeOutSeconds : 0,
+        });
+      }
+
+      // Extend the last clip to fill any shortfall from handle shrinkage
+      const currentSpineDur = spineClips.reduce((s, c) => s + c.duration, 0) - totalTransitionDur;
+      const shortfall = targetDuration - currentSpineDur;
+      if (shortfall > 0) {
+        const last = spineClips[spineClips.length - 1];
+        const meta = audioMeta?.get(filename);
+        const fileDuration = meta?.durationSeconds ?? 600;
+        const maxExtend = fileDuration - last.audioStart - last.duration;
+        last.duration += Math.min(shortfall, maxExtend);
+      }
+
+      // Second pass: emit spine XML
+      const spineLines: string[] = [];
+      const SI = `${II}    `;
+      let seqOffset = 0;
+
+      for (let gi = 0; gi < group.length; gi++) {
+        const sc = spineClips[gi];
+
+        // Add transition before this clip (except first)
+        if (gi > 0 && crossDissolveId && audioCrossfadeId) {
+          const crossfadeIn = group[gi - 1].endTimeSeconds - group[gi].startTimeSeconds;
+          const crossfadeFrames = Math.round(crossfadeIn * fps);
+          const boundaryFrames = Math.round(seqOffset * fps);
+          const transOffsetFrames = boundaryFrames - Math.round(crossfadeFrames / 2);
+          spineLines.push([
+            `${SI}<transition name="Cross Dissolve" offset="${transOffsetFrames}/${fps}s" duration="${crossfadeFrames}/${fps}s">`,
+            `${SI}    <filter-video ref="${crossDissolveId}" name="Cross Dissolve" />`,
+            `${SI}    <filter-audio ref="${audioCrossfadeId}" name="Audio Cross Fade" />`,
+            `${SI}</transition>`,
+          ].join('\n'));
+        }
+
+        const volXml = audioVolumeXml(group[gi].volume, sc.fadeIn, sc.fadeOut, SI);
+        const clipOffsetRational = toRational(seqOffset, fps);
+        const clipDurationRational = toRational(sc.duration, fps);
+        const clipStartRational = toRational(sc.audioStart, fps);
+
+        if (volXml) {
+          spineLines.push([
+            `${SI}<asset-clip ref="${audioAssetId}" name="${escapeXml(filename)}" offset="${clipOffsetRational}" duration="${clipDurationRational}" start="${clipStartRational}">`,
+            `${volXml}`, `${SI}</asset-clip>`,
+          ].join('\n'));
+        } else {
+          spineLines.push(
+            `${SI}<asset-clip ref="${audioAssetId}" name="${escapeXml(filename)}" offset="${clipOffsetRational}" duration="${clipDurationRational}" start="${clipStartRational}" />`
+          );
+        }
+
+        seqOffset += sc.duration;
+      }
+
+      clipAudioAnchors.get(parentClipIdx)!.push([
+        `${II}<spine lane="${audioLane}" offset="${spineOffset}">`,
+        ...spineLines,
+        `${II}</spine>`,
+      ].join('\n'));
     } else {
-      clipAudioAnchors.get(parentClipIdx)!.push(
-        `${II}<asset-clip ref="${audioAssetId}" lane="-1" name="${escapeXml(filename)}" offset="${audioClipOffset}" duration="${audioClipDuration}" start="${audioClipStart}" />`
-      );
+      // DaVinci: separate lanes per loop segment with fadeIn/fadeOut (no spine transitions).
+      // Alternate between two lanes (-N, -N-1) so overlapping segments don't conflict.
+      audioLaneCounter--; // reserve a second lane for alternation
+      for (let gi = 0; gi < group.length; gi++) {
+        const audio = group[gi];
+        const lane = gi % 2 === 0 ? audioLane : audioLane - 1;
+        const { parentClipIdx: clipIdx, offset: clipOffset } = audioParentOffset(audio);
+        if (!clipAudioAnchors.has(clipIdx)) clipAudioAnchors.set(clipIdx, []);
+        const audioSeqStart = overlapToSeq(audio.startTimeSeconds);
+        const audioSeqEnd = overlapToSeq(audio.endTimeSeconds);
+        const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
+        const clipStart = toRational(audio.audioStartSeconds, fps);
+        const volXml = audioVolumeXml(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
+
+        if (volXml) {
+          clipAudioAnchors.get(clipIdx)!.push([
+            `${II}<asset-clip ref="${audioAssetId}" lane="${lane}" name="${escapeXml(filename)}" offset="${clipOffset}" duration="${clipDuration}" start="${clipStart}">`,
+            `${volXml}`, `${II}</asset-clip>`,
+          ].join('\n'));
+        } else {
+          clipAudioAnchors.get(clipIdx)!.push(
+            `${II}<asset-clip ref="${audioAssetId}" lane="${lane}" name="${escapeXml(filename)}" offset="${clipOffset}" duration="${clipDuration}" start="${clipStart}" />`
+          );
+        }
+      }
     }
   }
 

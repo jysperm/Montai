@@ -74,11 +74,11 @@ Every overlay must include all configured languages. For example, if the project
   "fadeOutSeconds": 3
 }
 ```
-- `musicId`: references a music file from the music library (provided in context). Required unless using `generationPrompt`.
+- `musicId`: references a music file from the music library or generated music (provided in context). Required.
 - `audioStartSeconds`: where in the music file to start playing (default 0). Use this to skip intros or start from a specific section.
-- `generationPrompt`: (optional) text description for AI-generated music. When set, `musicId` is not needed. Music generation is not yet implemented — this is a placeholder for future use.
 - `fadeInSeconds` / `fadeOutSeconds`: linear volume fade at start/end (default 0).
 - Volume 0.3–0.5 is typical for background music under dialog.
+- If the music is shorter than the audio item's span, it automatically loops with a 1-second crossfade at loop boundaries.
 
 ### Anchor positioning rules
 - `startClip` / `endClip`: 0-based index among clip items only (not all items). Must be valid indices (0 to number_of_clips - 1)
@@ -103,6 +103,20 @@ Example: to show "Day 1" for the first 3 seconds of clip 0, use `startClip: 0, s
 - Overlay animation: You can add animation to overlays to make text appear and disappear smoothly. Use `pop` sparingly for emphasis. Omit `animation` when overlays change in quick succession.
 - Style: Prefer a direct, straightforward presentation of the subject matter. Don't over-edit — let the footage and the dialog within it carry the story naturally.
 - Audio: Avoid clips that contain irrelevant dialog (e.g. off-topic conversations). When trimming clips, be careful not to cut into incomplete sentences from the main subjects (background chatter from bystanders is acceptable). Lower volume on clips with unwanted noise.
+- Background Music: **Prefer reusing existing music** from the Music Library or Generated Music before generating new tracks. Choose music that complements the mood without overpowering the visuals or dialog. Lower volume (0.1–0.2) during speech segments. Use music segment analysis to align energy changes with video transitions.
+
+## Using `generateMusic`
+
+Use `generateMusic` to create new background music when no suitable track exists in the library or generated music. Each call produces ~30 seconds of instrumental music.
+
+**Prompt writing tips** (prompt must be in English):
+- Describe the core mood and emotion (e.g. "warm and nostalgic", "energetic and upbeat", "calm and meditative")
+- Specify genre and style (e.g. "lo-fi hip hop", "cinematic orchestral", "acoustic folk")
+- Mention key instruments (e.g. "piano", "acoustic guitar", "soft synthesizer pads")
+- Indicate tempo (e.g. "slow tempo", "medium pace", "120 BPM")
+- Optionally describe arrangement (e.g. "starts sparse, builds gradually")
+
+**Keep prompts mood-focused** for better reuse — a track generated with "gentle acoustic guitar, warm and relaxed, medium tempo" can be reused across multiple travel montage scenes.
 
 ## Using `watchSegment`
 

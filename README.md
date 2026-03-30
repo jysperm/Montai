@@ -14,7 +14,8 @@ Prerequisites:
 
 - Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
-- [Gemini API key](https://aistudio.google.com/apikeys) — set `GEMINI_API_KEY` or `GOOGLE_GENERATIVE_AI_API_KEY` environment variable
+- [Gemini] for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikeys)
+- [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
 ## Quick Start
 
@@ -23,7 +24,7 @@ Prerequisites:
 ```yaml
 videos:
   - .
-# Language for intermediate text (e.g. storyline, summaries)
+# Language for intermediate text (e.g. analysis, storyline)
 language: en
 output:
   resolution: 1080p
@@ -31,6 +32,7 @@ output:
 models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
+  musicGeneration: lyria-002        # Optional: enables AI music generation
 effects:
   # Languages for text overlays, specify multiple for bilingual subtitles
   languages: [zh, en]
@@ -124,7 +126,9 @@ After archiving, use `--from-archived` on `render`, `preview`, or `export` to wo
 
 ```
 my-vlog-project/
-  .montai/             # Cache (transcoded videos, specs)
+  .montai/             # Cache directory
+    transcoded/        # Preprocessed video files
+  generated-music/     # AI-generated music files (WAV)
   archived/            # Archived video clips (montai archive)
   fcpxml/              # Generated FCPXML files
   output/              # Rendered videos

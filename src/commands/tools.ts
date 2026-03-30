@@ -10,10 +10,11 @@ import { transcodeForUpload } from '../utils/transcode.js';
 import {
   TimelineItemSchema,
   spliceTimelineItems,
-  sanitizeTimelineItems,
+  expandTimeline,
   type TimelineItem,
 } from '../schemas/timeline-items.js';
 import { z } from 'zod';
+import { generateMusicTrack } from '../lyria/generate.js';
 
 const MAX_VIDEO_FILES_PER_TURN = 10;
 
@@ -126,8 +127,12 @@ export function getStoryTools(ctx: StoryToolsContext) {
         }
       }
 
+      // Sanitize + expand: validates references, clamps indices, detects auto-loop.
+      // Sanitized items are written to DB; corrections are returned to the LLM.
       const splicedItems = spliceTimelineItems(ctx.currentItems, params.index, params.deleteCount, newItems);
-      const { items: allItems, corrections } = sanitizeTimelineItems(splicedItems);
+      const { sanitizedItems: allItems, corrections } = expandTimeline(
+        splicedItems, ctx.config, ctx.currentStoryName ?? 'unnamed', ctx.allVideos, undefined, ctx.allMusic,
+      );
 
       ctx.currentItems = allItems;
 
@@ -284,7 +289,56 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
-  const tools = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool];
+  const generateMusicTool = {
+    name: 'generateMusic',
+    label: 'Generate Music',
+    description: 'Generate instrumental background music via Lyria 2 AI. Produces a ~30 second WAV track. Prefer reusing existing music (from Music Library or previously generated) before generating new tracks. Prompt must be in English.',
+    parameters: Type.Object({
+      prompt: Type.String({ description: 'English description of the desired music: mood, genre, instruments, tempo. E.g. "gentle acoustic guitar, warm and nostalgic, medium tempo, suitable for a travel montage"' }),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { prompt: string },
+    ) {
+      try {
+        const result = await generateMusicTrack(ctx.db, params.prompt);
+
+        // Update the allMusic context so subsequent getMusicAnalysis / updateTimeline can reference it
+        const existing = ctx.allMusic.find((m) => m.id === result.musicId);
+        if (!existing) {
+          ctx.allMusic.push({
+            id: result.musicId,
+            filename: `${result.path.split('/').pop()}`,
+            path: result.path,
+            md5: '',
+            type: 'generated',
+            generationPrompt: params.prompt,
+            durationSeconds: result.durationSeconds,
+            sampleRate: null,
+            channels: null,
+          });
+        }
+
+        const textContent: TextContent = {
+          type: 'text' as const,
+          text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in audio timeline items to reference this track.`,
+        };
+        return { content: [textContent], details: {} };
+      } catch (err) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Music generation failed: ${err instanceof Error ? err.message : err}`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+    },
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool];
+  if (ctx.config.models.musicGeneration) {
+    tools.push(generateMusicTool);
+  }
 
   return {
     tools,

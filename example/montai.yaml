@@ -10,5 +10,6 @@ output:
 models:
   analysis: gemini-3-flash-preview
   editing: gemini-3-pro-preview
+  musicGeneration: lyria-002
 effects:
   languages: [zh, en]

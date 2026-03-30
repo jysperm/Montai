@@ -32,9 +32,8 @@ export const AudioItemSchema = z.object({
   startOffset: z.number().default(0),
   endClip: z.number().int().min(0).optional(),
   endOffset: z.number().default(0),
-  musicId: z.number().optional(),
+  musicId: z.number(),
   audioStartSeconds: z.number().default(0),
-  generationPrompt: z.string().optional(),
   volume: z.number().default(1),
   fadeInSeconds: z.number().default(0),
   fadeOutSeconds: z.number().default(0),
@@ -52,7 +51,22 @@ export type AudioItem = z.infer<typeof AudioItemSchema>;
 export type TimelineItem = z.infer<typeof TimelineItemSchema>;
 
 /**
- * Expand raw TimelineItems into ExpandedTimeline format for downstream consumption (Remotion/FCPXML).
+ * Sanitize and expand raw TimelineItems into ExpandedTimeline format.
+ *
+ * Sanitization: removes items referencing missing videos/music, clamps out-of-range
+ * startClip/endClip, fixes escaped newlines in overlay text.
+ *
+ * Expansion: resolves clip-anchored positions to absolute times, auto-loops short music
+ * with crossfade.
+ *
+ * Returns:
+ * - `timeline`: the expanded result for downstream consumption (Remotion/FCPXML)
+ * - `sanitizedItems`: the raw items after sanitization (for writing back to DB in updateTimeline)
+ * - `corrections`: human-readable list of all fixes applied (for LLM feedback or console logging)
+ *
+ * Callers decide what to do with each:
+ * - updateTimeline tool: writes sanitizedItems to DB, returns corrections to the LLM
+ * - render/export commands: uses timeline for output, logs corrections to console
  */
 export function expandTimeline(
   items: TimelineItem[],
@@ -61,15 +75,54 @@ export function expandTimeline(
   videos: { id: number; path: string }[],
   storyTitle?: string,
   musicFiles?: { id: number; path: string; durationSeconds?: number | null }[],
-): ExpandedTimeline {
+): { timeline: ExpandedTimeline; sanitizedItems: TimelineItem[]; corrections: string[] } {
   const res = resolveResolution(config.output.resolution);
+  const corrections: string[] = [];
 
-  // Sanitize items before expansion
-  const { items: sanitizedItems, corrections } = sanitizeTimelineItems(items);
-  items = sanitizedItems;
-  if (corrections.length > 0) {
-    console.log(chalk.yellow(`Timeline "${storyName}" sanitized:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
+  // --- Sanitize: remove invalid references, clamp indices, fix text ---
+  const videoIds = new Set(videos.map((v) => v.id));
+  const musicIds = musicFiles ? new Set(musicFiles.map((m) => m.id)) : null;
+
+  items = items.filter((item) => {
+    if (item.type === 'clip' && !videoIds.has(item.videoId)) {
+      corrections.push(`Clip (videoId=${item.videoId}): video not found in database — removed`);
+      return false;
+    }
+    if (item.type === 'audio' && musicIds && !musicIds.has(item.musicId)) {
+      corrections.push(`Audio item (musicId=${item.musicId}): music not found in database — removed`);
+      return false;
+    }
+    return true;
+  });
+
+  const clipCount = items.filter((i) => i.type === 'clip').length;
+  const maxClipIndex = clipCount - 1;
+
+  for (const item of items) {
+    if (item.type === 'overlay' || item.type === 'audio') {
+      const label = item.type === 'overlay'
+        ? `Overlay "${item.text.slice(0, 30)}"`
+        : `Audio item${item.musicId ? ` (musicId=${item.musicId})` : ''}`;
+
+      if (item.startClip > maxClipIndex) {
+        corrections.push(`${label}: startClip clamped from ${item.startClip} to ${maxClipIndex} (total clips: ${clipCount})`);
+        item.startClip = maxClipIndex;
+      }
+      if (item.endClip !== undefined && item.endClip > maxClipIndex) {
+        corrections.push(`${label}: endClip clamped from ${item.endClip} to ${maxClipIndex} (total clips: ${clipCount})`);
+        item.endClip = maxClipIndex;
+      }
+    }
+    if (item.type === 'overlay' && item.text.includes('\\n')) {
+      corrections.push(`Overlay "${item.text.slice(0, 30)}": escaped \\\\n replaced with newline`);
+      item.text = item.text.replace(/\\n/g, '\n');
+    }
   }
+
+  // Snapshot sanitized items before expansion mutates anything further
+  const sanitizedItems = items.map((i) => ({ ...i })) as TimelineItem[];
+
+  // --- Expand ---
 
   // Extract clip items in order
   const clipItems = items.filter((item): item is ClipItem => item.type === 'clip');
@@ -151,10 +204,11 @@ export function expandTimeline(
       };
     });
 
-  // Build audio tracks from audio items
+  // Build audio tracks from audio items, with auto-loop when music is too short
+  const LOOP_CROSSFADE = 1; // seconds of crossfade at loop boundaries
   const audioTracks = items
     .filter((item): item is AudioItem => item.type === 'audio')
-    .map((audio) => {
+    .flatMap((audio) => {
       const startClipIdx = audio.startClip;
       const endClipIdx = audio.endClip ?? audio.startClip;
 
@@ -175,32 +229,102 @@ export function expandTimeline(
         endTime = clipStartTimes[endClipIdx] + audio.endOffset;
       }
 
-      // Resolve source file from musicId
+      // Resolve source file from musicId (missing refs already filtered by sanitize)
       let sourceFile = '';
+      let musicDuration: number | null = null;
       if (audio.musicId && musicFiles) {
         const musicFile = musicFiles.find((m) => m.id === audio.musicId);
         if (musicFile) {
           sourceFile = musicFile.path;
-          // Warn if music duration is insufficient
-          const neededDuration = (endTime - startTime) + audio.audioStartSeconds;
-          if (musicFile.durationSeconds && neededDuration > musicFile.durationSeconds) {
-            console.log(chalk.yellow(`Warning: music "${musicFile.path}" duration (${musicFile.durationSeconds}s) may be insufficient for audio item (needs ~${Math.round(neededDuration)}s)`));
-          }
+          musicDuration = musicFile.durationSeconds ?? null;
         }
       }
 
-      return {
-        sourceFile,
-        startTimeSeconds: Math.max(0, startTime),
-        endTimeSeconds: endTime,
-        audioStartSeconds: audio.audioStartSeconds,
-        volume: audio.volume,
-        fadeInSeconds: audio.fadeInSeconds,
-        fadeOutSeconds: audio.fadeOutSeconds,
-      };
+      const timelineDuration = endTime - Math.max(0, startTime);
+      const availableDuration = musicDuration != null
+        ? musicDuration - audio.audioStartSeconds
+        : Infinity;
+
+      // No looping needed: single entry
+      if (availableDuration >= timelineDuration) {
+        return [{
+          sourceFile,
+          startTimeSeconds: Math.max(0, startTime),
+          endTimeSeconds: endTime,
+          audioStartSeconds: audio.audioStartSeconds,
+          volume: audio.volume,
+          fadeInSeconds: audio.fadeInSeconds,
+          fadeOutSeconds: audio.fadeOutSeconds,
+        }];
+      }
+
+      // Auto-loop: split into multiple entries with crossfade at boundaries
+      // Safety: if available duration is too small, return a single truncated entry
+      if (availableDuration <= LOOP_CROSSFADE) {
+        return [{
+          sourceFile,
+          startTimeSeconds: Math.max(0, startTime),
+          endTimeSeconds: Math.max(0, startTime) + Math.max(0, availableDuration),
+          audioStartSeconds: audio.audioStartSeconds,
+          volume: audio.volume,
+          fadeInSeconds: audio.fadeInSeconds,
+          fadeOutSeconds: audio.fadeOutSeconds,
+        }];
+      }
+
+      const entries: {
+        sourceFile: string;
+        startTimeSeconds: number;
+        endTimeSeconds: number;
+        audioStartSeconds: number;
+        volume: number;
+        fadeInSeconds: number;
+        fadeOutSeconds: number;
+      }[] = [];
+
+      let currentTime = Math.max(0, startTime);
+      let isFirst = true;
+
+      while (currentTime < endTime) {
+        const audioStart = isFirst ? audio.audioStartSeconds : 0;
+        const segmentAvailable = musicDuration! - audioStart;
+        const segmentEnd = Math.min(currentTime + segmentAvailable, endTime);
+
+        // If remaining gap after this segment is too small for another loop iteration,
+        // extend this segment to cover the rest
+        const nextTime = segmentEnd - LOOP_CROSSFADE;
+        const remainingAfter = endTime - nextTime;
+        const isLast = segmentEnd >= endTime || remainingAfter <= LOOP_CROSSFADE;
+        const actualEnd = isLast ? endTime : segmentEnd;
+
+        entries.push({
+          sourceFile,
+          startTimeSeconds: currentTime,
+          endTimeSeconds: actualEnd,
+          audioStartSeconds: audioStart,
+          volume: audio.volume,
+          fadeInSeconds: isFirst ? audio.fadeInSeconds : LOOP_CROSSFADE,
+          fadeOutSeconds: isLast ? audio.fadeOutSeconds : LOOP_CROSSFADE,
+        });
+
+        if (isLast) break;
+
+        // Advance past this segment, overlapping by crossfade duration
+        currentTime = segmentEnd - LOOP_CROSSFADE;
+        isFirst = false;
+      }
+
+      const loopCount = entries.length;
+      if (loopCount > 1) {
+        corrections.push(
+          `Audio item (musicId=${audio.musicId}): music (${Math.round(availableDuration)}s available) auto-looped ${loopCount}× with ${LOOP_CROSSFADE}s crossfade to cover ~${Math.round(timelineDuration)}s span`,
+        );
+      }
+
+      return entries;
     });
 
-  return {
+  const timeline: ExpandedTimeline = {
     name: storyName,
     title: storyTitle,
     fps: config.output.fps,
@@ -210,46 +334,8 @@ export function expandTimeline(
     textOverlays,
     audioTracks,
   };
-}
 
-/**
- * Post-process timeline items: fix common LLM errors and return corrections.
- * Called after splice in updateTimeline, before writing to DB.
- */
-export function sanitizeTimelineItems(
-  items: TimelineItem[],
-): { items: TimelineItem[]; corrections: string[] } {
-  const corrections: string[] = [];
-  const clipCount = items.filter((i) => i.type === 'clip').length;
-  const maxClipIndex = clipCount - 1;
-
-  for (const item of items) {
-    if (item.type === 'overlay' || item.type === 'audio') {
-      const label = item.type === 'overlay'
-        ? `Overlay "${item.text.slice(0, 30)}"`
-        : `Audio item${item.musicId ? ` (musicId=${item.musicId})` : ''}`;
-
-      // Clamp startClip
-      if (item.startClip > maxClipIndex) {
-        corrections.push(`${label}: startClip clamped from ${item.startClip} to ${maxClipIndex} (total clips: ${clipCount})`);
-        item.startClip = maxClipIndex;
-      }
-
-      // Clamp endClip
-      if (item.endClip !== undefined && item.endClip > maxClipIndex) {
-        corrections.push(`${label}: endClip clamped from ${item.endClip} to ${maxClipIndex} (total clips: ${clipCount})`);
-        item.endClip = maxClipIndex;
-      }
-    }
-
-    // Fix escaped newlines in overlay text
-    if (item.type === 'overlay' && item.text.includes('\\n')) {
-      corrections.push(`Overlay "${item.text.slice(0, 30)}": escaped \\\\n replaced with newline`);
-      item.text = item.text.replace(/\\n/g, '\n');
-    }
-  }
-
-  return { items, corrections };
+  return { timeline, sanitizedItems, corrections };
 }
 
 /**
