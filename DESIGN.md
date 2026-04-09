@@ -146,6 +146,8 @@ ClipItem {
   playbackRate: number         // default 1
   volume: number               // default 1
   transition?: Transition      // optional; defines the transition FROM the previous clip INTO this clip
+  crop?: Crop                  // static crop (left/top/right/bottom as % of frame height)
+  cropEnd?: Crop               // if set, Ken Burns animation from crop → cropEnd
 }
 
 OverlayItem {
@@ -202,6 +204,8 @@ ExpandedClip {
     direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'
     durationSeconds: number
   }
+  crop?: Crop                  // passed through from ClipItem
+  cropEnd?: Crop               // passed through from ClipItem
 }
 
 ExpandedOverlay {
@@ -250,6 +254,10 @@ Overlay animations: fade and pop use FCP's built-in Essential Fade / Essential S
 Title positioning uses Essential Title's Motion template params. The template has a fixed 3840×2160 canvas with paragraph margins (left=-1600, right=1600, top=562, bottom=-700). Positioning is achieved by shifting the title object's Position param (`key="9999/10085/10086/1/100/101"`); horizontal alignment uses the standard `<text-style alignment>` attribute, vertical positioning is computed from font size. This works in FCP; DaVinci ignores Motion template params so titles render at center there.
 
 The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, overlay animations, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
+
+Crop/Ken Burns uses different strategies per target:
+- **FCP**: `adjust-crop mode="crop"` for static crop, `mode="pan"` with two `pan-rect` elements for Ken Burns. Native support with full UI.
+- **DaVinci**: Both static crop and Ken Burns use `adjust-transform` (scale + position). DaVinci's `adjust-crop mode="crop"` shows black bars instead of scaling to fill, and `mode="pan"` (Ken Burns) is completely ignored. For Ken Burns, the end state (`cropEnd`) is applied as a static transform — no animation, but preserves the intended final composition.
 
 Audio auto-loop crossfade in FCPXML uses different strategies per target:
 - **FCP**: Loop segments are grouped into a secondary storyline (`<spine>`) with Cross Dissolve transitions between clips. Each clip is shrunk by half the crossfade duration to provide "handles" (extra source media for the transition to borrow). The last clip is extended to compensate for handle shrinkage.

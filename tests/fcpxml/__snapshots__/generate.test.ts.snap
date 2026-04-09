@@ -1,5 +1,92 @@
 // Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
 
+exports[`generateFcpxml > DaVinci Ken Burns falls back to static adjust-transform at cropEnd 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="davinci-kb">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="0/25s" format="r2" tcFormat="NDF">
+                        <adjust-transform position="0 0" scale="1.6667 1.6667" />
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > DaVinci static crop uses adjust-transform instead of adjust-crop 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="davinci-crop">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="125/25s" format="r2" tcFormat="NDF">
+                        <adjust-transform position="0 0" scale="1.4286 1.4286" />
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > Ken Burns with cropEnd only (no crop) defaults start to full frame 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="kenburns-default">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="0/25s" format="r2" tcFormat="NDF">
+                        <adjust-crop mode="pan">
+                            <pan-rect left="0" top="0" right="0" bottom="0" />
+                            <pan-rect left="25" top="25" right="25" bottom="25" />
+                        </adjust-crop>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
 exports[`generateFcpxml > audio auto-loop: DaVinci uses alternating lanes 1`] = `
 "<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>
@@ -111,6 +198,67 @@ exports[`generateFcpxml > audio auto-loop: FCP uses spine with transitions 1`] =
                                 </adjust-volume>
                             </asset-clip>
                         </spine>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > clip with Ken Burns (pan) crop 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="kenburns-test">
+                <sequence format="r1" duration="500/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="500/25s" start="0/25s" format="r2" tcFormat="NDF">
+                        <adjust-crop mode="pan">
+                            <pan-rect left="0" top="0" right="0" bottom="0" />
+                            <pan-rect left="25" top="20" right="25" bottom="30" />
+                        </adjust-crop>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`generateFcpxml > clip with static crop 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p25" frameDuration="1/25s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r2" name="FFVideoFormat1080p30" frameDuration="1001/30000s" width="1920" height="1080" />
+        <asset id="asset-1" start="0/1s" duration="1799798/30000s" hasVideo="1" hasAudio="1" format="r2">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="crop-test">
+                <sequence format="r1" duration="250/25s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/25s" duration="250/25s" start="125/25s" format="r2" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="15" right="10" bottom="15" />
+                        </adjust-crop>
                     </asset-clip>
                     </spine>
                 </sequence>

@@ -194,6 +194,97 @@ describe('generateFcpxml', () => {
     expect(xml).toMatchSnapshot();
   });
 
+  it('clip with static crop', () => {
+    const spec: ExpandedTimeline = {
+      name: 'crop-test', fps: 25, width: 1920, height: 1080,
+      clips: [{
+        ...makeClip(1, 5, 15),
+        crop: { left: 10, top: 15, right: 10, bottom: 15 },
+      }],
+      textOverlays: [], audioTracks: [],
+    };
+    const xml = generateFcpxml(spec, videoMeta);
+    expect(xml).toContain('adjust-crop mode="crop"');
+    expect(xml).toContain('crop-rect left="10" top="15" right="10" bottom="15"');
+    expect(xml).toMatchSnapshot();
+  });
+
+  it('clip with Ken Burns (pan) crop', () => {
+    const spec: ExpandedTimeline = {
+      name: 'kenburns-test', fps: 25, width: 1920, height: 1080,
+      clips: [{
+        ...makeClip(1, 0, 20),
+        crop: { left: 0, top: 0, right: 0, bottom: 0 },
+        cropEnd: { left: 25, top: 20, right: 25, bottom: 30 },
+      }],
+      textOverlays: [], audioTracks: [],
+    };
+    const xml = generateFcpxml(spec, videoMeta);
+    expect(xml).toContain('adjust-crop mode="pan"');
+    expect(xml).toContain('pan-rect left="0" top="0" right="0" bottom="0"');
+    expect(xml).toContain('pan-rect left="25" top="20" right="25" bottom="30"');
+    expect(xml).toMatchSnapshot();
+  });
+
+  it('Ken Burns with cropEnd only (no crop) defaults start to full frame', () => {
+    const spec: ExpandedTimeline = {
+      name: 'kenburns-default', fps: 25, width: 1920, height: 1080,
+      clips: [{
+        ...makeClip(1, 0, 10),
+        cropEnd: { left: 25, top: 25, right: 25, bottom: 25 },
+      }],
+      textOverlays: [], audioTracks: [],
+    };
+    const xml = generateFcpxml(spec, videoMeta);
+    expect(xml).toContain('adjust-crop mode="pan"');
+    // First pan-rect should default to full frame (all zeros)
+    expect(xml).toContain('pan-rect left="0" top="0" right="0" bottom="0"');
+    expect(xml).toContain('pan-rect left="25" top="25" right="25" bottom="25"');
+    expect(xml).toMatchSnapshot();
+  });
+
+  it('DaVinci static crop uses adjust-transform instead of adjust-crop', () => {
+    const spec: ExpandedTimeline = {
+      name: 'davinci-crop', fps: 25, width: 1920, height: 1080,
+      clips: [{
+        ...makeClip(1, 5, 15),
+        crop: { left: 20, top: 15, right: 20, bottom: 15 },
+      }],
+      textOverlays: [], audioTracks: [],
+    };
+    const fcpXml = generateFcpxml(spec, videoMeta, { target: 'fcp' });
+    const davinciXml = generateFcpxml(spec, videoMeta, { target: 'davinci' });
+    // FCP uses adjust-crop
+    expect(fcpXml).toContain('adjust-crop mode="crop"');
+    expect(fcpXml).not.toContain('adjust-transform');
+    // DaVinci uses adjust-transform (scale + position) to avoid black bars
+    expect(davinciXml).toContain('adjust-transform');
+    expect(davinciXml).not.toContain('adjust-crop');
+    expect(davinciXml).toMatchSnapshot();
+  });
+
+  it('DaVinci Ken Burns falls back to static adjust-transform at cropEnd', () => {
+    const spec: ExpandedTimeline = {
+      name: 'davinci-kb', fps: 25, width: 1920, height: 1080,
+      clips: [{
+        ...makeClip(1, 0, 10),
+        crop: { left: 0, top: 0, right: 0, bottom: 0 },
+        cropEnd: { left: 25, top: 20, right: 25, bottom: 20 },
+      }],
+      textOverlays: [], audioTracks: [],
+    };
+    const fcpXml = generateFcpxml(spec, videoMeta, { target: 'fcp' });
+    const davinciXml = generateFcpxml(spec, videoMeta, { target: 'davinci' });
+    // FCP uses adjust-crop mode="pan" with two pan-rects
+    expect(fcpXml).toContain('adjust-crop mode="pan"');
+    expect(fcpXml).toContain('pan-rect');
+    // DaVinci falls back to static adjust-transform using cropEnd values
+    expect(davinciXml).toContain('adjust-transform');
+    expect(davinciXml).not.toContain('adjust-crop');
+    expect(davinciXml).not.toContain('pan-rect');
+    expect(davinciXml).toMatchSnapshot();
+  });
+
   it('DaVinci font size is 1x, FCP is 2x', () => {
     const spec: ExpandedTimeline = {
       name: 'scale-test', fps: 25, width: 1920, height: 1080,

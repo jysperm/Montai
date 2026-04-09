@@ -558,7 +558,8 @@ export function generateFcpxml(
     // Check for overlay titles and audio anchor items attached to this clip
     const overlays = clipOverlays.get(i) || [];
     const audioAnchors = clipAudioAnchors.get(i) || [];
-    const hasChildren = overlays.length > 0 || audioAnchors.length > 0;
+    const hasCrop = !!(clip.crop || clip.cropEnd);
+    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop;
 
     if (!hasChildren) {
       spine.push(
@@ -568,6 +569,38 @@ export function generateFcpxml(
       spine.push(
         `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF">`
       );
+
+      // Crop/transform: intrinsic params must appear before anchor items (titles, audio) per DTD
+      // DTD ordering: adjust-crop → adjust-conform → adjust-transform
+      if (hasCrop) {
+        if (clip.cropEnd) {
+          if (target === 'davinci') {
+            // DaVinci ignores adjust-crop mode="pan". Fall back to static adjust-transform
+            // using the end state (cropEnd) as that's typically the intended composition.
+            const t = cropToFcpTransform(clip.cropEnd, width, height);
+            spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(t.scale)} ${round4(t.scale)}" />`);
+          } else {
+            // FCP: Ken Burns via pan mode with two pan-rect elements (start → end)
+            const cropStart = clip.crop ?? { left: 0, top: 0, right: 0, bottom: 0 };
+            spine.push(`${II}<adjust-crop mode="pan">`);
+            spine.push(`${II}    <pan-rect left="${cropStart.left}" top="${cropStart.top}" right="${cropStart.right}" bottom="${cropStart.bottom}" />`);
+            spine.push(`${II}    <pan-rect left="${clip.cropEnd.left}" top="${clip.cropEnd.top}" right="${clip.cropEnd.right}" bottom="${clip.cropEnd.bottom}" />`);
+            spine.push(`${II}</adjust-crop>`);
+          }
+        } else if (clip.crop) {
+          if (target === 'davinci') {
+            // DaVinci: adjust-crop mode="crop" shows black bars instead of filling.
+            // Use adjust-transform (scale + position) to achieve the same visual result.
+            const t = cropToFcpTransform(clip.crop, width, height);
+            spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(t.scale)} ${round4(t.scale)}" />`);
+          } else {
+            // FCP: native crop support
+            spine.push(`${II}<adjust-crop mode="crop">`);
+            spine.push(`${II}    <crop-rect left="${clip.crop.left}" top="${clip.crop.top}" right="${clip.crop.right}" bottom="${clip.crop.bottom}" />`);
+            spine.push(`${II}</adjust-crop>`);
+          }
+        }
+      }
 
       // Font sizes and shadow dimensions scale factor:
       // FCP: 2× (Essential Title template renders at 3840×2160 and scales to project)
@@ -880,4 +913,27 @@ function framesToRational(frames: number, fpsNum: number, fpsDen: number): strin
 
 function fcpName(str: string): string {
   return escapeXml(str.replace(/\//g, '-').replace(/[\r\n]+/g, ' '));
+}
+
+function round4(n: number): string {
+  return Number(n.toFixed(4)).toString();
+}
+
+/**
+ * Convert crop values (% of frame height) to equivalent adjust-transform params.
+ * Used for DaVinci which doesn't scale crop results to fill the frame.
+ */
+function cropToFcpTransform(
+  crop: { left: number; top: number; right: number; bottom: number },
+  seqWidth: number,
+  seqHeight: number,
+): { scale: number; posX: number; posY: number } {
+  const aspectRatio = seqWidth / seqHeight;
+  const visibleWidthFrac = 1 - (crop.left + crop.right) / (100 * aspectRatio);
+  const visibleHeightFrac = 1 - (crop.top + crop.bottom) / 100;
+  const s = Math.max(1 / Math.max(visibleWidthFrac, 0.01), 1 / Math.max(visibleHeightFrac, 0.01));
+  // Position: center the visible region. FCP/DaVinci coordinates: Y-up, origin at center.
+  const posX = -s * (crop.left - crop.right) * seqHeight / 200;
+  const posY = -s * (crop.bottom - crop.top) * seqHeight / 200;
+  return { scale: s, posX, posY };
 }

@@ -30,10 +30,14 @@ The `transition` field on a clip defines the transition FROM the previous clip I
   "endTimeSeconds": 25.0,
   "playbackRate": 1.0,
   "volume": 1.0,
-  "transition": { "type": "fade", "durationSeconds": 0.5, "direction": "from-left" }
+  "transition": { "type": "fade", "durationSeconds": 0.5, "direction": "from-left" },
+  "crop": { "left": 10, "top": 15, "right": 10, "bottom": 15 },
+  "cropEnd": { "left": 25, "top": 20, "right": 25, "bottom": 30 }
 }
 ```
 Transition types: `fade` (cross dissolve), `slide`, `wipe`. Direction (`from-left` | `from-right` | `from-top` | `from-bottom`) is optional, used by slide and wipe.
+
+Crop: `crop` defines a static crop — values are `left`, `top`, `right`, `bottom` as percentages of the original frame height (all 0 = full frame). For example, `{ "left": 25, "top": 25, "right": 25, "bottom": 25 }` crops to the center 50% of the frame. If `cropEnd` is also provided, this becomes a Ken Burns animation: the crop smoothly transitions from `crop` (start) to `cropEnd` (end) over the clip's duration. Common uses: zoom into a subject's face, pan across a landscape, or simulate a camera movement on static footage.
 
 ### Overlay items
 Anchored to clips via startClip/endClip (0-based index among clip items only).
@@ -101,6 +105,8 @@ Example: to show "Day 1" for the first 3 seconds of clip 0, use `startClip: 0, s
 - Transitions: Use cross dissolve (fade) for time/location changes.
 - Overlays: Use `title` for section headings or opening/ending. Use `subtitle` to explain things on screen, provide background context, or add commentary. Subtitles typically appear together with the footage (no `startOffset`), unless there's a specific reason to delay.
 - Overlay animation: You can add animation to overlays to make text appear and disappear smoothly. Use `pop` sparingly for emphasis. Omit `animation` when overlays change in quick succession.
+- Crop: Use `crop` to remove distracting elements at frame edges, highlight a subject, or tighten the composition. Most clips don't need cropping.
+- Ken Burns: Use `crop` + `cropEnd` to add visual motion to static or low-movement footage. Use sparingly — most clips with natural camera movement don't need it.
 - Style: Prefer a direct, straightforward presentation of the subject matter. Don't over-edit — let the footage and the dialog within it carry the story naturally.
 - Audio: Avoid clips that contain irrelevant dialog (e.g. off-topic conversations). When trimming clips, be careful not to cut into incomplete sentences from the main subjects (background chatter from bystanders is acceptable). Lower volume on clips with unwanted noise.
 - Background Music: **Prefer reusing existing music** from the Music Library or Generated Music before generating new tracks. Choose music that complements the mood without overpowering the visuals or dialog. Lower volume (0.1–0.2) during speech segments. Use music segment analysis to align energy changes with video transitions.

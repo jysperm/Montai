@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { z } from 'zod';
 import type { ProjectConfig } from './project.js';
 import { resolveResolution } from './project.js';
-import { TransitionSchema, type ExpandedTimeline } from './timeline.js';
+import { TransitionSchema, CropSchema, type ExpandedTimeline } from './timeline.js';
 
 export const ClipItemSchema = z.object({
   type: z.literal('clip'),
@@ -12,6 +12,8 @@ export const ClipItemSchema = z.object({
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
   transition: TransitionSchema.optional().catch(undefined),
+  crop: CropSchema.optional().catch(undefined),
+  cropEnd: CropSchema.optional().catch(undefined),
 });
 
 export const OverlayItemSchema = z.object({
@@ -159,6 +161,8 @@ export function expandTimeline(
       playbackRate: clip.playbackRate,
       volume: clip.volume,
       transition: clip.transition,
+      crop: clip.crop,
+      cropEnd: clip.cropEnd,
     };
   });
 

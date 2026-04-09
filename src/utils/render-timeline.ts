@@ -264,9 +264,29 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   let clipTrack = '';
   for (let i = 0; i < clips.length; i++) {
     const w = clipWidths[i];
-    const hasTransition = i > 0 && !!clips[i].transition;
-    const prefix = hasTransition ? '~[' : '[';
-    const suffix = ']';
+    const clip = clips[i];
+    const hasTransition = i > 0 && !!clip.transition;
+
+    // Crop indicators: ◱ = tighter (more cropped), ▣ = wider (less cropped)
+    let cropPrefix = '';
+    let cropSuffix = '';
+    if (clip.cropEnd) {
+      const startCrop = clip.crop ?? { left: 0, top: 0, right: 0, bottom: 0 };
+      const startSum = startCrop.left + startCrop.top + startCrop.right + startCrop.bottom;
+      const endSum = clip.cropEnd.left + clip.cropEnd.top + clip.cropEnd.right + clip.cropEnd.bottom;
+      if (startSum <= endSum) {
+        cropPrefix = '▣';  // start is wider
+        cropSuffix = '◱';  // end is tighter
+      } else {
+        cropPrefix = '◱';  // start is tighter
+        cropSuffix = '▣';  // end is wider
+      }
+    } else if (clip.crop) {
+      cropPrefix = '◱';
+    }
+
+    const prefix = (hasTransition ? '~[' : '[') + cropPrefix;
+    const suffix = cropSuffix + ']';
     const innerWidth = w - prefix.length - suffix.length;
     const label = `v${clips[i].videoId}`;
 

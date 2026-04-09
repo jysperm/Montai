@@ -6,6 +6,13 @@ import { fade } from '@remotion/transitions/fade';
 import { slide } from '@remotion/transitions/slide';
 import { wipe } from '@remotion/transitions/wipe';
 
+interface CropValues {
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+}
+
 interface EditClip {
   clipId: string;
   videoId: number;
@@ -15,6 +22,8 @@ interface EditClip {
   playbackRate: number;
   volume: number;
   transition: { type: string; durationSeconds: number; direction?: string };
+  crop?: CropValues;
+  cropEnd?: CropValues;
 }
 
 interface OverlayAnimation {
@@ -183,6 +192,27 @@ function getTransition(type: string, direction?: string): TransitionPresentation
   }
 }
 
+function cropToTransform(crop: CropValues, width: number, height: number) {
+  // Crop values are percentages of original frame height.
+  // visible fraction: e.g. left=10, right=10 on a 16:9 (1920×1080) frame
+  // means 10% of height (108px) trimmed from each side.
+  const aspectRatio = width / height;
+  const visibleWidth = 1 - (crop.left + crop.right) / (100 * aspectRatio);
+  const visibleHeight = 1 - (crop.top + crop.bottom) / 100;
+
+  const scaleX = 1 / Math.max(visibleWidth, 0.01);
+  const scaleY = 1 / Math.max(visibleHeight, 0.01);
+  const scale = Math.max(scaleX, scaleY);
+
+  // Translate to center the visible region (% of element size).
+  // CSS `scale(S) translate(X%, Y%)` applies translate first, then scale,
+  // so translate is independent of scale factor.
+  const translateX = -(crop.left - crop.right) / (2 * aspectRatio);
+  const translateY = -(crop.top - crop.bottom) / 2;
+
+  return { scale, translateX, translateY };
+}
+
 function getSourcePath(sourceFile: string): string {
   const filename = sourceFile.split('/').pop() ?? sourceFile;
   return staticFile(filename);
@@ -191,18 +221,24 @@ function getSourcePath(sourceFile: string): string {
 function ClipVideo({
   clip,
   fps,
+  width,
+  height,
   incomingTransitionFrames,
   outgoingTransitionFrames,
 }: {
   clip: EditClip;
   fps: number;
+  width: number;
+  height: number;
   incomingTransitionFrames: number;
   outgoingTransitionFrames: number;
 }) {
+  const frame = useCurrentFrame();
   const durationFrames = Math.round(
     ((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate) * fps,
   );
   const hasTransitions = incomingTransitionFrames > 0 || outgoingTransitionFrames > 0;
+  const hasCrop = !!(clip.crop || clip.cropEnd);
 
   const volumeCallback = useCallback(
     (frame: number) => {
@@ -218,15 +254,48 @@ function ClipVideo({
     [clip.volume, incomingTransitionFrames, outgoingTransitionFrames, durationFrames],
   );
 
-  return (
+  // Compute crop transform (static or Ken Burns animated)
+  let cropTransform: { scale: number; translateX: number; translateY: number } | null = null;
+  if (hasCrop) {
+    const defaultCrop = { left: 0, top: 0, right: 0, bottom: 0 };
+    const cropStart = clip.crop ?? defaultCrop;
+
+    if (clip.cropEnd) {
+      // Ken Burns: interpolate between start and end crop values
+      const currentCrop = {
+        left: interpolate(frame, [0, durationFrames], [cropStart.left, clip.cropEnd.left], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+        top: interpolate(frame, [0, durationFrames], [cropStart.top, clip.cropEnd.top], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+        right: interpolate(frame, [0, durationFrames], [cropStart.right, clip.cropEnd.right], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+        bottom: interpolate(frame, [0, durationFrames], [cropStart.bottom, clip.cropEnd.bottom], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
+      };
+      cropTransform = cropToTransform(currentCrop, width, height);
+    } else {
+      cropTransform = cropToTransform(cropStart, width, height);
+    }
+  }
+
+  const video = (
     <Video
       src={getSourcePath(clip.sourceFile)}
       trimBefore={Math.round(clip.startTimeSeconds * fps)}
       volume={hasTransitions ? volumeCallback : clip.volume}
       playbackRate={clip.playbackRate}
-      style={{ width: '100%', height: '100%' }}
+      style={cropTransform
+        ? { width: '100%', height: '100%', transform: `scale(${cropTransform.scale}) translate(${cropTransform.translateX}%, ${cropTransform.translateY}%)` }
+        : { width: '100%', height: '100%' }
+      }
     />
   );
+
+  if (cropTransform) {
+    return (
+      <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
+        {video}
+      </div>
+    );
+  }
+
+  return video;
 }
 
 export function calculateTotalFrames(spec: TimelineProps): number {
@@ -286,7 +355,7 @@ function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number })
 }
 
 export const MontaiVideo: React.FC<TimelineProps> = (props) => {
-  const { fps, height, clips, textOverlays, audioTracks } = props;
+  const { fps, width, height, clips, textOverlays, audioTracks } = props;
   const scale = height / 1080;
 
   return (
@@ -324,6 +393,8 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
               <ClipVideo
                 clip={clip}
                 fps={fps}
+                width={width}
+                height={height}
                 incomingTransitionFrames={transitionFrames}
                 outgoingTransitionFrames={outgoingTransitionFrames}
               />
