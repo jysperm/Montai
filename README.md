@@ -14,7 +14,7 @@ Prerequisites:
 
 - Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
-- [Gemini] for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikeys)
+- [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikeys)
 - [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
 ## Quick Start
@@ -69,6 +69,18 @@ All commands load all stories by default, or pass a name to specify one (e.g. `m
 ## Interactive Story Editing
 
 The `montai story` command opens an interactive session where you chat with AI to craft your storyline and timeline. You can use any language to iteratively refine the edit — adjust pacing, reorder scenes, add or remove clips, and tweak transitions — all through natural conversation.
+
+### Editing Capabilities
+
+- **Clip trimming** — select segments from any analyzed video with precise start/end times
+- **Playback rate** — speed up or slow down individual clips
+- **Volume control** — adjust volume per clip
+- **Transitions** — fade, slide, and wipe transitions between clips
+- **Crop** — static crop to reframe shots
+- **Ken Burns** — animated pan & zoom from one crop to another
+- **Text overlays** — title, subtitle, and caption styles at 6 positions, with fade, slide, and pop entrance animations
+- **Background music** — add library music with volume and fade controls, auto-looping with crossfade
+- **AI music generation** — generate instrumental background music
 
 ## Export .fcpxml
 
