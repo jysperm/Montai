@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import * as readline from 'readline';
+import stringWidth from 'string-width';
 import { eq, desc } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
@@ -161,6 +162,7 @@ export async function storyCommand(
     currentStoryId: story?.id ?? null,
     currentStoryName: story?.name ?? null,
     currentItems: [] as TimelineItem[],
+    agent: null as import('@mariozechner/pi-agent-core').Agent | null,
   };
 
   // Restore raw items from stored timeline on resume
@@ -191,6 +193,7 @@ export async function storyCommand(
   });
 
   agent.setTools(allTools);
+  toolsCtx.agent = agent;
 
   let lastAssistantText = '';
   let lastToolArgs: Record<string, unknown> = {};
@@ -303,6 +306,20 @@ export async function storyCommand(
               const idMatch = resultText.match(/Music ID: (\d+)/);
               const musicId = idMatch ? idMatch[1] : '?';
               console.log(`  ${check} ${toolLabel}: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}" → musicId ${musicId}`);
+              break;
+            }
+            case 'listStories': {
+              console.log(`  ${check} ${toolLabel}`);
+              break;
+            }
+            case 'switchStory': {
+              const targetName = lastToolArgs.name as string | undefined;
+              const isNew = lastToolArgs.new as boolean | undefined;
+              if (isNew) {
+                console.log(`  ${check} ${toolLabel}: new story`);
+              } else {
+                console.log(`  ${check} ${toolLabel}: ${chalk.cyan(targetName ?? '?')}`);
+              }
               break;
             }
             default:
@@ -462,10 +479,16 @@ export async function storyCommand(
   agent.setTools(allTools);
 
   // Slash commands
-  const slashCommands: Record<string, { description: string; action: (storyName: string) => Promise<void> }> = {
-    export: { description: '.fcpxml from timeline', action: (name) => exportCommand(name) },
-    render: { description: 'video via Remotion', action: (name) => renderCommand(name) },
-    preview: { description: 'open Remotion Studio', action: (name) => previewCommand(name) },
+  const slashCommands: Record<string, { description: string }> = {
+    switch: { description: 'switch to another story' },
+    export: { description: '.fcpxml from timeline' },
+    render: { description: 'video via Remotion' },
+    preview: { description: 'open Remotion Studio' },
+  };
+  const slashCommandActions: Record<string, (storyName: string) => Promise<void>> = {
+    export: (name) => exportCommand(name),
+    render: (name) => renderCommand(name),
+    preview: (name) => previewCommand(name),
   };
   const slashCommandNames = Object.keys(slashCommands);
 
@@ -475,6 +498,16 @@ export async function storyCommand(
     output: process.stdout,
     completer: (line: string) => {
       if (slashMode) {
+        // Switch argument: complete story names
+        if (line === 'switch') {
+          return [['switch '], line];
+        }
+        if (line.startsWith('switch ')) {
+          const partial = line.slice('switch '.length).toLowerCase();
+          const allStoryNames = db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
+          const hits = allStoryNames.filter((n) => n.startsWith(partial)).map((n) => `switch ${n}`);
+          return [hits.length ? hits : [], line];
+        }
         const partial = line.toLowerCase();
         // Don't return completions if already an exact match
         if (slashCommandNames.includes(partial)) return [[], line];
@@ -483,6 +516,13 @@ export async function storyCommand(
       }
       if (line.startsWith('/')) {
         const partial = line.slice(1).toLowerCase();
+        if (partial === 'switch') return [['/switch '], line];
+        if (partial.startsWith('switch ')) {
+          const storyPartial = partial.slice('switch '.length);
+          const allStoryNames = db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
+          const hits = allStoryNames.filter((n) => n.startsWith(storyPartial)).map((n) => `/switch ${n}`);
+          return [hits.length ? hits : [], line];
+        }
         if (slashCommandNames.includes(partial)) return [[], line];
         const hits = slashCommandNames.filter((c) => c.startsWith(partial)).map((c) => `/${c}`);
         return [hits.length ? hits : [], line];
@@ -493,8 +533,33 @@ export async function storyCommand(
 
   // Switch to slash prompt when '/' is typed at the beginning
   let slashMode = false;
-  let hintLineReserved = false;
+  let hintRowCount = 0;
   const normalPrompt = chalk.green('\n> ');
+
+  function getTerminalRows(text: string): number {
+    const cols = process.stdout.columns || 80;
+    const width = stringWidth(text);
+    return width === 0 ? 0 : Math.ceil(width / cols);
+  }
+
+  // Clear the hint area above the input line, leaving cursor at the start of where hints were
+  function clearHintArea() {
+    if (hintRowCount > 0) {
+      process.stdout.write(`\x1b[${hintRowCount}A\r\x1b[0J`);
+      hintRowCount = 0;
+    }
+  }
+
+  // Write hint above input and redraw the input line
+  function writeHintAndInput(hint: string, inputText: string) {
+    clearHintArea();
+    readline.cursorTo(process.stdout, 0);
+    readline.clearLine(process.stdout, 0);
+    process.stdout.write(hint + '\n');
+    hintRowCount = getTerminalRows(hint);
+    const prompt = slashMode ? chalk.cyan('/ ') : chalk.green('> ');
+    process.stdout.write(prompt + inputText);
+  }
 
   function formatSlashHint(filter: string): string {
     return chalk.dim('[tab] to complete: ') + slashCommandNames.map((name) => {
@@ -505,6 +570,17 @@ export async function storyCommand(
     }).join('  ');
   }
 
+  function formatSwitchHint(filter: string): string {
+    const allStories = db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
+    if (allStories.length === 0) {
+      return chalk.dim('enter a name to create a new story');
+    }
+    return chalk.dim('[tab] ') + allStories.map((s) => {
+      const matched = !filter || s.name.startsWith(filter.toLowerCase());
+      return matched ? `${chalk.cyan(s.name)} ${chalk.dim(s.title)}` : chalk.dim(`${s.name} ${s.title}`);
+    }).join('  ') + chalk.dim(' or enter a new name');
+  }
+
   process.stdin.on('keypress', (_str: string, key: { name?: string }) => {
     // Skip Enter — readline already consumed the line and cleared rl.line to '',
     // which would incorrectly reset slashMode before the main loop checks it.
@@ -513,31 +589,18 @@ export async function storyCommand(
     if (!slashMode && line.startsWith('/')) {
       slashMode = true;
       const rest = line.slice(1);
-      readline.cursorTo(process.stdout, 0);
-      readline.clearLine(process.stdout, 0);
-      if (hintLineReserved) {
-        // Hint line already reserved above — update it and redraw prompt
-        process.stdout.write('\x1b[s\x1b[A\r\x1b[2K' + formatSlashHint(rest) + '\x1b[u');
-        readline.cursorTo(process.stdout, 0);
-        readline.clearLine(process.stdout, 0);
-      } else {
-        // First time: insert hint line above
-        hintLineReserved = true;
-        process.stdout.write(formatSlashHint(rest) + '\n');
-      }
-      process.stdout.write(chalk.cyan('/ ') + rest);
+      writeHintAndInput(formatSlashHint(rest), rest);
       (rl as { line: string }).line = rest;
       (rl as { cursor: number }).cursor = Math.max(0, rl.cursor - 1);
     } else if (slashMode && line === '') {
       slashMode = false;
-      // Clear hint line content but keep the line reserved
-      process.stdout.write('\x1b[s\x1b[A\r\x1b[2K\x1b[u');
+      clearHintArea();
       readline.cursorTo(process.stdout, 0);
       readline.clearLine(process.stdout, 0);
       process.stdout.write(chalk.green('> '));
     } else if (slashMode) {
-      // Update hint line above based on current filter
-      process.stdout.write('\x1b[s\x1b[A\r\x1b[2K' + formatSlashHint(line) + '\x1b[u');
+      const hint = line.startsWith('switch ') ? formatSwitchHint(line.slice('switch '.length)) : formatSlashHint(line);
+      writeHintAndInput(hint, line);
     }
   });
 
@@ -554,7 +617,7 @@ export async function storyCommand(
   try {
     while (true) {
       slashMode = false;
-      hintLineReserved = false;
+      hintRowCount = 0;
       const userInput = await askQuestion(normalPrompt);
 
       if (userInput === null) {
@@ -566,16 +629,67 @@ export async function storyCommand(
 
       if (slashMode) {
         const cmd = trimmed.toLowerCase();
-        const storyName = toolsCtx.currentStoryName;
-        if (!storyName) {
-          console.log(chalk.red('No story yet. Create a storyline first.'));
-          continue;
-        }
-        const command = slashCommands[cmd];
-        if (command) {
-          await command.action(storyName);
+
+        if (cmd === 'switch' || cmd.startsWith('switch ')) {
+          const targetName = cmd.slice('switch'.length).trim();
+          if (!targetName) {
+            console.log(chalk.red('Usage: /switch <story-name>'));
+            continue;
+          }
+
+          const existingStory = db.select().from(stories).where(eq(stories.name, targetName)).get();
+
+          if (existingStory) {
+            toolsCtx.currentStoryId = existingStory.id;
+            toolsCtx.currentStoryName = existingStory.name;
+            toolsCtx.currentItems = existingStory.timeline ? JSON.parse(existingStory.timeline) as TimelineItem[] : [];
+            console.log(chalk.green(`Switched to story: ${existingStory.title} ${chalk.cyan(existingStory.name)}`));
+          } else {
+            if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(targetName)) {
+              console.log(chalk.red('Story name must be kebab-case (lowercase letters, numbers, hyphens).'));
+              continue;
+            }
+            toolsCtx.currentStoryId = null;
+            toolsCtx.currentStoryName = targetName;
+            toolsCtx.currentItems = [];
+            console.log(chalk.blue(`Starting new story: ${chalk.cyan(targetName)}`));
+          }
+
+          // Inject context into agent conversation
+          const switchContext = renderPrompt('story-switch', {
+            name: targetName,
+            isUserAction: true,
+            isNew: !existingStory,
+            storyline: existingStory?.storyline ?? null,
+            timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
+          });
+          agent.appendMessage({ role: 'user' as const, content: switchContext, timestamp: Date.now() });
+
+          // Show timeline if available
+          const timelineLines = renderTimeline(
+            toolsCtx.currentItems,
+            process.stdout.columns || 80,
+            getMusicNames(),
+            toolsCtx.currentStoryName ?? undefined,
+          );
+          if (timelineLines.length > 0) {
+            console.log('');
+            for (const line of timelineLines) {
+              console.log(line);
+            }
+          }
         } else {
-          console.log(chalk.dim(`Unknown command. Available: ${slashCommandNames.map((c) => '/' + c).join(', ')}`));
+          const storyName = toolsCtx.currentStoryName;
+          if (!storyName) {
+            console.log(chalk.red('No story yet. Create a storyline first.'));
+            continue;
+          }
+          const action = slashCommandActions[cmd];
+          if (action) {
+            await action(storyName);
+          } else {
+            console.log(chalk.dim(`Unknown command. Available: ${slashCommandNames.map((c) => '/' + c).join(', ')}`));
+          }
         }
       } else {
         if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;

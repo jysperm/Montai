@@ -1,5 +1,6 @@
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import type { FileContent, TextContent } from '@mariozechner/pi-ai';
+import type { Agent } from '@mariozechner/pi-agent-core';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
 import { stories, type videoAnalyses, type music, type musicAnalyses } from '../db/schema.js';
@@ -15,6 +16,7 @@ import {
 } from '../schemas/timeline-items.js';
 import { z } from 'zod';
 import { generateMusicTrack } from '../lyria/generate.js';
+import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
 
 const MAX_VIDEO_FILES_PER_TURN = 10;
 
@@ -30,6 +32,7 @@ export interface StoryToolsContext {
   currentStoryId: number | null;
   currentStoryName: string | null;
   currentItems: TimelineItem[];
+  agent: Agent | null;
 }
 
 export function getStoryTools(ctx: StoryToolsContext) {
@@ -334,8 +337,112 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
+  const listStoriesTool = {
+    name: 'listStories',
+    label: 'List Stories',
+    description: 'List all available stories with their names, titles, item counts, and last updated time.',
+    parameters: Type.Object({}),
+    async execute() {
+      const allStories = ctx.db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
+      if (allStories.length === 0) {
+        const textContent: TextContent = {
+          type: 'text' as const,
+          text: 'No stories found.',
+        };
+        return { content: [textContent], details: {} };
+      }
+
+      const lines = allStories.map((s) => {
+        let status: string;
+        if (s.timeline) {
+          const items = JSON.parse(s.timeline) as Array<{ type: string }>;
+          status = formatItemCounts(countItemsByType(items));
+        } else {
+          status = 'empty';
+        }
+        const current = s.id === ctx.currentStoryId ? ' (current)' : '';
+        return `- ${s.name}: "${s.title}" [${status}] updated ${formatTimeAgo(s.updatedAt)}${current}`;
+      });
+
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: lines.join('\n'),
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
+  const switchStoryTool = {
+    name: 'switchStory',
+    label: 'Switch Story',
+    description: 'Switch the current editing target to a different story, or start a new story.',
+    parameters: Type.Object({
+      name: Type.Optional(Type.String({ description: 'Target story name.' })),
+      new: Type.Optional(Type.Boolean({ description: 'Set to true to start a new story.' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { name?: string; new?: boolean },
+    ) {
+      if (params.new) {
+        ctx.currentStoryId = null;
+        ctx.currentStoryName = params.name ?? null;
+        ctx.currentItems = [];
+
+        if (ctx.agent) {
+          const contextMessage = renderPrompt('story-switch', { name: ctx.currentStoryName, isNew: true });
+          ctx.agent.appendMessage({ role: 'user' as const, content: contextMessage, timestamp: Date.now() });
+        }
+
+        const nameHint = ctx.currentStoryName ? ` Name "${ctx.currentStoryName}" is pre-set;` : '';
+        const textContent: TextContent = {
+          type: 'text' as const,
+          text: `Starting new story.${nameHint} Use updateStoryline to create it.`,
+        };
+        return { content: [textContent], details: {} };
+      }
+
+      if (!params.name) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: 'Error: name is required when new is not set.',
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
+      const story = ctx.db.select().from(stories).where(eq(stories.name, params.name)).get();
+      if (!story) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Error: Story "${params.name}" not found. Use listStories to see available stories.`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
+      ctx.currentStoryId = story.id;
+      ctx.currentStoryName = story.name;
+      ctx.currentItems = story.timeline ? JSON.parse(story.timeline) as TimelineItem[] : [];
+
+      // Inject storyline + timeline only (project-level context is already in conversation)
+      if (ctx.agent) {
+        const contextMessage = renderPrompt('story-switch', {
+          name: story.name,
+          storyline: story.storyline ?? null,
+          timelineItems: ctx.currentItems.length > 0 ? JSON.stringify(ctx.currentItems, null, 2) : null,
+        });
+        ctx.agent.appendMessage({ role: 'user' as const, content: contextMessage, timestamp: Date.now() });
+      }
+
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: `Switched to story "${params.name}".`,
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool];
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool, listStoriesTool, switchStoryTool];
   if (ctx.config.models.musicGeneration) {
     tools.push(generateMusicTool);
   }

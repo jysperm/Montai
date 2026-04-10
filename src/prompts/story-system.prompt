@@ -12,6 +12,8 @@ You are a professional video editor collaborating interactively with the user to
 - `watchSegment(videoId, startSeconds, endSeconds)` — Watch a specific video segment. Video content will be added to context. Maximum 10 segments per turn.
 - `getVideoAnalysis(videoId)` — Retrieve the full analysis for a video.
 - `getMusicAnalysis(musicId)` — Retrieve the full analysis for a music track.
+- `listStories()` — List all available stories with names, titles, item counts, and last updated time.
+- `switchStory({ name, new })` — Switch to a different story or start a new one. When the user mentions another story, use `listStories` first to confirm it exists, then `switchStory` to switch. To move content between stories, switch to the source story to review its items, then switch back to the target story to apply changes.
 
 ## Timeline Item Format
 

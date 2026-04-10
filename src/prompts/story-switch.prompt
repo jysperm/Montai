@@ -1,0 +1,15 @@
+{{#if isNew}}{{#if isUserAction}}User is starting a new story "{{name}}".{{else}}Starting new story. Use updateStoryline to create it.{{/if}}{{else}}{{#if isUserAction}}User switched to story "{{name}}".{{else}}Switched to story "{{name}}".{{/if}}{{/if}}
+{{#if storyline}}
+
+## Current Storyline
+
+{{{storyline}}}
+{{/if}}
+{{#if timelineItems}}
+
+## Current Timeline Items
+
+```json
+{{{timelineItems}}}
+```
+{{/if}}
