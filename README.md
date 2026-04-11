@@ -81,6 +81,7 @@ The `montai story` command opens an interactive session where you chat with AI t
 - **Text overlays** — title, subtitle, and caption styles at 6 positions, with fade, slide, and pop entrance animations
 - **Background music** — add library music with volume and fade controls, auto-looping with crossfade
 - **AI music generation** — generate instrumental background music
+- **Voiceover-driven editing** — match video clips to narration recordings, selecting visuals that fit each spoken segment
 
 ## Export .fcpxml
 

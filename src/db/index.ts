@@ -46,6 +46,9 @@ export async function initDb(dbPath = './montai.db') {
     process.stdout.write = originalStdoutWrite;
     console.log = originalConsoleLog;
   }
+  // Disable FK checks during migration: Drizzle recreates tables (CREATE __new_* → INSERT →
+  // DROP → RENAME) and the intermediate state can violate FK constraints temporarily.
+  instance.run(sql.raw('PRAGMA foreign_keys = OFF'));
   for (let statement of statementsToExecute) {
     // drizzle-kit may generate CREATE INDEX without IF NOT EXISTS after column renames
     statement = statement.replace(/^CREATE (UNIQUE )?INDEX (?!IF)/g, 'CREATE $1INDEX IF NOT EXISTS ');
@@ -64,6 +67,7 @@ export async function initDb(dbPath = './montai.db') {
       }
     }
   }
+  instance.run(sql.raw('PRAGMA foreign_keys = ON'));
   return instance;
 }
 

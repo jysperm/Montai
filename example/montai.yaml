@@ -3,6 +3,8 @@ assets:
     - ./footage/
   music:
     - ./musics/
+  voiceover:
+    - ./voiceover/
 language: zh
 output:
   resolution: 1080p

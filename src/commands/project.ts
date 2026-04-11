@@ -3,13 +3,13 @@ import ora from 'ora';
 import { statSync } from 'fs';
 import { asc, eq, desc } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
-import { videos, videoAnalyses, music, stories, projectContext } from '../db/schema.js';
+import { videos, videoAnalyses, music, voiceovers, stories, projectContext } from '../db/schema.js';
 import { loadProjectConfig } from '../utils/project.js';
 import { renderPrompt } from '../prompts/index.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { assertComplete, getTextContent } from '../analyzer/utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
-import { formatDuration, formatTimeAgo, formatFileSize, countItemsByType, formatItemCounts } from '../utils/format.js';
+import { formatDuration, formatTimeAgo, formatFileSize, formatStoryLine } from '../utils/format.js';
 
 function formatVideoSpec(v: { width: number | null; height: number | null; fps: string | null; bitDepth: number | null; colorTransfer: string | null }): string {
   const parts: string[] = [];
@@ -145,15 +145,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     console.log();
     console.log(chalk.bold('Stories'));
     for (const s of allStories) {
-      let status: string;
-      if (s.timeline) {
-        const items = JSON.parse(s.timeline) as Array<{ type: string }>;
-        status = chalk.green(formatItemCounts(countItemsByType(items)));
-      } else {
-        status = chalk.dim('empty');
-      }
-      const ago = formatTimeAgo(s.updatedAt);
-      console.log(`  ${chalk.cyan(s.name)}  ${s.title}  [${status}]  ${chalk.dim(ago)}`);
+      console.log(formatStoryLine(s, { indent: true }));
     }
   }
 
@@ -181,12 +173,31 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
 
   // --- Music ---
   const allMusic = db.select().from(music).all();
-  if (allMusic.length > 0) {
-    const totalDuration = allMusic.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0);
-    const totalSize = allMusic.reduce((sum, m) => sum + getFileSize(m.path), 0);
+  const libraryMusic = allMusic.filter(m => m.type !== 'generated');
+  const generatedMusic = allMusic.filter(m => m.type === 'generated');
+  if (libraryMusic.length > 0 || generatedMusic.length > 0) {
     console.log();
-    console.log(chalk.bold('Music Library'));
-    console.log(chalk.dim(`  ${allMusic.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
+    console.log(chalk.bold('Music'));
+    if (libraryMusic.length > 0) {
+      const totalDuration = libraryMusic.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0);
+      const totalSize = libraryMusic.reduce((sum, m) => sum + getFileSize(m.path), 0);
+      console.log(chalk.dim(`  Library: ${libraryMusic.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
+    }
+    if (generatedMusic.length > 0) {
+      const totalDuration = generatedMusic.reduce((sum, m) => sum + (m.durationSeconds ?? 0), 0);
+      const totalSize = generatedMusic.reduce((sum, m) => sum + getFileSize(m.path), 0);
+      console.log(chalk.dim(`  Generated: ${generatedMusic.length} tracks, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
+    }
+  }
+
+  // --- Voiceovers ---
+  const allVoiceovers = db.select().from(voiceovers).all();
+  if (allVoiceovers.length > 0) {
+    const totalDuration = allVoiceovers.reduce((sum, v) => sum + (v.durationSeconds ?? 0), 0);
+    const totalSize = allVoiceovers.reduce((sum, v) => sum + getFileSize(v.path), 0);
+    console.log();
+    console.log(chalk.bold('Voiceovers'));
+    console.log(chalk.dim(`  ${allVoiceovers.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
   }
 
   // --- Settings ---

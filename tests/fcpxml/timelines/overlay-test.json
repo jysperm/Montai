@@ -1,0 +1,16 @@
+[
+  { "type": "clip", "videoId": 1, "startTimeSeconds": 10, "endTimeSeconds": 20, "playbackRate": 1, "volume": 1 },
+  { "type": "overlay", "text": "Center Title\nLine 2", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "center", "style": "title" },
+  { "type": "overlay", "text": "Top Left", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "top-left", "style": "subtitle" },
+  { "type": "overlay", "text": "Top Right", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "top-right", "style": "subtitle" },
+  { "type": "overlay", "text": "Bottom Left", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "bottom-left", "style": "subtitle" },
+  { "type": "overlay", "text": "Bottom Center", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "bottom-center", "style": "subtitle" },
+  { "type": "overlay", "text": "Bottom Right", "startClip": 0, "startOffset": 0, "endClip": 0, "endOffset": 0, "position": "bottom-right", "style": "subtitle" },
+  { "type": "clip", "videoId": 1, "startTimeSeconds": 10, "endTimeSeconds": 22, "playbackRate": 1, "volume": 1 },
+  { "type": "overlay", "text": "Fade Title", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "center", "style": "title", "animation": "fade" },
+  { "type": "overlay", "text": "Slide Subtitle", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "top-left", "style": "subtitle", "animation": "slide" },
+  { "type": "overlay", "text": "Pop Subtitle", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "top-right", "style": "subtitle", "animation": "pop" },
+  { "type": "overlay", "text": "Fade Subtitle", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "bottom-left", "style": "subtitle", "animation": "fade" },
+  { "type": "overlay", "text": "Slide Caption", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "bottom-center", "style": "caption", "animation": "slide" },
+  { "type": "overlay", "text": "Pop Caption", "startClip": 1, "startOffset": 0, "endClip": 1, "endOffset": 0, "position": "bottom-right", "style": "caption", "animation": "pop" }
+]

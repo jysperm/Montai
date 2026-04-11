@@ -28,8 +28,8 @@ export const OverlayItemSchema = z.object({
   animation: z.enum(['none', 'fade', 'slide', 'pop']).default('none'),
 });
 
-export const AudioItemSchema = z.object({
-  type: z.literal('audio'),
+export const MusicItemSchema = z.object({
+  type: z.literal('music'),
   startClip: z.number().int().min(0),
   startOffset: z.number().default(0),
   endClip: z.number().int().min(0).optional(),
@@ -41,16 +41,33 @@ export const AudioItemSchema = z.object({
   fadeOutSeconds: z.number().default(0),
 });
 
+
+export const VoiceoverItemSchema = z.object({
+  type: z.literal('voiceover'),
+  voiceoverId: z.number(),
+  startClip: z.number().int().min(0),
+  startOffset: z.number().default(0),
+  audioStartSeconds: z.number().min(0),
+  audioEndSeconds: z.number(),
+  volume: z.number().default(1),
+  fadeInSeconds: z.number().default(0),
+  fadeOutSeconds: z.number().default(0),
+}).refine(v => v.audioEndSeconds > v.audioStartSeconds, {
+  message: 'audioEndSeconds must be greater than audioStartSeconds',
+});
+
 export const TimelineItemSchema = z.discriminatedUnion('type', [
   ClipItemSchema,
   OverlayItemSchema,
-  AudioItemSchema,
+  MusicItemSchema,
+  VoiceoverItemSchema,
 ]);
 
 export type ClipItem = z.infer<typeof ClipItemSchema>;
 export type OverlayItem = z.infer<typeof OverlayItemSchema>;
-export type AudioItem = z.infer<typeof AudioItemSchema>;
-export type TimelineItem = z.infer<typeof TimelineItemSchema>;
+export type MusicItem = z.infer<typeof MusicItemSchema>;
+export type VoiceoverItem = z.infer<typeof VoiceoverItemSchema>;
+export type TimelineItem = ClipItem | OverlayItem | MusicItem | VoiceoverItem;
 
 /**
  * Sanitize and expand raw TimelineItems into ExpandedTimeline format.
@@ -77,21 +94,28 @@ export function expandTimeline(
   videos: { id: number; path: string }[],
   storyTitle?: string,
   musicFiles?: { id: number; path: string; durationSeconds?: number | null }[],
-): { timeline: ExpandedTimeline; sanitizedItems: TimelineItem[]; corrections: string[] } {
+  voiceoverFiles?: { id: number; path: string; durationSeconds?: number | null }[],
+): { timeline: ExpandedTimeline; sanitizedItems: TimelineItem[]; corrections: string[]; errors: string[] } {
   const res = resolveResolution(config.output.resolution);
   const corrections: string[] = [];
+  const errors: string[] = [];
 
   // --- Sanitize: remove invalid references, clamp indices, fix text ---
   const videoIds = new Set(videos.map((v) => v.id));
   const musicIds = musicFiles ? new Set(musicFiles.map((m) => m.id)) : null;
+  const voiceoverIds = voiceoverFiles ? new Set(voiceoverFiles.map((v) => v.id)) : null;
 
   items = items.filter((item) => {
     if (item.type === 'clip' && !videoIds.has(item.videoId)) {
       corrections.push(`Clip (videoId=${item.videoId}): video not found in database — removed`);
       return false;
     }
-    if (item.type === 'audio' && musicIds && !musicIds.has(item.musicId)) {
-      corrections.push(`Audio item (musicId=${item.musicId}): music not found in database — removed`);
+    if (item.type === 'music' && musicIds && !musicIds.has(item.musicId)) {
+      corrections.push(`Music item (musicId=${item.musicId}): music not found in database — removed`);
+      return false;
+    }
+    if (item.type === 'voiceover' && voiceoverIds && !voiceoverIds.has(item.voiceoverId)) {
+      corrections.push(`Voiceover item (voiceoverId=${item.voiceoverId}): voiceover not found in database — removed`);
       return false;
     }
     return true;
@@ -101,16 +125,18 @@ export function expandTimeline(
   const maxClipIndex = clipCount - 1;
 
   for (const item of items) {
-    if (item.type === 'overlay' || item.type === 'audio') {
+    if (item.type === 'overlay' || item.type === 'music' || item.type === 'voiceover') {
       const label = item.type === 'overlay'
         ? `Overlay "${item.text.slice(0, 30)}"`
-        : `Audio item${item.musicId ? ` (musicId=${item.musicId})` : ''}`;
+        : item.type === 'music'
+          ? `Music item${item.musicId ? ` (musicId=${item.musicId})` : ''}`
+          : `Voiceover item (voiceoverId=${item.voiceoverId})`;
 
       if (item.startClip > maxClipIndex) {
         corrections.push(`${label}: startClip clamped from ${item.startClip} to ${maxClipIndex} (total clips: ${clipCount})`);
         item.startClip = maxClipIndex;
       }
-      if (item.endClip !== undefined && item.endClip > maxClipIndex) {
+      if ('endClip' in item && item.endClip !== undefined && item.endClip > maxClipIndex) {
         corrections.push(`${label}: endClip clamped from ${item.endClip} to ${maxClipIndex} (total clips: ${clipCount})`);
         item.endClip = maxClipIndex;
       }
@@ -208,10 +234,10 @@ export function expandTimeline(
       };
     });
 
-  // Build audio tracks from audio items, with auto-loop when music is too short
+  // Build audio tracks from music items, with auto-loop when music is too short
   const LOOP_CROSSFADE = 1; // seconds of crossfade at loop boundaries
   const audioTracks = items
-    .filter((item): item is AudioItem => item.type === 'audio')
+    .filter((item): item is MusicItem => item.type === 'music')
     .flatMap((audio) => {
       const startClipIdx = audio.startClip;
       const endClipIdx = audio.endClip ?? audio.startClip;
@@ -321,12 +347,104 @@ export function expandTimeline(
       const loopCount = entries.length;
       if (loopCount > 1) {
         corrections.push(
-          `Audio item (musicId=${audio.musicId}): music (${Math.round(availableDuration)}s available) auto-looped ${loopCount}× with ${LOOP_CROSSFADE}s crossfade to cover ~${Math.round(timelineDuration)}s span`,
+          `Music item (musicId=${audio.musicId}): music (${Math.round(availableDuration)}s available) auto-looped ${loopCount}× with ${LOOP_CROSSFADE}s crossfade to cover ~${Math.round(timelineDuration)}s span`,
         );
       }
 
       return entries;
     });
+
+  // Build voiceover tracks from voiceover items
+  const voiceoverTracks = items
+    .filter((item): item is VoiceoverItem => item.type === 'voiceover')
+    .map((vo) => {
+      const startClipIdx = vo.startClip;
+
+      // Resolve start time
+      let startTime: number;
+      if (vo.startOffset >= 0) {
+        startTime = clipStartTimes[startClipIdx] + vo.startOffset;
+      } else {
+        startTime = clipStartTimes[startClipIdx] + clipDurations[startClipIdx] + vo.startOffset;
+      }
+
+      const audioDuration = vo.audioEndSeconds - vo.audioStartSeconds;
+      const endTime = Math.max(0, startTime) + audioDuration;
+
+      // Resolve source file and validate audio range
+      let sourceFile = '';
+      let recordingDuration: number | null = null;
+      if (vo.voiceoverId && voiceoverFiles) {
+        const voFile = voiceoverFiles.find((v) => v.id === vo.voiceoverId);
+        if (voFile) {
+          sourceFile = voFile.path;
+          recordingDuration = voFile.durationSeconds ?? null;
+        }
+      }
+
+      if (recordingDuration != null && vo.audioEndSeconds > recordingDuration) {
+        errors.push(
+          `Voiceover item (voiceoverId=${vo.voiceoverId}): audioEndSeconds (${vo.audioEndSeconds}s) exceeds recording duration (${recordingDuration}s)`,
+        );
+      }
+
+      // Validation: check if voiceover extends beyond the timeline end
+      const totalTimelineDuration = clipItems.length > 0
+        ? clipStartTimes[clipItems.length - 1] + clipDurations[clipItems.length - 1]
+        : 0;
+      if (endTime > totalTimelineDuration + 0.1) {
+        errors.push(
+          `Voiceover item (voiceoverId=${vo.voiceoverId}): voiceover audio (${audioDuration.toFixed(1)}s) extends ${(endTime - totalTimelineDuration).toFixed(1)}s beyond the timeline end — adjust clip durations or add clips to accommodate`,
+        );
+      }
+
+      return {
+        sourceFile,
+        startTimeSeconds: Math.max(0, startTime),
+        endTimeSeconds: endTime,
+        audioStartSeconds: vo.audioStartSeconds,
+        volume: vo.volume,
+        fadeInSeconds: vo.fadeInSeconds,
+        fadeOutSeconds: vo.fadeOutSeconds,
+      };
+    });
+
+  // Warn about silent gaps between voiceover segments not covered by music
+  if (voiceoverTracks.length > 0) {
+    const sortedVo = [...voiceoverTracks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    const totalTimelineDuration = clipItems.length > 0
+      ? clipStartTimes[clipItems.length - 1] + clipDurations[clipItems.length - 1]
+      : 0;
+
+    // Check gap before the first voiceover
+    const firstStart = sortedVo[0].startTimeSeconds;
+    if (firstStart > 0.5) {
+      const hasMusicCoverage = audioTracks.some(
+        (a) => a.startTimeSeconds < firstStart && a.endTimeSeconds > 0,
+      );
+      if (!hasMusicCoverage) {
+        corrections.push(
+          `Silent gap (0.0s–${firstStart.toFixed(1)}s): no voiceover or music — consider adding background music`,
+        );
+      }
+    }
+
+    // Check gaps between voiceover segments and after the last one
+    for (let i = 0; i < sortedVo.length; i++) {
+      const gapStart = sortedVo[i].endTimeSeconds;
+      const gapEnd = i + 1 < sortedVo.length ? sortedVo[i + 1].startTimeSeconds : totalTimelineDuration;
+      if (gapEnd - gapStart < 0.5) continue;
+
+      const hasMusicCoverage = audioTracks.some(
+        (a) => a.startTimeSeconds < gapEnd && a.endTimeSeconds > gapStart,
+      );
+      if (!hasMusicCoverage) {
+        corrections.push(
+          `Silent gap (${gapStart.toFixed(1)}s–${gapEnd.toFixed(1)}s): no voiceover or music — consider adding background music`,
+        );
+      }
+    }
+  }
 
   const timeline: ExpandedTimeline = {
     name: storyName,
@@ -337,13 +455,14 @@ export function expandTimeline(
     clips: timelineClips,
     textOverlays,
     audioTracks,
+    voiceoverTracks,
   };
 
-  return { timeline, sanitizedItems, corrections };
+  return { timeline, sanitizedItems, corrections, errors };
 }
 
 /**
- * Splice timeline items with automatic clipIndex remapping for overlay/audio items.
+ * Splice timeline items with automatic clipIndex remapping for overlay/music/voiceover items.
  * Similar to Array.prototype.splice: remove `deleteCount` items starting at `index`,
  * then insert `newItems` at that position. Use deleteCount=-1 to delete all from index.
  */
@@ -376,15 +495,15 @@ export function spliceTimelineItems(
   // Perform the splice
   items.splice(index, effectiveDeleteCount, ...newItems);
 
-  // Remap clipIndex references in overlay/audio items that are outside the spliced range
+  // Remap clipIndex references in overlay/music/voiceover items that are outside the spliced range
   const clipDelta = insertedClipCount - deletedClipCount;
   if (clipDelta !== 0) {
     for (const item of items) {
-      if (item.type === 'overlay' || item.type === 'audio') {
+      if (item.type === 'overlay' || item.type === 'music' || item.type === 'voiceover') {
         if (item.startClip >= clipIndexAtSplicePoint + deletedClipCount) {
           item.startClip += clipDelta;
         }
-        if (item.endClip !== undefined && item.endClip >= clipIndexAtSplicePoint + deletedClipCount) {
+        if ('endClip' in item && item.endClip !== undefined && item.endClip >= clipIndexAtSplicePoint + deletedClipCount) {
           item.endClip += clipDelta;
         }
       }

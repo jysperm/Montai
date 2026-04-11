@@ -42,6 +42,28 @@ Segments, speech content, quality notes, and technical notes are omitted. Use `g
 
 {{/each}}
 {{/if}}
+## Voiceover Recordings
+
+{{#if fullVoiceoverAnalyses}}
+Segments marked [SKIP] were identified during transcription as unusable (hesitations, repetitions, etc.) and should be excluded when selecting voiceover segments.
+
+{{#each fullVoiceoverAnalyses}}
+--- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+{{> voiceover-analysis this}}
+
+{{/each}}
+{{/if}}
+{{#if summaryVoiceoverAnalyses}}
+### Other Voiceovers (summary only)
+
+Transcription is omitted. Use `getVoiceoverAnalysis` to retrieve full details.
+
+{{#each summaryVoiceoverAnalyses}}
+--- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+{{> voiceover-summary this}}
+
+{{/each}}
+{{/if}}
 ## Music Library
 
 {{#each fullMusicAnalyses}}
@@ -63,7 +85,7 @@ Segments are omitted. Use `getMusicAnalysis` to retrieve full details.
 {{#if generatedMusic}}
 ### Generated Music
 
-Previously generated background music. Reuse by setting `musicId` in audio items, same as library tracks.
+Previously generated background music. Reuse by setting `musicId` in music items, same as library tracks.
 
 {{#each generatedMusic}}
 --- Music ID {{this.musicId}} (generated, {{this.durationSeconds}}s) ---

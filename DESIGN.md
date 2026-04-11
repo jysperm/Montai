@@ -29,6 +29,8 @@ assets:
     - ~/footage/extra-clip.mp4    # Individual file also supported
   music:
     - ./musics/                   # Directory of background music files
+  voiceover:
+    - ./voiceover/                # Voiceover recordings for narration-driven editing
 language: zh                     # Language for LLM-generated text (zh | en)
 output:
   resolution: 1080p             # 720p | 1080p | 1440p | 4k
@@ -43,7 +45,7 @@ effects:
 
 `language` controls the language used for all internal text: video analyses, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
-Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
+Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
 For backward compatibility, a top-level `videos` key (without `assets` wrapper) is still accepted and automatically mapped to `assets.videos`.
 
@@ -61,7 +63,9 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
 - **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai project --add-fact`. Also stores an AI-generated project overview (`overview`) that synthesizes all video analyses and user facts, viewable via `montai project`. The overview is cached and auto-invalidated (`overview_stale`) when facts or video analyses change.
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
-- **gemini_files** — Cached Gemini File API references for uploaded videos and music files (videoId or musicId, both nullable)
+- **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
+- **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
+- **gemini_files** — Cached Gemini File API references for uploaded videos, music, and voiceover files (videoId, musicId, or voiceoverId, all nullable)
 
 ## Pipeline
 
@@ -84,6 +88,11 @@ While video N is being analyzed, video N+1 can be uploading, and video N+2 can b
 
 If project facts exist (from `montai project --add-fact`), they are included as context in the analysis prompt.
 
+**Voiceover pipeline** — same 2-stage structure as music (no transcoding):
+
+1. **Upload** — Upload audio file to Gemini File API (cached in `gemini_files` with `voiceoverId`).
+2. **Analyze** — Transcription-focused analysis: produces per-sentence timestamps with skip markers for unusable content (hesitations, repeats, etc.), plus an overview summary.
+
 Supports resume: skips videos that already have a row in `video_analyses` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 
 ### 2. Story (`montai story [name]`)
@@ -95,7 +104,8 @@ Uses an agent loop with tools:
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startSeconds, endSeconds)` — Watch a video segment
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
-- `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in audio items
+- `getVoiceoverAnalysis(voiceoverId)` — Retrieve stored transcription
+- `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in music items
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
@@ -135,7 +145,7 @@ A project can produce multiple timelines (multiple output videos). Each has a un
 
 ### Timeline Items
 
-The LLM works with a unified items array containing three item types:
+The LLM works with a unified items array containing four item types:
 
 ```typescript
 ClipItem {
@@ -162,8 +172,8 @@ OverlayItem {
   animation: 'none' | 'fade' | 'slide' | 'pop'  // default 'none'
 }
 
-AudioItem {
-  type: 'audio'
+MusicItem {
+  type: 'music'
   startClip: number
   startOffset: number
   endClip?: number
@@ -173,6 +183,18 @@ AudioItem {
   volume: number
   fadeInSeconds: number          // linear fade in (default 0)
   fadeOutSeconds: number         // linear fade out (default 0)
+}
+
+VoiceoverItem {
+  type: 'voiceover'
+  voiceoverId: number           // references voiceovers table
+  startClip: number
+  startOffset: number
+  audioStartSeconds: number     // start position in voiceover recording
+  audioEndSeconds: number       // end position in voiceover recording (required)
+  volume: number
+  fadeInSeconds: number
+  fadeOutSeconds: number
 }
 ```
 
@@ -189,6 +211,7 @@ ExpandedTimeline {
   clips: TimelineClip[]
   textOverlays: TextOverlay[]
   audioTracks: ExpandedAudio[]
+  voiceoverTracks: ExpandedVoiceover[]
 }
 
 ExpandedClip {
@@ -229,7 +252,19 @@ ExpandedAudio {
   fadeInSeconds: number
   fadeOutSeconds: number
 }
+
+ExpandedVoiceover {
+  sourceFile: string
+  startTimeSeconds: number
+  endTimeSeconds: number
+  audioStartSeconds: number
+  volume: number
+  fadeInSeconds: number
+  fadeOutSeconds: number
+}
 ```
+
+VoiceoverItem differs from MusicItem: no endClip/endOffset (end position determined by audio duration), no auto-loop, references voiceoverId instead of musicId. `expandTimeline` validates that voiceover audio doesn't extend beyond the timeline end, rejecting the update with an error if it does.
 
 ## Remotion Output
 
@@ -305,7 +340,7 @@ The `generateMusic` tool in the story agent generates instrumental background mu
 - **Output**: ~30s instrumental WAV at 48kHz stereo, $0.06/clip
 - **Caching**: Generated files stored in `generated-music/` using SHA-256 hash of prompt. Same prompt reuses existing file + DB row.
 - **Reuse**: Previously generated music appears in the story context under "Generated Music" so the LLM can reference it without regenerating. The LLM is prompted to prefer existing tracks (library or generated) before generating new ones.
-- **Auto-loop**: When a music track (library or generated) is shorter than the audio item's timeline span, `expandTimeline()` automatically splits it into multiple `ExpandedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
+- **Auto-loop**: When a music track (library or generated) is shorter than the music item's timeline span, `expandTimeline()` automatically splits it into multiple `ExpandedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
 - **Analysis**: Only library music is analyzed by Gemini during `montai analyze`. Generated music uses its generation prompt as the description.
 
 ## User Project Directory Structure

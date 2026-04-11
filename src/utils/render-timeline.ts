@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { parse } from 'path';
-import type { TimelineItem, ClipItem, OverlayItem, AudioItem } from '../schemas/timeline-items.js';
+import type { TimelineItem, ClipItem, OverlayItem, MusicItem, VoiceoverItem } from '../schemas/timeline-items.js';
 
 const positionArrows: Record<string, string> = {
   'center': '─',
@@ -68,6 +68,10 @@ function colorAudio(text: string): string {
   return chalk.green(text);
 }
 
+function colorVoiceover(text: string): string {
+  return chalk.yellow(text);
+}
+
 function renderAudioLane(lane: AudioSpan[], trackWidth: number): string {
   let result = '';
   let cursor = 0;
@@ -79,6 +83,27 @@ function renderAudioLane(lane: AudioSpan[], trackWidth: number): string {
     const w = a.endCol - a.startCol;
     const label = renderOverlayLabel(a.label, '♫', w);
     result += colorAudio(label);
+    cursor = a.endCol;
+  }
+
+  if (cursor < trackWidth) {
+    result += ' '.repeat(trackWidth - cursor);
+  }
+
+  return result;
+}
+
+function renderVoiceoverLane(lane: AudioSpan[], trackWidth: number): string {
+  let result = '';
+  let cursor = 0;
+
+  for (const a of lane) {
+    if (a.startCol > cursor) {
+      result += ' '.repeat(a.startCol - cursor);
+    }
+    const w = a.endCol - a.startCol;
+    const label = renderOverlayLabel(a.label, '¶', w);
+    result += colorVoiceover(label);
     cursor = a.endCol;
   }
 
@@ -116,7 +141,8 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   if (clips.length === 0) return [];
 
   const overlays = items.filter((i): i is OverlayItem => i.type === 'overlay');
-  const audios = items.filter((i): i is AudioItem => i.type === 'audio');
+  const audios = items.filter((i): i is MusicItem => i.type === 'music');
+  const voiceoversItems = items.filter((i): i is VoiceoverItem => i.type === 'voiceover');
 
   const padding = 2;
   const trackWidth = terminalWidth - padding * 2;
@@ -173,13 +199,17 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   const durStr = totalSec >= 60
     ? `${Math.floor(totalSec / 60)}m${totalSec % 60 > 0 ? ` ${totalSec % 60}s` : ''}`
     : `${totalSec}s`;
-  const audioCount = items.filter(i => i.type === 'audio').length;
+  const audioCount = items.filter(i => i.type === 'music').length;
+  const voiceoverCount = items.filter(i => i.type === 'voiceover').length;
   let summary = `${durStr} | ${clips.length} clips`;
   if (overlays.length > 0) {
     summary += `, ${overlays.length} overlay${overlays.length > 1 ? 's' : ''}`;
   }
   if (audioCount > 0) {
-    summary += `, ${audioCount} audio`;
+    summary += `, ${audioCount} music`;
+  }
+  if (voiceoverCount > 0) {
+    summary += `, ${voiceoverCount} voiceover`;
   }
   if (storyName) {
     const gap = trackWidth - summary.length - storyName.length;
@@ -224,7 +254,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     if (!placed) lanes.push([span]);
   }
 
-  // Map audio items to column spans
+  // Map music items to column spans
   const audioSpans: AudioSpan[] = [];
   for (const a of audios) {
     const endClipIdx = a.endClip ?? a.startClip;
@@ -299,6 +329,36 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     clipTrack += prefix + inner + suffix;
   }
 
+  // Map voiceover items to column spans
+  const voiceoverSpans: AudioSpan[] = [];
+  for (const vo of voiceoversItems) {
+    if (vo.startClip >= clips.length) continue;
+    let startCol = clipStartCol[vo.startClip];
+    if (vo.startClip > 0 && clips[vo.startClip].transition) {
+      startCol += 1;
+    }
+    // Approximate end column from audio duration
+    const audioDuration = vo.audioEndSeconds - vo.audioStartSeconds;
+    const durationCols = Math.max(4, Math.round((audioDuration / totalDuration) * trackWidth));
+    const endCol = Math.min(startCol + durationCols, trackWidth);
+    voiceoverSpans.push({ startCol, endCol, label: `vo${vo.voiceoverId}` });
+  }
+
+  // Greedy lane assignment for voiceover
+  const sortedVoiceover = [...voiceoverSpans].sort((a, b) => a.startCol - b.startCol);
+  const voiceoverLanes: AudioSpan[][] = [];
+  for (const span of sortedVoiceover) {
+    let placed = false;
+    for (const lane of voiceoverLanes) {
+      if (lane[lane.length - 1].endCol <= span.startCol) {
+        lane.push(span);
+        placed = true;
+        break;
+      }
+    }
+    if (!placed) voiceoverLanes.push([span]);
+  }
+
   // Assemble output
   const pad = ' '.repeat(padding);
   const lines: string[] = [];
@@ -310,6 +370,9 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   lines.push(pad + chalk.cyan(clipTrack));
   for (const lane of audioLanes) {
     lines.push(pad + renderAudioLane(lane, trackWidth));
+  }
+  for (const lane of voiceoverLanes) {
+    lines.push(pad + renderVoiceoverLane(lane, trackWidth));
   }
 
   return lines;

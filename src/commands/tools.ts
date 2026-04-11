@@ -3,8 +3,8 @@ import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import type { Agent } from '@mariozechner/pi-agent-core';
 import { Type } from '@sinclair/typebox';
 import type { MontaiDb } from '../db/index.js';
-import { stories, type videoAnalyses, type music, type musicAnalyses } from '../db/schema.js';
-import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData } from '../prompts/index.js';
+import { stories, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
+import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -29,6 +29,8 @@ export interface StoryToolsContext {
   allVideoAnalyses: (typeof videoAnalyses.$inferSelect)[];
   allMusic: (typeof music.$inferSelect)[];
   allMusicAnalyses: (typeof musicAnalyses.$inferSelect)[];
+  allVoiceovers: (typeof voiceovers.$inferSelect)[];
+  allVoiceoverAnalyses: (typeof voiceoverAnalyses.$inferSelect)[];
   currentStoryId: number | null;
   currentStoryName: string | null;
   currentItems: TimelineItem[];
@@ -133,9 +135,18 @@ export function getStoryTools(ctx: StoryToolsContext) {
       // Sanitize + expand: validates references, clamps indices, detects auto-loop.
       // Sanitized items are written to DB; corrections are returned to the LLM.
       const splicedItems = spliceTimelineItems(ctx.currentItems, params.index, params.deleteCount, newItems);
-      const { sanitizedItems: allItems, corrections } = expandTimeline(
-        splicedItems, ctx.config, ctx.currentStoryName ?? 'unnamed', ctx.allVideos, undefined, ctx.allMusic,
+      const { sanitizedItems: allItems, corrections, errors } = expandTimeline(
+        splicedItems, ctx.config, ctx.currentStoryName ?? 'unnamed', ctx.allVideos, undefined, ctx.allMusic, ctx.allVoiceovers,
       );
+
+      // If voiceover validation errors exist, reject the update
+      if (errors.length > 0) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Timeline update rejected:\n${errors.map((e) => `- ${e}`).join('\n')}\n\nPlease fix the issues and try again.`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
 
       ctx.currentItems = allItems;
 
@@ -159,9 +170,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       const finalClipCount = ctx.currentItems.filter((i) => i.type === 'clip').length;
       const overlayCount = ctx.currentItems.filter((i) => i.type === 'overlay').length;
-      const audioCount = ctx.currentItems.filter((i) => i.type === 'audio').length;
+      const musicCount = ctx.currentItems.filter((i) => i.type === 'music').length;
+      const voiceoverCount = ctx.currentItems.filter((i) => i.type === 'voiceover').length;
       const parts = [`${finalClipCount} clips`, `${overlayCount} overlays`];
-      if (audioCount > 0) parts.push(`${audioCount} audio`);
+      if (musicCount > 0) parts.push(`${musicCount} music`);
+      if (voiceoverCount > 0) parts.push(`${voiceoverCount} voiceover`);
       let resultText = `Timeline updated: ${ctx.currentItems.length} items (${parts.join(', ')})`;
       if (corrections.length > 0) {
         resultText += `\nCorrections applied:\n${corrections.map((c) => `- ${c}`).join('\n')}`;
@@ -292,6 +305,35 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
+  const getVoiceoverAnalysisTool = {
+    name: 'getVoiceoverAnalysis',
+    label: 'Get Voiceover Analysis',
+    description: 'Retrieve the stored transcription for a voiceover recording.',
+    parameters: Type.Object({
+      voiceoverId: Type.Number({ description: 'The voiceover ID' }),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { voiceoverId: number },
+    ) {
+      const analysis = ctx.allVoiceoverAnalyses.find((a) => a.voiceoverId === params.voiceoverId);
+      const vo = ctx.allVoiceovers.find((v) => v.id === params.voiceoverId);
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: analysis
+          ? `Analysis for voiceover ${params.voiceoverId}:\n${renderPrompt('voiceover-analysis', {
+              voiceoverId: params.voiceoverId,
+              filename: vo?.filename ?? 'unknown',
+              durationSeconds: vo?.durationSeconds ?? 0,
+              overview: analysis.overview,
+              transcription: JSON.parse(analysis.transcription),
+            } satisfies VoiceoverAnalysisData).trim()}`
+          : `No analysis found for voiceover ${params.voiceoverId}`,
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
   const generateMusicTool = {
     name: 'generateMusic',
     label: 'Generate Music',
@@ -324,7 +366,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
         const textContent: TextContent = {
           type: 'text' as const,
-          text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in audio timeline items to reference this track.`,
+          text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in music timeline items to reference this track.`,
         };
         return { content: [textContent], details: {} };
       } catch (err) {
@@ -442,9 +484,15 @@ export function getStoryTools(ctx: StoryToolsContext) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, getMusicAnalysisTool, listStoriesTool, switchStoryTool];
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, listStoriesTool, switchStoryTool];
+  if (ctx.allMusic.length > 0 || ctx.config.models.musicGeneration) {
+    tools.push(getMusicAnalysisTool);
+  }
   if (ctx.config.models.musicGeneration) {
     tools.push(generateMusicTool);
+  }
+  if (ctx.allVoiceovers.length > 0) {
+    tools.push(getVoiceoverAnalysisTool);
   }
 
   return {

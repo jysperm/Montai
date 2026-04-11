@@ -54,3 +54,11 @@ export interface MusicAnalysisData {
   overview: string;
   segments: { startTime: string; endTime: string; description: string }[];
 }
+
+export interface VoiceoverAnalysisData {
+  voiceoverId: number;
+  filename: string;
+  durationSeconds: number;
+  overview: string;
+  transcription: { startTime: string; endTime: string; text: string; skip?: boolean }[];
+}

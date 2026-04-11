@@ -25,7 +25,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
   return {
     db: db as any,
     config: {
-      assets: { videos: ['.'], music: [] },
+      assets: { videos: ['.'], music: [], voiceover: [] },
       language: 'en' as const,
       output: { resolution: '1080p' as const, fps: 50 },
       models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3-pro-preview' },
@@ -35,12 +35,17 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
       { id: 1, path: '/test/video1.mp4', filename: 'video1.mp4' },
       { id: 2, path: '/test/video2.mp4', filename: 'video2.mp4' },
     ],
-    allSummaries: [],
+    allVideoAnalyses: [],
     allMusic: [{ id: 1, filename: 'test.mp3', path: '/test/test.mp3', md5: 'abc', type: 'library', generationPrompt: null, durationSeconds: 30, sampleRate: 44100, channels: 2 }],
-    allMusicSummaries: [],
+    allMusicAnalyses: [],
+    allVoiceovers: [],
+    allVoiceoverAnalyses: [],
     currentStoryId: null,
     currentStoryName: null,
     currentItems: [],
+    agent: null,
+    languageName: 'English',
+    overlayLanguageNames: 'English',
   };
 }
 
@@ -98,7 +103,7 @@ describe('updateTimeline tool', () => {
       index: 2,
       deleteCount: 0,
       items: [
-        { type: 'audio', startClip: 0, endClip: 5, musicId: 1, volume: 0.5 },
+        { type: 'music', startClip: 0, endClip: 5, musicId: 1, volume: 0.5 },
         { type: 'overlay', text: 'Late subtitle', startClip: 9, endClip: 9, position: 'bottom-center', style: 'subtitle' },
       ],
     });
@@ -108,8 +113,8 @@ describe('updateTimeline tool', () => {
     expect(result.content[0].text).toContain('endClip clamped from 5 to 1');
     expect(result.content[0].text).toContain('startClip clamped from 9 to 1');
 
-    const audioItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'audio' }> => i.type === 'audio')!;
-    expect(audioItem.endClip).toBe(1);
+    const musicItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'music' }> => i.type === 'music')!;
+    expect(musicItem.endClip).toBe(1);
 
     const overlayItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'overlay' }> => i.type === 'overlay')!;
     expect(overlayItem.startClip).toBe(1);
@@ -150,11 +155,11 @@ describe('updateTimeline tool', () => {
       index: 2,
       deleteCount: 0,
       items: [
-        { type: 'audio', startClip: 0, musicId: 999, volume: 0.5 },
+        { type: 'music', startClip: 0, musicId: 999, volume: 0.5 },
       ],
     });
     expect(result.content[0].text).toContain('musicId=999');
-    expect(ctx.currentItems.filter(i => i.type === 'audio')).toHaveLength(0);
+    expect(ctx.currentItems.filter(i => i.type === 'music')).toHaveLength(0);
   });
 
 });
@@ -187,7 +192,7 @@ describe('updateTimeline auto-loop', () => {
       index: 2,
       deleteCount: 0,
       items: [
-        { type: 'audio', startClip: 0, endClip: 1, musicId: 1, volume: 0.3 },
+        { type: 'music', startClip: 0, endClip: 1, musicId: 1, volume: 0.3 },
       ],
     });
     expect(result.content[0].text).toContain('auto-looped');
@@ -200,7 +205,7 @@ describe('updateTimeline auto-loop', () => {
       index: 2,
       deleteCount: 0,
       items: [
-        { type: 'audio', startClip: 0, musicId: 1, volume: 0.5 },
+        { type: 'music', startClip: 0, musicId: 1, volume: 0.5 },
       ],
     });
     expect(result.content[0].text).not.toContain('auto-looped');

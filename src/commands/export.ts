@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { writeFileSync, mkdirSync } from 'fs';
 import { basename, resolve } from 'path';
 import { initDb } from '../db/index.js';
-import { videos, music } from '../db/schema.js';
+import { videos, music, voiceovers } from '../db/schema.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { generateFcpxml, type VideoFormatInfo, type AudioFormatInfo } from '../fcpxml/generate.js';
 import { remapToArchived } from '../utils/archived-videos.js';
@@ -37,6 +37,7 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
 
   const allVideos = db.select().from(videos).all();
   const allMusic = db.select().from(music).all();
+  const allVoiceovers = db.select().from(voiceovers).all();
 
   mkdirSync('fcpxml', { recursive: true });
 
@@ -83,12 +84,29 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
       }
     }
 
+    // Build voiceover metadata map
+    const voiceoverMetaMap = new Map<string, AudioFormatInfo>();
+    for (const vo of spec.voiceoverTracks ?? []) {
+      if (!vo.sourceFile) continue;
+      const filename = basename(vo.sourceFile);
+      if (!voiceoverMetaMap.has(filename)) {
+        const track = allVoiceovers.find(v => v.filename === filename);
+        if (track) {
+          voiceoverMetaMap.set(filename, {
+            durationSeconds: track.durationSeconds,
+            channels: track.channels,
+            sampleRate: track.sampleRate,
+          });
+        }
+      }
+    }
+
     const eventName = basename(resolve('.'));
     const fcpxml = generateFcpxml(spec, videoMeta, {
       eventName,
       projectTitle: spec.title,
       target,
-    }, audioMetaMap);
+    }, audioMetaMap, voiceoverMetaMap);
     const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);
     writeFileSync(outputPath, fcpxml, 'utf-8');
     console.log(chalk.green(`FCPXML written to fcpxml/${spec.name}.fcpxml`));

@@ -1,3 +1,5 @@
+import chalk from 'chalk';
+
 /**
  * Format seconds into a human-readable duration string.
  * Examples: "15s", "3m12s", "3m", "1h30m", "1h30m15s"
@@ -39,18 +41,59 @@ export function formatFileSize(bytes: number): string {
   return `${bytes} B`;
 }
 
-export function countItemsByType(items: Array<{ type: string }>): { clips: number; overlays: number; audio: number } {
+/**
+ * Compute the total playback duration (in seconds) of a raw timeline items array.
+ */
+export function computeTimelineDuration(items: Array<Record<string, unknown>>): number {
+  const clips = items.filter(i => i.type === 'clip');
+  let total = 0;
+  for (let i = 0; i < clips.length; i++) {
+    const c = clips[i];
+    const dur = ((c.endTimeSeconds as number) - (c.startTimeSeconds as number)) / ((c.playbackRate as number) || 1);
+    total += dur;
+    if (i > 0 && c.transition) {
+      total -= (c.transition as { durationSeconds: number }).durationSeconds;
+    }
+  }
+  return total;
+}
+
+export function countItemsByType(items: Array<{ type: string }>): { clips: number; overlays: number; music: number; voiceover: number } {
   return {
     clips: items.filter(i => i.type === 'clip').length,
     overlays: items.filter(i => i.type === 'overlay').length,
-    audio: items.filter(i => i.type === 'audio').length,
+    music: items.filter(i => i.type === 'music').length,
+    voiceover: items.filter(i => i.type === 'voiceover').length,
   };
 }
 
-export function formatItemCounts(counts: { clips: number; overlays: number; audio: number }): string {
+export function formatItemCountParts(counts: { clips: number; overlays: number; music: number; voiceover: number }): string[] {
   const parts: string[] = [];
   if (counts.clips > 0) parts.push(`${counts.clips} clip${counts.clips !== 1 ? 's' : ''}`);
   if (counts.overlays > 0) parts.push(`${counts.overlays} overlay${counts.overlays !== 1 ? 's' : ''}`);
-  if (counts.audio > 0) parts.push(`${counts.audio} audio`);
-  return parts.join(', ') || 'nothing';
+  if (counts.music > 0) parts.push(`${counts.music} music`);
+  if (counts.voiceover > 0) parts.push(`${counts.voiceover} voiceover`);
+  return parts;
+}
+
+export function formatItemCounts(counts: { clips: number; overlays: number; music: number; voiceover: number }): string {
+  return formatItemCountParts(counts).join(', ') || 'nothing';
+}
+
+/**
+ * Format a story row for display. Returns a single line string.
+ */
+export function formatStoryLine(s: { name: string; title: string; timeline: string | null; updatedAt: string }, options?: { indent?: boolean }): string {
+  const indent = options?.indent ? '  ' : '';
+  let status: string;
+  if (s.timeline) {
+    const items = JSON.parse(s.timeline) as Array<Record<string, unknown>>;
+    const duration = computeTimelineDuration(items);
+    const parts = formatItemCountParts(countItemsByType(items as Array<{ type: string }>));
+    status = [chalk.green(formatDuration(duration)), ...parts.map(p => chalk.green(p))].join(', ') || 'nothing';
+  } else {
+    status = chalk.dim('empty');
+  }
+  const ago = formatTimeAgo(s.updatedAt);
+  return `${indent}${chalk.cyan(s.name)}  ${s.title}  [${status}]  ${chalk.dim(ago)}`;
 }

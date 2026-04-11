@@ -54,6 +54,29 @@ export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[
 
       linkSync(absoluteSource, linkPath);
     }
+
+    // Hardlink voiceover files referenced by voiceoverTracks
+    for (const vo of timeline.voiceoverTracks ?? []) {
+      if (!vo.sourceFile) continue;
+      const filename = basename(vo.sourceFile);
+      if (seen.has(filename)) continue;
+      seen.add(filename);
+
+      const linkPath = resolve(publicDir, filename);
+      const absoluteSource = resolve(vo.sourceFile);
+
+      if (existsSync(linkPath)) {
+        unlinkSync(linkPath);
+      }
+
+      if (!existsSync(absoluteSource)) {
+        console.log(chalk.red(`Voiceover file not found: ${absoluteSource}`));
+        console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
+        process.exit(1);
+      }
+
+      linkSync(absoluteSource, linkPath);
+    }
   }
 
   // Write timelines.json for Root.tsx to load compositions dynamically

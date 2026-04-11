@@ -6,7 +6,7 @@ import { ProjectConfigSchema, type ProjectConfig } from '../schemas/project.js';
 import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { stories, videos, music } from '../db/schema.js';
+import { stories, videos, music, voiceovers } from '../db/schema.js';
 import { expandTimeline, type TimelineItem } from '../schemas/timeline-items.js';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
 
@@ -102,6 +102,38 @@ export function getMusicFilename(filepath: string): string {
   return basename(filepath);
 }
 
+export function resolveVoiceoverFiles(config: ProjectConfig): string[] {
+  const files: string[] = [];
+
+  for (const entry of config.assets.voiceover) {
+    const resolved = resolve(expandTilde(entry));
+
+    try {
+      const stat = statSync(resolved);
+
+      if (stat.isDirectory()) {
+        const dirFiles = readdirSync(resolved)
+          .filter((f) => AUDIO_EXTENSIONS.has(extname(f).toLowerCase()))
+          .map((f) => join(resolved, f))
+          .sort();
+        files.push(...dirFiles);
+      } else if (stat.isFile()) {
+        if (AUDIO_EXTENSIONS.has(extname(resolved).toLowerCase())) {
+          files.push(resolved);
+        }
+      }
+    } catch {
+      console.log(chalk.yellow(`Warning: could not access path: ${resolved}`));
+    }
+  }
+
+  return files;
+}
+
+export function getVoiceoverFilename(filepath: string): string {
+  return basename(filepath);
+}
+
 /**
  * Load timelines from the database, expanding raw TimelineItems into ExpandedTimeline format.
  * If name is given, loads that single story; otherwise loads all stories with timelines.
@@ -137,11 +169,15 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
 
   const allVideos = db.select().from(videos).all();
   const allMusic = db.select().from(music).all();
+  const allVoiceovers = db.select().from(voiceovers).all();
   return storyRows.map(r => {
     const items = JSON.parse(r.timeline) as TimelineItem[];
-    const { timeline, corrections } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic);
+    const { timeline, corrections, errors } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic, allVoiceovers);
     if (corrections.length > 0) {
       console.log(chalk.yellow(`Timeline "${r.name}" corrections:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
+    }
+    if (errors.length > 0) {
+      console.log(chalk.red(`Timeline "${r.name}" errors:\n${errors.map((e) => `  - ${e}`).join('\n')}`));
     }
     return timeline;
   });

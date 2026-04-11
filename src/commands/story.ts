@@ -13,12 +13,14 @@ import {
   stories,
   music,
   musicAnalyses,
+  voiceovers,
+  voiceoverAnalyses,
 } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
 import type { TimelineItem } from '../schemas/timeline-items.js';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
-import { formatDuration, formatTimeAgo, countItemsByType, formatItemCounts } from '../utils/format.js';
+import { formatDuration, formatTimeAgo, formatStoryLine, countItemsByType, formatItemCounts } from '../utils/format.js';
 import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { getStoryTools } from './tools.js';
@@ -49,15 +51,7 @@ export async function storyCommand(
       console.log(chalk.dim(`No stories yet. Run ${chalk.reset.bold('montai story')} to create one.`));
     } else {
       for (const s of allStories) {
-        let status: string;
-        if (s.timeline) {
-          const items = JSON.parse(s.timeline) as Array<{ type: string }>;
-          status = chalk.green(formatItemCounts(countItemsByType(items)));
-        } else {
-          status = chalk.dim('empty');
-        }
-        const ago = formatTimeAgo(s.updatedAt);
-        console.log(`  ${chalk.cyan(s.name)}  ${s.title}  [${status}]  ${chalk.dim(ago)}`);
+        console.log(formatStoryLine(s));
       }
     }
     return;
@@ -107,6 +101,20 @@ export async function storyCommand(
       durationSeconds: m.durationSeconds ?? 30,
       prompt: m.generationPrompt!,
     }));
+
+  // Load voiceover data
+  const allVoiceoversData = db.select().from(voiceovers).all();
+  const allVoiceoverAnalysesData = db.select().from(voiceoverAnalyses).all();
+  const voiceoverAnalysisData = allVoiceoverAnalysesData.map((a) => {
+    const vo = allVoiceoversData.find((v) => v.id === a.voiceoverId);
+    return {
+      voiceoverId: a.voiceoverId,
+      filename: vo?.filename ?? 'unknown',
+      durationSeconds: vo?.durationSeconds ?? 0,
+      overview: a.overview,
+      transcription: JSON.parse(a.transcription),
+    };
+  });
 
   const context = db.select().from(projectContext).get();
   const facts = context?.facts ?? null;
@@ -159,6 +167,8 @@ export async function storyCommand(
     allVideoAnalyses,
     allMusic,
     allMusicAnalyses,
+    allVoiceovers: allVoiceoversData,
+    allVoiceoverAnalyses: allVoiceoverAnalysesData,
     currentStoryId: story?.id ?? null,
     currentStoryName: story?.name ?? null,
     currentItems: [] as TimelineItem[],
@@ -300,6 +310,11 @@ export async function storyCommand(
               console.log(`  ${check} ${toolLabel}: music ${musicId}`);
               break;
             }
+            case 'getVoiceoverAnalysis': {
+              const voiceoverId = lastToolArgs.voiceoverId as number;
+              console.log(`  ${check} ${toolLabel}: voiceover ${voiceoverId}`);
+              break;
+            }
             case 'generateMusic': {
               const prompt = lastToolArgs.prompt as string;
               const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
@@ -386,6 +401,8 @@ export async function storyCommand(
   let summaryVideoAnalyses: typeof videoAnalysisData = [];
   let fullMusicAnalyses = musicAnalysisData;
   let summaryMusicAnalyses: typeof musicAnalysisData = [];
+  let fullVoiceoverAnalyses = voiceoverAnalysisData;
+  let summaryVoiceoverAnalyses: typeof voiceoverAnalysisData = [];
 
   if (hasTimeline) {
     const referencedVideoIds = new Set(
@@ -394,13 +411,22 @@ export async function storyCommand(
     fullVideoAnalyses = videoAnalysisData.filter((v) => referencedVideoIds.has(v.videoId));
     summaryVideoAnalyses = videoAnalysisData.filter((v) => !referencedVideoIds.has(v.videoId));
 
-    const hasAudioItems = toolsCtx.currentItems.some((i) => i.type === 'audio');
-    if (hasAudioItems) {
+    const hasMusicItems = toolsCtx.currentItems.some((i) => i.type === 'music');
+    if (hasMusicItems) {
       const referencedMusicIds = new Set(
-        toolsCtx.currentItems.filter((i) => i.type === 'audio').map((i) => (i as { musicId?: number }).musicId).filter((id): id is number => id != null),
+        toolsCtx.currentItems.filter((i) => i.type === 'music').map((i) => (i as { musicId?: number }).musicId).filter((id): id is number => id != null),
       );
       fullMusicAnalyses = musicAnalysisData.filter((m) => referencedMusicIds.has(m.musicId));
       summaryMusicAnalyses = musicAnalysisData.filter((m) => !referencedMusicIds.has(m.musicId));
+    }
+
+    const hasVoiceoverItems = toolsCtx.currentItems.some((i) => i.type === 'voiceover');
+    if (hasVoiceoverItems) {
+      const referencedVoiceoverIds = new Set(
+        toolsCtx.currentItems.filter((i) => i.type === 'voiceover').map((i) => (i as { voiceoverId?: number }).voiceoverId).filter((id): id is number => id != null),
+      );
+      fullVoiceoverAnalyses = voiceoverAnalysisData.filter((v) => referencedVoiceoverIds.has(v.voiceoverId));
+      summaryVoiceoverAnalyses = voiceoverAnalysisData.filter((v) => !referencedVoiceoverIds.has(v.voiceoverId));
     }
   }
 
@@ -411,6 +437,8 @@ export async function storyCommand(
     storyline: story?.storyline ?? null,
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
     styleReference: styleReference ?? null,
+    fullVoiceoverAnalyses: fullVoiceoverAnalyses.length > 0 ? fullVoiceoverAnalyses : null,
+    summaryVoiceoverAnalyses: summaryVoiceoverAnalyses.length > 0 ? summaryVoiceoverAnalyses : null,
     fullMusicAnalyses: fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,
     summaryMusicAnalyses: summaryMusicAnalyses.length > 0 ? summaryMusicAnalyses : null,
     generatedMusic: generatedMusicData.length > 0 ? generatedMusicData : null,

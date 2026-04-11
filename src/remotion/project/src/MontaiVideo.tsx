@@ -59,6 +59,7 @@ export interface TimelineProps {
   clips: EditClip[];
   textOverlays: TextOverlay[];
   audioTracks?: AudioTrack[];
+  voiceoverTracks?: AudioTrack[];
 }
 
 function getPositionStyle(position: TextOverlay['position'], s: number) {
@@ -355,7 +356,7 @@ function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number })
 }
 
 export const MontaiVideo: React.FC<TimelineProps> = (props) => {
-  const { fps, width, height, clips, textOverlays, audioTracks } = props;
+  const { fps, width, height, clips, textOverlays, audioTracks, voiceoverTracks } = props;
   const scale = height / 1080;
 
   return (
@@ -423,6 +424,10 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
 
       {(audioTracks ?? []).map((track, i) => (
         <AudioTrackComponent key={`audio-${i}`} track={track} fps={fps} />
+      ))}
+
+      {(voiceoverTracks ?? []).map((track, i) => (
+        <AudioTrackComponent key={`voiceover-${i}`} track={track} fps={fps} />
       ))}
     </AbsoluteFill>
   );

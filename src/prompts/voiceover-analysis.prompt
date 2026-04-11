@@ -1,0 +1,5 @@
+Overview: {{{overview}}}
+Transcription:
+{{#each transcription}}
+- {{this.startTime}}-{{this.endTime}}: {{this.text}}{{#if this.skip}} [SKIP]{{/if}}
+{{/each}}

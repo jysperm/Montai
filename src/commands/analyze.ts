@@ -7,6 +7,7 @@ import { resolve } from 'path';
 import { getModel } from '@mariozechner/pi-ai';
 import { syncAndAnalyzeVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
 import { syncAndAnalyzeMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
+import { syncAndAnalyzeVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
 import { formatCost } from '../analyzer/utils.js';
 
 async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
@@ -50,12 +51,14 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
   if (options.list) {
     listVideos(db);
     listMusic(db);
+    listVoiceovers(db);
     return;
   }
 
   if (options.show) {
     showVideoAnalysis(db, options.show);
     showMusicAnalysis(db, options.show);
+    showVoiceoverAnalysis(db, options.show);
     return;
   }
 
@@ -67,6 +70,9 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
 
   const musicResult = await syncAndAnalyzeMusic(db, config, model, { reRun: options.reRun });
   totalCost += musicResult.totalCost;
+
+  const voiceoverResult = await syncAndAnalyzeVoiceovers(db, config, model, { reRun: options.reRun });
+  totalCost += voiceoverResult.totalCost;
 
   console.log(chalk.dim(`Total cost: ${formatCost(totalCost)}`));
 }

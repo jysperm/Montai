@@ -122,3 +122,48 @@ export async function uploadMusicToGemini(
 
   return fileUri;
 }
+
+export async function uploadVoiceoverToGemini(
+  voiceoverId: number,
+  filePath: string
+): Promise<string> {
+  const db = getDb();
+
+  const cached = db
+    .select()
+    .from(geminiFiles)
+    .where(eq(geminiFiles.voiceoverId, voiceoverId))
+    .get();
+
+  if (cached && cached.state === 'ACTIVE') {
+    const uploadedAt = new Date(cached.uploadedAt);
+    const hoursAgo = (Date.now() - uploadedAt.getTime()) / (1000 * 60 * 60);
+    if (hoursAgo < EXPIRY_HOURS) {
+      return cached.fileUri;
+    }
+  }
+
+  const fileUri = await uploadAndWait(filePath);
+
+  if (cached) {
+    db.update(geminiFiles)
+      .set({
+        fileUri,
+        uploadedAt: new Date().toISOString(),
+        state: 'ACTIVE',
+      })
+      .where(eq(geminiFiles.id, cached.id))
+      .run();
+  } else {
+    db.insert(geminiFiles)
+      .values({
+        voiceoverId,
+        fileUri,
+        uploadedAt: new Date().toISOString(),
+        state: 'ACTIVE',
+      })
+      .run();
+  }
+
+  return fileUri;
+}

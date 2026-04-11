@@ -31,6 +31,7 @@ export const EffectsSchema = z.object({
 export const AssetsSchema = z.object({
   videos: z.array(z.string()).min(1),
   music: z.array(z.string()).default([]),
+  voiceover: z.array(z.string()).default([]),
 });
 
 export const ProjectConfigSchema = z.preprocess(

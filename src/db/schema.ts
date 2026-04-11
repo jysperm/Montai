@@ -72,12 +72,33 @@ export const musicAnalyses = sqliteTable('music_analyses', {
   segments: text('segments').notNull(), // JSON array
 });
 
+export const voiceovers = sqliteTable('voiceovers', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  filename: text('filename').notNull(),
+  path: text('path').notNull().unique(),
+  md5: text('md5').notNull(),
+  durationSeconds: integer('duration_seconds'),
+  sampleRate: integer('sample_rate'),
+  channels: integer('channels'),
+});
+
+export const voiceoverAnalyses = sqliteTable('voiceover_analyses', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  voiceoverId: integer('voiceover_id')
+    .notNull()
+    .references(() => voiceovers.id),
+  transcription: text('transcription').notNull(), // JSON array
+  overview: text('overview').notNull(),
+});
+
 export const geminiFiles = sqliteTable('gemini_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   videoId: integer('video_id')
     .references(() => videos.id),
   musicId: integer('music_id')
     .references(() => music.id),
+  voiceoverId: integer('voiceover_id')
+    .references(() => voiceovers.id),
   fileUri: text('file_uri').notNull(),
   uploadedAt: text('uploaded_at').notNull(),
   state: text('state').notNull(),

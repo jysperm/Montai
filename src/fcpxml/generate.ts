@@ -48,6 +48,7 @@ export function generateFcpxml(
   videoMeta?: Map<string, VideoFormatInfo>,
   options?: { eventName?: string; projectTitle?: string; target?: 'fcp' | 'davinci' },
   audioMeta?: Map<string, AudioFormatInfo>,
+  voiceoverMeta?: Map<string, AudioFormatInfo>,
 ): string {
   // FCP vs DaVinci: if a feature is silently ignored by DaVinci (no import
   // error), we don't branch on target — same output for both. We only branch
@@ -476,6 +477,54 @@ export function generateFcpxml(
           );
         }
       }
+    }
+  }
+
+  // --- Build voiceover assets and assign anchor items to their parent clips ---
+  const voiceoverAssetMap = new Map<string, string>();
+  for (const vo of spec.voiceoverTracks ?? []) {
+    if (!vo.sourceFile) continue;
+    const filename = basename(vo.sourceFile);
+    if (!voiceoverAssetMap.has(filename)) {
+      const id = `vo-asset-${voiceoverAssetMap.size + 1}`;
+      voiceoverAssetMap.set(filename, id);
+      const meta = voiceoverMeta?.get(filename);
+      const sampleRate = meta?.sampleRate ?? 48000;
+      const channels = meta?.channels ?? 1;
+      const durationSeconds = meta?.durationSeconds ?? 600;
+      const durationTicks = Math.round(durationSeconds * sampleRate);
+      const srcUrl = `file://${escapeXml(vo.sourceFile || filename)}`;
+      assetLines.push([
+        `        <asset id="${id}" start="0/1s" duration="${durationTicks}/${sampleRate}s" hasAudio="1" audioSources="1" audioChannels="${channels}" audioRate="${sampleRate}">`,
+        `            <media-rep kind="original-media" src="${srcUrl}" />`,
+        `        </asset>`,
+      ].join('\n'));
+    }
+  }
+
+  for (const vo of spec.voiceoverTracks ?? []) {
+    if (!vo.sourceFile) continue;
+    const voLane = audioLaneCounter--;
+    const filename = basename(vo.sourceFile);
+    const voAssetId = voiceoverAssetMap.get(filename)!;
+    const { parentClipIdx, offset: spineOffset } = apo(vo.startTimeSeconds);
+    if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
+
+    const voSeqStart = o2s(vo.startTimeSeconds);
+    const voSeqEnd = o2s(vo.endTimeSeconds);
+    const clipDuration = toRational(voSeqEnd - voSeqStart, fps);
+    const clipStart = toRational(vo.audioStartSeconds, fps);
+    const volXml = avx(vo.volume, vo.fadeInSeconds, vo.fadeOutSeconds, II);
+
+    if (volXml) {
+      clipAudioAnchors.get(parentClipIdx)!.push([
+        `${II}<asset-clip ref="${voAssetId}" lane="${voLane}" name="${escapeXml(filename)}" offset="${spineOffset}" duration="${clipDuration}" start="${clipStart}">`,
+        `${volXml}`, `${II}</asset-clip>`,
+      ].join('\n'));
+    } else {
+      clipAudioAnchors.get(parentClipIdx)!.push(
+        `${II}<asset-clip ref="${voAssetId}" lane="${voLane}" name="${escapeXml(filename)}" offset="${spineOffset}" duration="${clipDuration}" start="${clipStart}" />`
+      );
     }
   }
 
