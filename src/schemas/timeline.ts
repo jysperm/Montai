@@ -56,8 +56,6 @@ export const ExpandedVoiceoverSchema = z.object({
   endTimeSeconds: z.number(),
   audioStartSeconds: z.number(),
   volume: z.number(),
-  fadeInSeconds: z.number(),
-  fadeOutSeconds: z.number(),
 });
 
 export const ExpandedTimelineSchema = z.object({

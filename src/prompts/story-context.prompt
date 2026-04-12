@@ -23,6 +23,8 @@ Creating a new video edit from source footage.
 {{{timelineItems}}}
 ```
 
+{{{computedTimeline}}}
+
 {{/if}}
 ## Video Analyses
 

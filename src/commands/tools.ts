@@ -8,12 +8,7 @@ import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type Voic
 import type { ProjectConfig } from '../schemas/project.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
-import {
-  TimelineItemSchema,
-  spliceTimelineItems,
-  expandTimeline,
-  type TimelineItem,
-} from '../schemas/timeline-items.js';
+import { TimelineItemSchema, spliceTimelineItems, expandTimeline, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
 import { z } from 'zod';
 import { generateMusicTrack } from '../lyria/generate.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
@@ -110,6 +105,9 @@ export function getStoryTools(ctx: StoryToolsContext) {
     name: 'updateTimeline',
     label: 'Update Timeline',
     description: `Update the timeline using splice semantics. index=0 + deleteCount=-1 for full replacement. Overlay text must be in ${ctx.overlayLanguageNames}.`,
+    // items uses Type.Any() because Gemini's function calling doesn't support
+    // complex JSON Schema features (oneOf, const, additionalProperties) needed
+    // for a discriminated union. The LLM learns item structure from the system prompt instead.
     parameters: Type.Object({
       index: Type.Number({ description: 'Position to start modifying' }),
       deleteCount: Type.Number({ description: 'Number of items to remove (-1 = all from index)' }),
@@ -162,7 +160,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       ctx.db.update(stories)
         .set({
-          timeline: JSON.stringify(ctx.currentItems),
+          timeline: JSON.stringify(stripTimelineDefaults(ctx.currentItems)),
           updatedAt: now,
         })
         .where(eq(stories.id, ctx.currentStoryId))
@@ -178,6 +176,9 @@ export function getStoryTools(ctx: StoryToolsContext) {
       let resultText = `Timeline updated: ${ctx.currentItems.length} items (${parts.join(', ')})`;
       if (corrections.length > 0) {
         resultText += `\nCorrections applied:\n${corrections.map((c) => `- ${c}`).join('\n')}`;
+      }
+      if (ctx.currentItems.length > 0) {
+        resultText += '\n\n' + renderPrompt('computed-timeline', buildComputedTimelineData(ctx.currentItems));
       }
       const textContent: TextContent = {
         type: 'text' as const,
@@ -463,14 +464,15 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       ctx.currentStoryId = story.id;
       ctx.currentStoryName = story.name;
-      ctx.currentItems = story.timeline ? JSON.parse(story.timeline) as TimelineItem[] : [];
+      ctx.currentItems = story.timeline ? z.array(TimelineItemSchema).parse(JSON.parse(story.timeline)) : [];
 
       // Inject storyline + timeline only (project-level context is already in conversation)
       if (ctx.agent) {
         const contextMessage = renderPrompt('story-switch', {
           name: story.name,
           storyline: story.storyline ?? null,
-          timelineItems: ctx.currentItems.length > 0 ? JSON.stringify(ctx.currentItems, null, 2) : null,
+          timelineItems: ctx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(ctx.currentItems), null, 2) : null,
+          computedTimeline: ctx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(ctx.currentItems)) : null,
         });
         ctx.agent.appendMessage({ role: 'user' as const, content: contextMessage, timestamp: Date.now() });
       }

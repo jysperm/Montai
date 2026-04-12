@@ -7,7 +7,8 @@ import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
 import { stories, videos, music, voiceovers } from '../db/schema.js';
-import { expandTimeline, type TimelineItem } from '../schemas/timeline-items.js';
+import { expandTimeline, TimelineItemSchema, type TimelineItem } from '../schemas/timeline-items.js';
+import { z } from 'zod';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
@@ -171,7 +172,7 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   const allMusic = db.select().from(music).all();
   const allVoiceovers = db.select().from(voiceovers).all();
   return storyRows.map(r => {
-    const items = JSON.parse(r.timeline) as TimelineItem[];
+    const items = z.array(TimelineItemSchema).parse(JSON.parse(r.timeline));
     const { timeline, corrections, errors } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic, allVoiceovers);
     if (corrections.length > 0) {
       console.log(chalk.yellow(`Timeline "${r.name}" corrections:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));

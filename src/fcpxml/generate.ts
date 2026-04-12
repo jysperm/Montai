@@ -514,7 +514,7 @@ export function generateFcpxml(
     const voSeqEnd = o2s(vo.endTimeSeconds);
     const clipDuration = toRational(voSeqEnd - voSeqStart, fps);
     const clipStart = toRational(vo.audioStartSeconds, fps);
-    const volXml = avx(vo.volume, vo.fadeInSeconds, vo.fadeOutSeconds, II);
+    const volXml = avx(vo.volume, 0, 0, II);
 
     if (volXml) {
       clipAudioAnchors.get(parentClipIdx)!.push([

@@ -12,4 +12,6 @@
 ```json
 {{{timelineItems}}}
 ```
+
+{{{computedTimeline}}}
 {{/if}}

@@ -140,15 +140,14 @@ After archiving, use `--from-archived` on `render`, `preview`, or `export` to wo
 ```
 my-vlog-project/
   .montai/             # Cache directory
-    transcoded/        # Preprocessed video files
-  generated-music/     # AI-generated music files (WAV)
+  generated-music/     # AI-generated music files
   archived/            # Archived video clips (montai archive)
   fcpxml/              # Generated FCPXML files
   output/              # Rendered videos
-  AGENTS.md            # Optional: instructions/knowledge for the LLM
-  montai.db            # SQLite database (auto-created)
+  montai.db            # Project database
   montai.yaml          # Project config
-  STYLE.md             # Optional: writing style reference from previous scripts
+  AGENTS.md            # Instructions/knowledge for the Agent (optional)
+  STYLE.md             # Writing style reference (optional)
 ```
 
 ## Output Compatibility
@@ -160,7 +159,6 @@ my-vlog-project/
 | Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
 | Text overlays | All positions | Centered only | All positions |
 | Overlay animations | fade, slide, pop | No | fade, slide, pop |
-| Crop | Yes | Yes | Yes |
 | Ken Burns | Yes | Fallback to crop | Yes |
 | Audio fades | Yes | No | Yes |
 

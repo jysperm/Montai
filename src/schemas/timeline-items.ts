@@ -50,8 +50,6 @@ export const VoiceoverItemSchema = z.object({
   audioStartSeconds: z.number().min(0),
   audioEndSeconds: z.number(),
   volume: z.number().default(1),
-  fadeInSeconds: z.number().default(0),
-  fadeOutSeconds: z.number().default(0),
 }).refine(v => v.audioEndSeconds > v.audioStartSeconds, {
   message: 'audioEndSeconds must be greater than audioStartSeconds',
 });
@@ -68,6 +66,137 @@ export type OverlayItem = z.infer<typeof OverlayItemSchema>;
 export type MusicItem = z.infer<typeof MusicItemSchema>;
 export type VoiceoverItem = z.infer<typeof VoiceoverItemSchema>;
 export type TimelineItem = ClipItem | OverlayItem | MusicItem | VoiceoverItem;
+
+/**
+ * Strip fields that match their Zod-schema default values from timeline items.
+ * Used when serializing for DB storage and LLM context to reduce noise.
+ * Default map is auto-extracted from the discriminatedUnion schema at init time.
+ */
+const defaultsMap: Record<string, Record<string, unknown>> = (() => {
+  const map: Record<string, Record<string, unknown>> = {};
+  const options = (TimelineItemSchema as any)._zod?.def?.options;
+  if (!options) return map;
+  for (const opt of options) {
+    const shape = opt.shape;
+    const typeVal = shape?.type?._zod?.def?.values?.[0];
+    if (!typeVal) continue;
+    const defaults: Record<string, unknown> = {};
+    for (const [key, fs] of Object.entries(shape)) {
+      if (key === 'type') continue;
+      const d = (fs as any)._zod?.def;
+      if (d && d.defaultValue !== undefined) defaults[key] = d.defaultValue;
+    }
+    map[typeVal] = defaults;
+  }
+  return map;
+})();
+
+export function stripTimelineDefaults(items: TimelineItem[]): Record<string, unknown>[] {
+  return items.map((item) => {
+    const defaults = defaultsMap[item.type] ?? {};
+    const obj: Record<string, unknown> = { ...item };
+    for (const [key, defaultVal] of Object.entries(defaults)) {
+      if (obj[key] === defaultVal) delete obj[key];
+    }
+    return obj;
+  });
+}
+
+/**
+ * Build template data for the timeline-summary prompt.
+ * Computes absolute timeline positions from raw items (clip anchors → seconds).
+ * Callers render with: renderPrompt('computed-timeline', buildComputedTimelineData(items))
+ */
+export function buildComputedTimelineData(items: TimelineItem[]): Record<string, unknown> {
+  const clipItems = items.filter((i): i is ClipItem => i.type === 'clip');
+
+  // Compute clip timeline positions (same logic as expandTimeline)
+  const clipStartTimes: number[] = [];
+  const clipDurations: number[] = [];
+  let ct = 0;
+  for (let i = 0; i < clipItems.length; i++) {
+    const clip = clipItems[i];
+    const dur = (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
+    if (i > 0 && clip.transition) ct -= clip.transition.durationSeconds;
+    clipStartTimes.push(ct);
+    clipDurations.push(dur);
+    ct += dur;
+  }
+  const totalDuration = ct;
+
+  function fmt(n: number) { return (Math.round(n * 10) / 10).toFixed(1); }
+
+  function resolveStart(startClip: number, startOffset: number): number {
+    if (startOffset >= 0) return clipStartTimes[startClip] + startOffset;
+    return clipStartTimes[startClip] + clipDurations[startClip] + startOffset;
+  }
+
+  const clips = clipItems.map((clip, i) => ({
+    index: i,
+    videoId: clip.videoId,
+    timelineStart: fmt(clipStartTimes[i]),
+    timelineEnd: fmt(clipStartTimes[i] + clipDurations[i]),
+  }));
+
+  const voiceovers = items
+    .filter((i): i is VoiceoverItem => i.type === 'voiceover')
+    .map((vo) => {
+      const start = Math.max(0, resolveStart(vo.startClip, vo.startOffset));
+      const duration = vo.audioEndSeconds - vo.audioStartSeconds;
+      return {
+        voiceoverId: vo.voiceoverId,
+        timelineStart: fmt(start),
+        timelineEnd: fmt(start + duration),
+        duration: fmt(duration),
+      };
+    });
+
+  const overlays = items
+    .filter((i): i is OverlayItem => i.type === 'overlay')
+    .map((o) => {
+      const start = Math.max(0, resolveStart(o.startClip, o.startOffset));
+      const endClipIdx = o.endClip ?? o.startClip;
+      let end: number;
+      if (o.endOffset === 0) {
+        const nextTrans = clipItems[endClipIdx + 1]?.transition?.durationSeconds ?? 0;
+        end = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] - nextTrans;
+      } else if (o.endOffset < 0) {
+        end = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] + o.endOffset;
+      } else {
+        end = clipStartTimes[endClipIdx] + o.endOffset;
+      }
+      const plainText = o.text.replace(/\n/g, ' ');
+      return {
+        text: plainText.length > 10 ? plainText.slice(0, 10) + '...' : plainText,
+        timelineStart: fmt(start),
+        timelineEnd: fmt(end),
+        duration: fmt(end - start),
+      };
+    });
+
+  const music = items
+    .filter((i): i is MusicItem => i.type === 'music')
+    .map((m) => {
+      const start = Math.max(0, resolveStart(m.startClip, m.startOffset));
+      const endClipIdx = m.endClip ?? m.startClip;
+      let end: number;
+      if (m.endOffset === 0) {
+        end = clipStartTimes[endClipIdx] + clipDurations[endClipIdx];
+      } else if (m.endOffset < 0) {
+        end = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] + m.endOffset;
+      } else {
+        end = clipStartTimes[endClipIdx] + m.endOffset;
+      }
+      return {
+        musicId: m.musicId,
+        timelineStart: fmt(start),
+        timelineEnd: fmt(end),
+        duration: fmt(end - start),
+      };
+    });
+
+  return { totalDuration: fmt(totalDuration), clips, voiceovers, overlays, music };
+}
 
 /**
  * Sanitize and expand raw TimelineItems into ExpandedTimeline format.
@@ -404,8 +533,6 @@ export function expandTimeline(
         endTimeSeconds: endTime,
         audioStartSeconds: vo.audioStartSeconds,
         volume: vo.volume,
-        fadeInSeconds: vo.fadeInSeconds,
-        fadeOutSeconds: vo.fadeOutSeconds,
       };
     });
 

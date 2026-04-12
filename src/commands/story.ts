@@ -6,19 +6,11 @@ import { eq, desc } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
-import {
-  videos,
-  videoAnalyses,
-  projectContext,
-  stories,
-  music,
-  musicAnalyses,
-  voiceovers,
-  voiceoverAnalyses,
-} from '../db/schema.js';
+import { videos, videoAnalyses, projectContext, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
-import type { TimelineItem } from '../schemas/timeline-items.js';
+import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
+import { z } from 'zod';
 import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
 import { formatDuration, formatTimeAgo, formatStoryLine, countItemsByType, formatItemCounts } from '../utils/format.js';
 import { formatCost } from '../analyzer/utils.js';
@@ -178,7 +170,7 @@ export async function storyCommand(
   // Restore raw items from stored timeline on resume
   if (story?.timeline) {
     try {
-      toolsCtx.currentItems = JSON.parse(story.timeline) as TimelineItem[];
+      toolsCtx.currentItems = z.array(TimelineItemSchema).parse(JSON.parse(story.timeline));
     } catch {
       // Ignore parse errors from old expanded format
     }
@@ -195,6 +187,9 @@ export async function storyCommand(
         language: config.language,
         overlayLanguages: config.effects.languages,
         agentInstructions: agentInstructions ?? null,
+        hasMusic: allMusic.length > 0 || !!config.models.musicGeneration,
+        hasMusicGeneration: !!config.models.musicGeneration,
+        hasVoiceovers: allVoiceoversData.length > 0,
       }),
       model,
     },
@@ -445,7 +440,8 @@ export async function storyCommand(
     summaryVideoAnalyses: summaryVideoAnalyses.length > 0 ? summaryVideoAnalyses : null,
     facts: facts ?? null,
     storyline: story?.storyline ?? null,
-    timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
+    timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(toolsCtx.currentItems), null, 2) : null,
+    computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
     styleReference: styleReference ?? null,
     fullVoiceoverAnalyses: fullVoiceoverAnalyses.length > 0 ? fullVoiceoverAnalyses : null,
     summaryVoiceoverAnalyses: summaryVoiceoverAnalyses.length > 0 ? summaryVoiceoverAnalyses : null,
@@ -680,7 +676,7 @@ export async function storyCommand(
           if (existingStory) {
             toolsCtx.currentStoryId = existingStory.id;
             toolsCtx.currentStoryName = existingStory.name;
-            toolsCtx.currentItems = existingStory.timeline ? JSON.parse(existingStory.timeline) as TimelineItem[] : [];
+            toolsCtx.currentItems = existingStory.timeline ? z.array(TimelineItemSchema).parse(JSON.parse(existingStory.timeline)) : [];
             console.log(chalk.green(`Switched to story: ${existingStory.title} ${chalk.cyan(existingStory.name)}`));
           } else {
             if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(targetName)) {
@@ -699,7 +695,8 @@ export async function storyCommand(
             isUserAction: true,
             isNew: !existingStory,
             storyline: existingStory?.storyline ?? null,
-            timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(toolsCtx.currentItems, null, 2) : null,
+            timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(toolsCtx.currentItems), null, 2) : null,
+            computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
           });
           agent.appendMessage({ role: 'user' as const, content: switchContext, timestamp: Date.now() });
 

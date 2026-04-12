@@ -937,14 +937,7 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                                 </param>
                             </adjust-volume>
                         </asset-clip>
-                        <asset-clip ref="vo-asset-1" lane="-2" name="narration.wav" offset="215999784/60000s" duration="375/50s" start="125/50s">
-
-                            <adjust-volume amount="0dB">
-                                <param name="amount" value="0dB">
-                                    <fadeOut type="linear" duration="15/50s"/>
-                                </param>
-                            </adjust-volume>
-                        </asset-clip>
+                        <asset-clip ref="vo-asset-1" lane="-2" name="narration.wav" offset="215999784/60000s" duration="375/50s" start="125/50s" />
                     </asset-clip>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Voiceover segment 2" offset="215999784/60000s" duration="500/50s" start="0/1s">
@@ -956,15 +949,7 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="vo-asset-1" lane="-3" name="narration.wav" offset="216059844/60000s" duration="350/50s" start="750/50s">
-
-                            <adjust-volume amount="0dB">
-                                <param name="amount" value="0dB">
-                                    <fadeIn type="linear" duration="10/50s"/>
-                                    <fadeOut type="linear" duration="25/50s"/>
-                                </param>
-                            </adjust-volume>
-                        </asset-clip>
+                        <asset-clip ref="vo-asset-1" lane="-3" name="narration.wav" offset="216059844/60000s" duration="350/50s" start="750/50s" />
                     </asset-clip>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Music only (no voiceover)" offset="216599383/60000s" duration="500/50s" start="0/1s">

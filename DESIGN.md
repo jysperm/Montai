@@ -193,8 +193,6 @@ VoiceoverItem {
   audioStartSeconds: number     // start position in voiceover recording
   audioEndSeconds: number       // end position in voiceover recording (required)
   volume: number
-  fadeInSeconds: number
-  fadeOutSeconds: number
 }
 ```
 
@@ -259,8 +257,6 @@ ExpandedVoiceover {
   endTimeSeconds: number
   audioStartSeconds: number
   volume: number
-  fadeInSeconds: number
-  fadeOutSeconds: number
 }
 ```
 
