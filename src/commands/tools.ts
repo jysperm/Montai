@@ -148,8 +148,6 @@ export function getStoryTools(ctx: StoryToolsContext) {
         return { content: [errorText], details: {}, isError: true };
       }
 
-      ctx.currentItems = allItems;
-
       if (!ctx.currentStoryId) {
         const errorText: TextContent = {
           type: 'text' as const,
@@ -157,6 +155,8 @@ export function getStoryTools(ctx: StoryToolsContext) {
         };
         return { content: [errorText], details: {}, isError: true };
       }
+
+      ctx.currentItems = allItems;
 
       const now = new Date().toISOString();
 

@@ -247,8 +247,18 @@ export async function storyCommand(
           spinner.stop();
           logToolCall(event.toolName, lastToolArgs, event.result);
 
-          if (event.isError) {
-            console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: failed`);
+          // Check both framework-level isError (from thrown exceptions) and
+          // tool-level isError (returned in result) — pi-agent-core only sets
+          // event.isError for exceptions, not for { isError: true } returns.
+          const toolResultIsError = event.isError ||
+            (event.result && typeof event.result === 'object' && 'isError' in event.result && event.result.isError);
+
+          if (toolResultIsError) {
+            const errorContent = (event.result as { content?: Array<{ text?: string }> })?.content?.[0]?.text;
+            const errorSummary = errorContent
+              ? errorContent.split('\n').filter(Boolean).slice(0, 2).join('; ').slice(0, 200)
+              : 'failed';
+            console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: ${errorSummary}`);
             spinner.text = 'Thinking...';
             spinner.start();
             break;

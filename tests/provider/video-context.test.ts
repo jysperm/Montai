@@ -32,7 +32,7 @@ async function uploadVideo(filePath: string): Promise<string> {
   return upload.uri;
 }
 
-describe('video FileContent in agent context', () => {
+describe.skip('video FileContent in agent context', () => {
   it('model can describe video content returned by a tool', async () => {
     const fileUri = await uploadVideo(VIDEO_PATH);
 

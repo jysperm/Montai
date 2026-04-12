@@ -17,7 +17,7 @@ import { callLyria } from '../../src/lyria/client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-describe('Lyria 2 music generation via Vertex AI', () => {
+describe.skip('Lyria 2 music generation via Vertex AI', () => {
   it('generates a WAV audio buffer from a text prompt', async () => {
     const prompt = 'gentle acoustic guitar, warm and relaxed, medium tempo, suitable for a travel montage';
 

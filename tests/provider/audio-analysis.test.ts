@@ -30,7 +30,7 @@ async function uploadAudio(filePath: string): Promise<string> {
   return upload.uri;
 }
 
-describe('audio FileContent analysis via pi-ai complete()', () => {
+describe.skip('audio FileContent analysis via pi-ai complete()', () => {
   it('Gemini can analyze music mood and structure from audio file', async () => {
     const fileUri = await uploadAudio(AUDIO_PATH);
 

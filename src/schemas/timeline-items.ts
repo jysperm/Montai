@@ -394,7 +394,7 @@ export function expandTimeline(
         : 0;
       if (endTime > totalTimelineDuration + 0.1) {
         errors.push(
-          `Voiceover item (voiceoverId=${vo.voiceoverId}): voiceover audio (${audioDuration.toFixed(1)}s) extends ${(endTime - totalTimelineDuration).toFixed(1)}s beyond the timeline end — adjust clip durations or add clips to accommodate`,
+          `Voiceover item (voiceoverId=${vo.voiceoverId}, startClip=${vo.startClip}): voiceover ends at ${endTime.toFixed(1)}s (voiceover start ${Math.max(0, startTime).toFixed(1)}s + audio ${audioDuration.toFixed(1)}s) but total timeline is only ${totalTimelineDuration.toFixed(1)}s — extend clip durations or add more clips`,
         );
       }
 
