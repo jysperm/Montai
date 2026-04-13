@@ -204,7 +204,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
   console.log();
   console.log(chalk.bold('Settings'));
   console.log(chalk.dim('  Output: ') + `${config.output.resolution} ${config.output.fps}fps`);
-  console.log(chalk.dim('  Models: ') + chalk.dim('analysis=') + config.models.analysis + chalk.dim(', editing=') + config.models.editing);
+  console.log(chalk.dim('  Models: ') + chalk.dim('analysis=') + config.models.analysis + chalk.dim(', editing=') + config.models.editing + (config.models.musicGeneration ? chalk.dim(', musicGeneration=') + config.models.musicGeneration : ''));
   console.log(chalk.dim('  Language: ') + config.language + chalk.dim(', effects: ') + config.effects.languages.join(', '));
 
   // Save generated overview to DB

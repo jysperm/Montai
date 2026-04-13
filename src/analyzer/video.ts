@@ -234,6 +234,7 @@ export async function syncAndAnalyzeVideos(
               colorTransfer: meta.colorTransfer,
               audioChannels: meta.audioChannels,
               audioSampleRate: meta.audioSampleRate,
+              startTimecode: meta.startTimecode,
             })
             .run();
           spinner.succeed(`Registered ${filename} (${meta.width}x${meta.height}, ${meta.fps}fps, ${meta.bitDepth ?? '?'}bit, ${meta.durationSeconds}s)`);

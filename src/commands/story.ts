@@ -661,6 +661,15 @@ export async function storyCommand(
       const trimmed = userInput.trim();
       if (!trimmed) continue;
 
+      // Redraw user input line with background highlight
+      readline.moveCursor(process.stdout, 0, -1);
+      readline.clearLine(process.stdout, 0);
+      const cols = process.stdout.columns || 80;
+      const promptStr = slashMode ? chalk.cyan('/ ') : chalk.green('> ');
+      const displayText = slashMode ? trimmed : trimmed;
+      const padRight = Math.max(0, cols - stringWidth('> ' + displayText));
+      process.stdout.write(promptStr + chalk.bgHex('#303030')(displayText + ' '.repeat(padRight)) + '\n');
+
       if (slashMode) {
         const cmd = trimmed.toLowerCase();
 
