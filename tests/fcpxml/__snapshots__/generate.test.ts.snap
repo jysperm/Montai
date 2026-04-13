@@ -35,7 +35,7 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                     </asset-clip>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="250/50s" duration="250/50s" start="216300084/60000s" format="r5" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="1.4286 1.4286" />
-                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="225/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
@@ -51,7 +51,7 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                     </transition>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="250/50s" start="217199983/60000s" format="r5" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="2.5 2.5" />
-                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="225/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
@@ -123,7 +123,7 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                         <adjust-crop mode="crop">
                             <crop-rect left="20" top="15" right="20" bottom="15" />
                         </adjust-crop>
-                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="225/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
@@ -142,7 +142,7 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             <pan-rect left="0" top="0" right="0" bottom="0" />
                             <pan-rect left="35" top="30" right="35" bottom="30" />
                         </adjust-crop>
-                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="225/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
@@ -399,7 +399,7 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                                 <filter-video ref="r3" name="Cross Dissolve" />
                                 <filter-audio ref="r4" name="Audio Cross Fade" />
                             </transition>
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="825/50s" duration="225/50s" start="25/50s">
+                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="825/50s" duration="175/50s" start="25/50s">
 
                                 <adjust-volume amount="-10dB">
                                     <param name="amount" value="-10dB">
@@ -762,7 +762,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                 <sequence format="r1" duration="2750/50s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="215999784/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Hard Cut" offset="215999784/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Hard Cut" offset="215999784/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Hard Cut</text-style>
@@ -777,7 +777,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="250/50s" duration="250/50s" start="216300084/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Fade" offset="216300084/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Fade" offset="216300084/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Fade</text-style>
@@ -794,7 +794,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="250/50s" start="216029814/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-left" offset="216029814/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Slide from-left" offset="216029814/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Slide from-left</text-style>
@@ -811,7 +811,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216300084/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-right" offset="216300084/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Slide from-right" offset="216300084/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Slide from-right</text-style>
@@ -828,7 +828,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="250/50s" start="216599383/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-top" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Slide from-top" offset="216599383/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">Slide from-top</text-style>
@@ -845,7 +845,7 @@ exports[`transition-test > FCP snapshot 1`] = `
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="1250/50s" duration="250/50s" start="216899683/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-bottom" offset="216899683/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Slide from-bottom" offset="216899683/60000s" duration="200/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts6" alignment="center">Slide from-bottom</text-style>

@@ -206,10 +206,13 @@ export function generateFcpxml(
     clipDurations.push((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate);
   }
 
-  // The timeline spec uses an overlapping model (clips overlap by transition duration),
-  // but FCPXML uses a sequential model (clips placed end-to-end, transitions borrow
-  // handles from adjacent clips). We need both coordinate systems to correctly map
-  // overlay positions from the spec onto sequential clip positions in FCPXML.
+  // The ExpandedTimeline uses an "overlap model" (clips overlap by transition duration,
+  // total time = sum(durations) - sum(transitions)), but FCPXML uses a "sequential model"
+  // (clips placed end-to-end, transitions borrow handles from adjacent clips,
+  // total time = sum(durations)). We build both coordinate systems and convert all
+  // element positions (overlays, audio, voiceovers) from overlap to sequential via o2s().
+  // For durations that represent fixed-length content (e.g. voiceover audio), use the
+  // content's own duration rather than o2s(end) - o2s(start) to avoid stretching.
   const clipOverlapStarts: number[] = [];
   const clipSeqStarts: number[] = [];
   {
@@ -227,8 +230,12 @@ export function generateFcpxml(
     }
   }
 
-  // Shorthand for overlapToSeq with pre-computed arrays
+  // Shorthand for overlapToSeq with pre-computed arrays.
+  // o2s: inclusive boundary (>=), for start positions and general use.
+  // o2sEnd: exclusive boundary (>), for end positions that fall exactly on a
+  //   clip boundary — keeps them in the preceding clip instead of jumping to the next.
   const o2s = (t: number) => overlapToSeq(t, clipOverlapStarts, clipSeqStarts);
+  const o2sEnd = (t: number) => overlapToSeq(t, clipOverlapStarts, clipSeqStarts, true);
 
   // Assign overlays to their parent clips (in sequential timeline positions)
   const clipOverlays = new Map<number, typeof spec.textOverlays>();
@@ -344,11 +351,18 @@ export function generateFcpxml(
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
 
     if (group.length === 1) {
-      // Single audio track: simple anchor item
+      // Single audio track: simple anchor item.
+      // Cap duration at available source audio so the FCPXML clip doesn't
+      // exceed the file length when sequential duration > overlap duration.
       const audio = group[0];
       const audioSeqStart = o2s(audio.startTimeSeconds);
       const audioSeqEnd = o2s(audio.endTimeSeconds);
-      const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
+      let seqDuration = audioSeqEnd - audioSeqStart;
+      const meta = audioMeta?.get(filename);
+      if (meta?.durationSeconds) {
+        seqDuration = Math.min(seqDuration, meta.durationSeconds - audio.audioStartSeconds);
+      }
+      const clipDuration = toRational(seqDuration, fps);
       const clipStart = toRational(audio.audioStartSeconds, fps);
       const volXml = avx(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
 
@@ -367,8 +381,10 @@ export function generateFcpxml(
       // FCPXML transitions borrow source media ("handles") from beyond each clip's
       // visible range. We shrink each clip to leave handles, then extend the last
       // clip to ensure the spine fully covers the target sequential duration.
-      const targetDuration = group[group.length - 1].endTimeSeconds
-        - group[0].startTimeSeconds;
+      // Audio track times are in the overlap model (transitions shorten the timeline),
+      // but the FCPXML spine uses sequential placement. Convert to sequential duration.
+      const targetDuration = o2s(group[group.length - 1].endTimeSeconds)
+        - o2s(group[0].startTimeSeconds);
 
       // First pass: compute clip starts and durations with handle shrinkage
       const spineClips: { audioStart: number; duration: number; fadeIn: number; fadeOut: number }[] = [];
@@ -394,8 +410,9 @@ export function generateFcpxml(
         });
       }
 
-      // Extend the last clip to fill any shortfall from handle shrinkage
-      const currentSpineDur = spineClips.reduce((s, c) => s + c.duration, 0) - totalTransitionDur;
+      // Extend the last clip to fill any shortfall from handle shrinkage.
+      // FCPXML spine duration = sum of clip durations (transitions overlap but don't shorten it).
+      const currentSpineDur = spineClips.reduce((s, c) => s + c.duration, 0);
       const shortfall = targetDuration - currentSpineDur;
       if (shortfall > 0) {
         const last = spineClips[spineClips.length - 1];
@@ -510,9 +527,9 @@ export function generateFcpxml(
     const { parentClipIdx, offset: spineOffset } = apo(vo.startTimeSeconds);
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
 
-    const voSeqStart = o2s(vo.startTimeSeconds);
-    const voSeqEnd = o2s(vo.endTimeSeconds);
-    const clipDuration = toRational(voSeqEnd - voSeqStart, fps);
+    // Use audio duration directly — o2s(end)-o2s(start) would stretch the clip
+    // when the voiceover spans a video transition boundary.
+    const clipDuration = toRational(vo.endTimeSeconds - vo.startTimeSeconds, fps);
     const clipStart = toRational(vo.audioStartSeconds, fps);
     const volXml = avx(vo.volume, 0, 0, II);
 
@@ -663,7 +680,7 @@ export function generateFcpxml(
         const fontSize = overlay.style === 'title' ? Math.round(80 * scale) : overlay.style === 'subtitle' ? Math.round(48 * scale) : Math.round(32 * scale);
         const isBold = overlay.style === 'title';
         const overlaySeqStart = o2s(overlay.startTimeSeconds);
-        const overlaySeqEnd = o2s(overlay.endTimeSeconds);
+        const overlaySeqEnd = o2sEnd(overlay.endTimeSeconds);
         const deltaInClip = overlaySeqStart - clipSeqStarts[i];
 
         // Title offset must be in the parent clip's source timebase. When the
@@ -924,9 +941,23 @@ function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
   return 'asset-1';
 }
 
-function overlapToSeq(t: number, clipOverlapStarts: number[], clipSeqStarts: number[]): number {
+/**
+ * Convert a time position from the overlap model to the sequential model.
+ * Finds which clip the time falls in, then maps it to the corresponding
+ * sequential position: seqStart[i] + (t - overlapStart[i]).
+ * The offset within a clip is the same in both models; only the cumulative
+ * start positions differ (sequential doesn't subtract transition durations).
+ *
+ * When `exclusive` is true, uses strict `>` instead of `>=` for boundary
+ * matching. This keeps a time that falls exactly on a clip's overlap start
+ * in the preceding clip — use this for end-time positions (e.g. overlay end)
+ * so they don't jump to the next clip at transition boundaries.
+ */
+function overlapToSeq(t: number, clipOverlapStarts: number[], clipSeqStarts: number[], exclusive = false): number {
   for (let i = clipOverlapStarts.length - 1; i >= 0; i--) {
-    if (t >= clipOverlapStarts[i]) return clipSeqStarts[i] + (t - clipOverlapStarts[i]);
+    if (exclusive ? t > clipOverlapStarts[i] : t >= clipOverlapStarts[i]) {
+      return clipSeqStarts[i] + (t - clipOverlapStarts[i]);
+    }
   }
   return t;
 }

@@ -284,7 +284,9 @@ export function expandTimeline(
   // Extract clip items in order
   const clipItems = items.filter((item): item is ClipItem => item.type === 'clip');
 
-  // Compute cumulative clip start times (accounting for playbackRate and transitions)
+  // Compute cumulative clip start times in the "overlap model": each transition
+  // shortens the timeline by overlapping adjacent clips, so currentTime goes backward
+  // by the transition duration before advancing by the next clip's duration.
   const clipStartTimes: number[] = [];
   const clipDurations: number[] = [];
   let currentTime = 0;

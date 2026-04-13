@@ -58,6 +58,11 @@ export const ExpandedVoiceoverSchema = z.object({
   volume: z.number(),
 });
 
+// All time fields (startTimeSeconds, endTimeSeconds) in ExpandedTimeline use the
+// "overlap model": transitions shorten the timeline by overlapping adjacent clips.
+// For example, two 10s clips with a 0.5s transition produce a 19.5s timeline.
+// The FCPXML exporter converts these to a "sequential model" (clips end-to-end,
+// transitions are visual effects) via overlapToSeq() in fcpxml/generate.ts.
 export const ExpandedTimelineSchema = z.object({
   name: z.string(),
   title: z.string().optional(),
