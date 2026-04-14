@@ -31,7 +31,7 @@ output:
   fps: 50
 models:
   analysis: gemini-3-flash-preview
-  editing: gemini-3-pro-preview
+  editing: gemini-3.1-pro-preview
   musicGeneration: lyria-002        # Optional: enables AI music generation
 effects:
   # Languages for text overlays, specify multiple for bilingual subtitles

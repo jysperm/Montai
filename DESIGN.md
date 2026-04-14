@@ -37,7 +37,7 @@ output:
   fps: 50
 models:
   analysis: gemini-3-flash-preview       # Per-video analysis
-  editing: gemini-3-pro-preview         # Story agent loop
+  editing: gemini-3.1-pro-preview         # Story agent loop
   musicGeneration: lyria-002            # Optional: enables AI music generation
 effects:
   languages: [zh, en]           # Subtitle / caption languages
@@ -296,7 +296,7 @@ Audio auto-loop crossfade in FCPXML uses different strategies per target:
 
 ## Gemini Integration
 
-Uses Gemini 3 preview models (gemini-3-flash-preview, gemini-3-pro-preview) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
+Uses Gemini 3 preview models (gemini-3-flash-preview, gemini-3.1-pro-preview) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
 
 - **pi-ai**: Unified LLM abstraction, patched to support `FileContent` type for Gemini File API references (`fileData` + `videoMetadata`)
 - **pi-agent-core**: Agent loop orchestration for the `story` command, with tool execution and automatic conversation management
@@ -321,8 +321,8 @@ Configurable per-stage via `models` in `montai.yaml`.
 
 | Stage | Video Input | Default | Supported Models |
 |-------|------------|---------|-----------------|
-| analysis | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3-pro-preview |
-| editing | Yes | gemini-3-pro-preview | gemini-3-flash-preview, gemini-3-pro-preview |
+| analysis | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3.1-pro-preview |
+| editing | Yes | gemini-3.1-pro-preview | gemini-3-flash-preview, gemini-3.1-pro-preview |
 | musicGeneration | No | N/A | lyria-002 |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.

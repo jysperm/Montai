@@ -17,14 +17,13 @@ async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
   const defaultConfig = `assets:
   videos:
     - .
-  music: []
 language: en
 output:
   resolution: 1080p
   fps: 50
 models:
   analysis: gemini-3-flash-preview
-  editing: gemini-3-pro-preview
+  editing: gemini-3.1-pro-preview
 effects:
   languages: [zh, en]
 `;

@@ -30,7 +30,7 @@ const config: ProjectConfig = {
   assets: { videos: ['.'], music: [], voiceover: [] },
   language: 'en',
   output: { resolution: '1080p', fps: 50 },
-  models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3-pro-preview' },
+  models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3.1-pro-preview' },
   effects: { languages: ['en'] },
 };
 
