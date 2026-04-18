@@ -1,5 +1,4 @@
 import chalk from 'chalk';
-import { execSync } from 'child_process';
 import { mkdirSync, writeFileSync } from 'fs';
 import { cpus } from 'os';
 import { resolve, dirname } from 'path';
@@ -8,6 +7,7 @@ import { getDb } from '../db/index.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 import { remapToArchived } from '../utils/archived-videos.js';
+import { spawnInherit } from '../utils/spawn-inherit.js';
 
 export async function renderCommand(name?: string, options?: { fromArchived?: boolean }) {
   const config = loadProjectConfig();
@@ -43,14 +43,21 @@ export async function renderCommand(name?: string, options?: { fromArchived?: bo
     console.log(chalk.cyan(`Output: ${outputPath}`));
 
     try {
-      execSync(
-        `npx remotion render src/index.tsx "${spec.name}" "${outputPath}" --props="${specPath}" --public-dir="${publicDir}" --concurrency=${Math.max(1, cpus().length - 1)}`,
-        {
-          cwd: remotionProjectDir,
-          stdio: 'inherit',
-        },
+      const code = await spawnInherit(
+        'npx',
+        [
+          'remotion', 'render', 'src/index.tsx', spec.name, outputPath,
+          `--props=${specPath}`,
+          `--public-dir=${publicDir}`,
+          `--concurrency=${Math.max(1, cpus().length - 1)}`,
+        ],
+        { cwd: remotionProjectDir },
       );
-      console.log(chalk.green(`Render complete: ${outputPath}`));
+      if (code === 0) {
+        console.log(chalk.green(`Render complete: ${outputPath}`));
+      } else {
+        console.log(chalk.red(`Render failed for "${spec.name}".`));
+      }
     } catch {
       console.log(chalk.red(`Render failed for "${spec.name}".`));
     }

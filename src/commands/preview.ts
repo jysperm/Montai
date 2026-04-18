@@ -1,10 +1,10 @@
 import chalk from 'chalk';
-import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
 import { getDb } from '../db/index.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 import { remapToArchived } from '../utils/archived-videos.js';
+import { spawnInherit } from '../utils/spawn-inherit.js';
 
 export async function previewCommand(name?: string, options?: { fromArchived?: boolean }) {
   const config = loadProjectConfig();
@@ -32,9 +32,8 @@ export async function previewCommand(name?: string, options?: { fromArchived?: b
   ));
 
   try {
-    execSync(`npx remotion studio src/index.tsx --public-dir="${publicDir}"`, {
+    await spawnInherit('npx', ['remotion', 'studio', 'src/index.tsx', `--public-dir=${publicDir}`], {
       cwd: remotionProjectDir,
-      stdio: 'inherit',
     });
   } catch {
     console.log(chalk.red('Failed to start Remotion Studio.'));
