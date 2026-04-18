@@ -1,2 +1,5 @@
 .envrc
 tests/provider/lyria-output.wav
+google-cloud-vertex-key.json
+*.json.key
+.DS_Store

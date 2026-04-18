@@ -14,7 +14,7 @@ Prerequisites:
 
 - Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
-- [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/apikeys)
+- [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 - [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
 ## Quick Start
@@ -22,8 +22,9 @@ Prerequisites:
 1. Create a project directory with your video files and a `montai.yaml`:
 
 ```yaml
-videos:
-  - .
+assets:
+  videos:
+    - .
 # Language for intermediate text (e.g. analysis, storyline)
 language: en
 output:
@@ -59,12 +60,10 @@ montai preview
 # Render the final video via Remotion
 montai render
 
-# Export FCPXML for professional video editors
+# Export .fcpxml for professional video editors
 montai export --fcp        # for Final Cut Pro (default)
 montai export --davinci    # for DaVinci Resolve
 ```
-
-All commands load all stories by default, or pass a name to specify one (e.g. `montai render my-edit`).
 
 ## Interactive Story Editing
 
@@ -85,13 +84,13 @@ The `montai story` command opens an interactive session where you chat with AI t
 
 ## Export .fcpxml
 
-`montai export` generates FCPXML 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. FCPXML preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
+`montai export` generates .fcpxml 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. .fcpxml preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
 
 ### Final Cut Pro (recommended)
 
 First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
 
-If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the FCPXML.
+If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
 
 ### DaVinci Resolve
 
@@ -106,14 +105,14 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 
 | Command | Description |
 |---------|-------------|
-| `analyze` | Upload videos to Gemini, generate per-video summaries |
-| `analyze --list` | List all videos and their analysis status |
-| `analyze --show <filename>` | Show the stored summary for a video |
+| `analyze` | Transcode, upload and analyze videos |
+| `analyze --list` | List all videos and music files with analysis status |
+| `analyze --show <filename>` | Show the stored summary for a video or music file |
 | `project` | Show project overview and manage facts |
 | `story [name]` | Interactive storyline + timeline editing session |
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
-| `export` | Export FCPXML from a timeline |
+| `export` | Export .fcpxml from a timeline |
 | `export --fcp` | Optimize for Final Cut Pro (default) |
 | `export --davinci` | Optimize for DaVinci Resolve |
 | `render [name]` | Render video via Remotion |
@@ -142,11 +141,11 @@ my-vlog-project/
   .montai/             # Cache directory
   generated-music/     # AI-generated music files
   archived/            # Archived video clips (montai archive)
-  fcpxml/              # Generated FCPXML files
+  fcpxml/              # Generated .fcpxml files
   output/              # Rendered videos
   montai.db            # Project database
   montai.yaml          # Project config
-  AGENTS.md            # Instructions/knowledge for the Agent (optional)
+  AGENTS.md            # Instructions/knowledge for the agent (optional)
   STYLE.md             # Writing style reference (optional)
 ```
 
@@ -164,4 +163,4 @@ my-vlog-project/
 
 `preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved.
 
-DaVinci Resolve only reliably imports Cross Dissolve (fade) from FCPXML — Slide and Wipe transitions fall back to dissolve. Overlay animations and audio fadeIn/fadeOut are also ignored by DaVinci. Ken Burns falls back to a static crop at the end frame.
+DaVinci Resolve only reliably imports Cross Dissolve (fade) from .fcpxml — Slide and Wipe transitions fall back to dissolve. Overlay animations and audio fade in/fade out are also ignored by DaVinci. Ken Burns falls back to a static crop at the end frame.
