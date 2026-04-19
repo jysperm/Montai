@@ -11,6 +11,7 @@
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
+    "@inquirer/prompts": "^8.4.1",
     "@mariozechner/pi-agent-core": "^0.52.12",
     "@mariozechner/pi-ai": "^0.52.12",
     "@remotion/cli": "^4.0.434",

@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import * as readline from 'readline';
+import { select } from '@inquirer/prompts';
 import stringWidth from 'string-width';
 import { eq, desc } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
@@ -25,6 +26,40 @@ function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+type StoryRow = typeof stories.$inferSelect;
+type StorySelection = { action: 'new' } | { action: 'open'; story: StoryRow };
+
+async function selectStoryInteractive(allStories: StoryRow[]): Promise<StorySelection | null> {
+  if (!process.stdin.isTTY) return null;
+
+  const stripAnsi = (s: string) => s.replace(/\x1b\[[0-9;]*m/g, '');
+
+  try {
+    return await select<StorySelection>({
+      message: 'Select a story',
+      choices: [
+        ...allStories.map((s) => ({
+          name: formatStoryLine(s),
+          value: { action: 'open' as const, story: s },
+        })),
+        { name: chalk.bold('+ New story'), value: { action: 'new' as const } },
+      ],
+      loop: false,
+      pageSize: Math.min(allStories.length + 1, 15),
+      theme: {
+        style: {
+          highlight: (text: string) => chalk.cyan(stripAnsi(text)),
+        },
+      },
+    });
+  } catch (err) {
+    if (err instanceof Error && err.name === 'ExitPromptError') {
+      return null;
+    }
+    throw err;
+  }
 }
 
 export async function storyCommand(
@@ -111,8 +146,8 @@ export async function storyCommand(
   const context = db.select().from(projectContext).get();
   const facts = context?.facts ?? null;
 
-  // Resolve story: by name, or latest, or create new
-  let story: typeof stories.$inferSelect | undefined;
+  // Resolve story: by name, interactive pick, or create new
+  let story: StoryRow | undefined;
 
   if (options.new) {
     // Force create new — story will be created by updateStoryline tool
@@ -124,8 +159,17 @@ export async function storyCommand(
       return;
     }
   } else {
-    // Get latest story, or create new if none exist
-    story = db.select().from(stories).orderBy(desc(stories.id)).get();
+    // Interactive selection among existing stories, or create new if none exist
+    const allStories = db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
+    if (allStories.length === 0) {
+      story = undefined;
+    } else {
+      const selection = await selectStoryInteractive(allStories);
+      if (!selection) {
+        return;
+      }
+      story = selection.action === 'open' ? selection.story : undefined;
+    }
   }
 
   if (story) {
