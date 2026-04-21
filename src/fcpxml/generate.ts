@@ -625,7 +625,8 @@ export function generateFcpxml(
     const overlays = clipOverlays.get(i) || [];
     const audioAnchors = clipAudioAnchors.get(i) || [];
     const hasCrop = !!(clip.crop || clip.cropEnd);
-    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop;
+    const hasRotation = !!(clip.rotation && clip.rotation % 360 !== 0);
+    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop || hasRotation;
 
     if (!hasChildren) {
       spine.push(
@@ -638,7 +639,33 @@ export function generateFcpxml(
 
       // Crop/transform: intrinsic params must appear before anchor items (titles, audio) per DTD
       // DTD ordering: adjust-crop → adjust-conform → adjust-transform
-      if (hasCrop) {
+      if (hasRotation) {
+        // Rotation forces the adjust-transform path (adjust-crop has no rotation support).
+        // Semantics: rotation applied first, then crop. In FCP's pipeline this composes as
+        // scale=(cropScale × coverScale), rotation=θ, position=(cropScale · cropOffset).
+        //
+        // LIMITATION: rotation + cropEnd (Ken Burns) is not supported in FCPXML export.
+        // FCP's pan-mode adjust-crop (needed for Ken Burns) and adjust-transform (needed
+        // for rotation) can't be combined sensibly — the pan rect operates on the source,
+        // the rotation on the composited frame, and interleaving them would require either
+        // animated adjust-transform keyframes (more XML than the feature warrants) or
+        // dropping rotation. For now we keep rotation and degrade cropEnd to static,
+        // using cropEnd as the composition target (typically the intended final framing).
+        // Remotion render/preview does animate the Ken Burns with rotation, so the two
+        // outputs will differ on this specific combination.
+        const coverScale = rotationCoverScale(clip.rotation!, width, height);
+        // FCP rotation is counter-clockwise for positive degrees; CSS/Remotion is clockwise.
+        // Negate so FCPXML output matches the Remotion render visually.
+        const rotDeg = -clip.rotation!;
+        const effectiveCrop = clip.cropEnd ?? clip.crop;
+        if (effectiveCrop) {
+          const t = cropToFcpTransform(effectiveCrop, width, height);
+          const s = t.scale * coverScale;
+          spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(s)} ${round4(s)}" rotation="${round4(rotDeg)}" />`);
+        } else {
+          spine.push(`${II}<adjust-transform scale="${round4(coverScale)} ${round4(coverScale)}" rotation="${round4(rotDeg)}" />`);
+        }
+      } else if (hasCrop) {
         if (clip.cropEnd) {
           if (target === 'davinci') {
             // DaVinci ignores adjust-crop mode="pan". Fall back to static adjust-transform
@@ -997,6 +1024,21 @@ function fcpName(str: string): string {
 
 function round4(n: number): string {
   return Number(n.toFixed(4)).toString();
+}
+
+// Minimum uniform scale so that a W×H box rotated by `degrees` fully covers
+// the original W×H axis-aligned frame (no black corners). Computed against
+// sequence dimensions — consistent with FCP's adjust-transform, which applies
+// after spatial conform, but the resulting crop extent assumes source aspect
+// matches sequence aspect. Mismatched-aspect sources combined with rotation
+// are not well-defined (see MontaiVideo.tsx for the Remotion-side note).
+function rotationCoverScale(degrees: number, width: number, height: number): number {
+  const theta = (degrees * Math.PI) / 180;
+  const absCos = Math.abs(Math.cos(theta));
+  const absSin = Math.abs(Math.sin(theta));
+  const sx = absCos + (absSin * height) / width;
+  const sy = (absSin * width) / height + absCos;
+  return Math.max(sx, sy);
 }
 
 /**

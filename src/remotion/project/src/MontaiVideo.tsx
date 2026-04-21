@@ -22,6 +22,7 @@ interface EditClip {
   playbackRate: number;
   volume: number;
   transition: { type: string; durationSeconds: number; direction?: string };
+  rotation?: number;
   crop?: CropValues;
   cropEnd?: CropValues;
 }
@@ -193,6 +194,27 @@ function getTransition(type: string, direction?: string): TransitionPresentation
   }
 }
 
+// Minimum uniform scale so that a W×H box rotated by `degrees` fully covers
+// the original W×H axis-aligned container (no black corners).
+function rotationCoverScale(degrees: number, width: number, height: number) {
+  const theta = (degrees * Math.PI) / 180;
+  const absCos = Math.abs(Math.cos(theta));
+  const absSin = Math.abs(Math.sin(theta));
+  const sx = absCos + (absSin * height) / width;
+  const sy = (absSin * width) / height + absCos;
+  return Math.max(sx, sy);
+}
+
+// NOTE ON ASPECT MISMATCH: Both `cropToTransform` and `rotationCoverScale`
+// compute their math against the sequence (container) dimensions, and the CSS
+// transform is applied to the full Video element box (which is 100%×100% of
+// the container). When the source clip's aspect differs from the sequence,
+// `objectFit: 'contain'` pillarboxes/letterboxes the content *inside* the
+// element box — so these transforms operate on "element box + black bars",
+// not on the visible content rectangle. This diverges from FCP/Resolve,
+// which apply crop/transform to the post-conform content. Crop and rotation
+// are therefore only well-defined when source aspect ≈ sequence aspect
+// (the main intended use case: "horizontal footage shot sideways").
 function cropToTransform(crop: CropValues, width: number, height: number) {
   // Crop values are percentages of original frame height.
   // visible fraction: e.g. left=10, right=10 on a 16:9 (1920×1080) frame
@@ -240,6 +262,7 @@ function ClipVideo({
   );
   const hasTransitions = incomingTransitionFrames > 0 || outgoingTransitionFrames > 0;
   const hasCrop = !!(clip.crop || clip.cropEnd);
+  const hasRotation = !!clip.rotation && clip.rotation % 360 !== 0;
 
   const volumeCallback = useCallback(
     (frame: number) => {
@@ -275,20 +298,38 @@ function ClipVideo({
     }
   }
 
+  // Compose transform string. CSS applies transforms right-to-left, so the order
+  // below means: rotate first, then scale-to-cover (eliminates black corners after
+  // rotation), then crop translate, then crop scale.
+  const parts: string[] = [];
+  if (cropTransform) {
+    parts.push(`scale(${cropTransform.scale})`);
+    parts.push(`translate(${cropTransform.translateX}%, ${cropTransform.translateY}%)`);
+  }
+  if (hasRotation) {
+    parts.push(`scale(${rotationCoverScale(clip.rotation!, width, height)})`);
+    parts.push(`rotate(${clip.rotation}deg)`);
+  }
+  const transformStr = parts.join(' ');
+
   const video = (
     <Video
       src={getSourcePath(clip.sourceFile)}
       trimBefore={Math.round(clip.startTimeSeconds * fps)}
       volume={hasTransitions ? volumeCallback : clip.volume}
       playbackRate={clip.playbackRate}
-      style={cropTransform
-        ? { width: '100%', height: '100%', transform: `scale(${cropTransform.scale}) translate(${cropTransform.translateX}%, ${cropTransform.translateY}%)` }
-        : { width: '100%', height: '100%' }
+      // objectFit: 'contain' matches FCP/Resolve's default spatial conform —
+      // preserve the source aspect and pillarbox/letterbox when it doesn't
+      // match the sequence. Without this, the browser defaults to 'fill'
+      // which non-uniformly stretches portrait content into a landscape frame.
+      style={transformStr
+        ? { width: '100%', height: '100%', objectFit: 'contain', transform: transformStr }
+        : { width: '100%', height: '100%', objectFit: 'contain' }
       }
     />
   );
 
-  if (cropTransform) {
+  if (transformStr) {
     return (
       <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
         {video}

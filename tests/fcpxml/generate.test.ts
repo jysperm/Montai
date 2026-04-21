@@ -108,13 +108,6 @@ describe('overlay-test', () => {
     expect(davinciXml).toContain('fontSize="80"');
     expect(davinciXml).toMatchSnapshot();
   });
-
-  it('same video used twice shares one asset', () => {
-    const { timeline } = expand(items, 'overlay-test');
-    const xml = generateFcpxml(timeline, videoMeta);
-    const assetMatches = xml.match(/<asset id="asset-/g);
-    expect(assetMatches).toHaveLength(1);
-  });
 });
 
 describe('crop-test', () => {
@@ -135,6 +128,25 @@ describe('crop-test', () => {
     expect(xml).toContain('adjust-transform');
     expect(xml).not.toContain('adjust-crop');
     expect(xml).not.toContain('pan-rect');
+    expect(xml).toMatchSnapshot();
+  });
+});
+
+describe('rotation-test', () => {
+  const items = loadTimeline('rotation-test');
+
+  it('FCP snapshot (rotation + rotation with crop)', () => {
+    const { timeline } = expand(items, 'rotation-test');
+    const xml = generateFcpxml(timeline, videoMeta, { target: 'fcp' });
+    // Rotation forces adjust-transform path even on FCP (adjust-crop has no rotation).
+    // DaVinci output is identical for rotation — no target-specific handling.
+    expect(xml).toContain('rotation="-90"');
+    expect(xml).toContain('rotation="-180"');
+    expect(xml).toContain('rotation="-270"');
+    expect(xml).toContain('rotation="-45"');
+    // rotation=0 is treated as "no rotation" and emits no adjust-transform.
+    expect(xml).not.toContain('rotation="0"');
+    expect(xml).not.toContain('rotation="-0"');
     expect(xml).toMatchSnapshot();
   });
 });

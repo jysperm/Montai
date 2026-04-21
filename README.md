@@ -77,6 +77,7 @@ The `montai story` command opens an interactive session where you chat with AI t
 - **Transitions** — fade, slide, and wipe transitions between clips
 - **Crop** — static crop to reframe shots
 - **Ken Burns** — animated pan & zoom from one crop to another
+- **Rotation** — rotate clips to fix footage shot in the wrong orientation
 - **Text overlays** — title, subtitle, and caption styles at 6 positions, with fade, slide, and pop entrance animations
 - **Background music** — add library music with volume and fade controls, auto-looping with crossfade
 - **AI music generation** — generate instrumental background music

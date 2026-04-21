@@ -22,6 +22,7 @@ export const ExpandedClipSchema = z.object({
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
   transition: TransitionSchema.optional().catch(undefined),
+  rotation: z.number().refine(Number.isFinite).optional().catch(undefined),
   crop: CropSchema.optional().catch(undefined),
   cropEnd: CropSchema.optional().catch(undefined),
 });

@@ -22,7 +22,7 @@ Return a JSON object with this exact structure:
       "startTime": "MM:SS",
       "endTime": "MM:SS",
       "description": "What happens in this segment",
-      "qualityNotes": "Notable technical issues (shaky, dark, overexposed, out of focus, subject obstruction, etc.), or empty string if none",
+      "qualityNotes": "Notable technical issues (shaky, dark, overexposed, out of focus, subject obstruction, wrong orientation, etc.), or empty string if none",
       "speechContent": "Brief transcription of speech, or description of notable ambient sound, or empty string if none"
     }
   ],

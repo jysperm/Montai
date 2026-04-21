@@ -46,6 +46,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
     agent: null,
     languageName: 'English',
     overlayLanguageNames: 'English',
+    features: { music: true, musicGeneration: false, voiceover: false },
   };
 }
 

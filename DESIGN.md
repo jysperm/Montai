@@ -185,6 +185,7 @@ ClipItem {
   playbackRate: number         // default 1
   volume: number               // default 1
   transition?: Transition      // optional; defines the transition FROM the previous clip INTO this clip
+  rotation?: number            // degrees clockwise; applied before crop. Any angle accepted, but 90/180/270 are the typical cases (camera orientation fixes)
   crop?: Crop                  // static crop (left/top/right/bottom as % of frame height)
   cropEnd?: Crop               // if set, Ken Burns animation from crop → cropEnd
 }
@@ -254,6 +255,7 @@ ExpandedClip {
     direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'
     durationSeconds: number
   }
+  rotation?: number            // passed through from ClipItem
   crop?: Crop                  // passed through from ClipItem
   cropEnd?: Crop               // passed through from ClipItem
 }
@@ -300,6 +302,7 @@ Montai includes a static Remotion project at `src/remotion/project/` (inside Mon
 - **Studio mode**: All stories appear in the Studio sidebar for switching, video files served via `--public-dir=<path>`
 - **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and a `timelines.json` index
 - **Dependencies**: Remotion, React, and transition packages are Montai's own dependencies — no separate install needed
+- **Aspect mismatch**: Video elements use `object-fit: contain` so clips whose aspect differs from the sequence are pillarboxed/letterboxed (preserving source aspect) rather than non-uniformly stretched. This matches FCP/Resolve's default spatial conform behavior for mismatched `format` assets.
 
 ## FCPXML Output
 
@@ -318,6 +321,8 @@ The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× 
 Crop/Ken Burns uses different strategies per target:
 - **FCP**: `adjust-crop mode="crop"` for static crop, `mode="pan"` with two `pan-rect` elements for Ken Burns. Native support with full UI.
 - **DaVinci**: Both static crop and Ken Burns use `adjust-transform` (scale + position). DaVinci's `adjust-crop mode="crop"` shows black bars instead of scaling to fill, and `mode="pan"` (Ken Burns) is completely ignored. For Ken Burns, the end state (`cropEnd`) is applied as a static transform — no animation, but preserves the intended final composition.
+
+Rotation is expressed on `adjust-transform` (the `rotation` attribute, in degrees). Rotation is counter-clockwise in FCP's convention but clockwise in CSS/Remotion, so the FCPXML output negates the value to match the render. A cover scale is multiplied in to eliminate the black corners that appear when a rotated frame is smaller than its axis-aligned container. When a clip has both rotation and crop, the combined transform uses `scale = cropScale × coverScale` and crop's `position`, which is mathematically equivalent to rotate-then-crop. Rotation forces the `adjust-transform` path even on FCP (so native `adjust-crop` is not used); Ken Burns (`cropEnd`) together with rotation falls back to the static `cropEnd` state.
 
 Audio auto-loop crossfade in FCPXML uses different strategies per target:
 - **FCP**: Loop segments are grouped into a secondary storyline (`<spine>`) with Cross Dissolve transitions between clips. Each clip is shrunk by half the crossfade duration to provide "handles" (extra source media for the transition to borrow). The last clip is extended to compensate for handle shrinkage.

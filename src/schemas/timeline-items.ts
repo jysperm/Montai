@@ -12,6 +12,8 @@ export const ClipItemSchema = z.object({
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
   transition: TransitionSchema.optional().catch(undefined),
+  // rotation + cropEnd Ken Burns works in Remotion but degrades to static cropEnd in FCPXML export (see src/fcpxml/generate.ts for why).
+  rotation: z.number().refine(Number.isFinite).optional().catch(undefined),
   crop: CropSchema.optional().catch(undefined),
   cropEnd: CropSchema.optional().catch(undefined),
 });
@@ -318,6 +320,7 @@ export function expandTimeline(
       playbackRate: clip.playbackRate,
       volume: clip.volume,
       transition: clip.transition,
+      rotation: clip.rotation,
       crop: clip.crop,
       cropEnd: clip.cropEnd,
     };

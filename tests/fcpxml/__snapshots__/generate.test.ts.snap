@@ -737,6 +737,117 @@ Line 2</text-style>
 "
 `;
 
+exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
+        <format id="r3" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        </asset>
+        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="rotation-test">
+                <sequence format="r1" duration="1750/50s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="no rotation" offset="215999784/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts1" alignment="center">no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="video2.mp4" offset="250/50s" duration="250/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
+                        <adjust-transform scale="1.7778 1.7778" rotation="-90" />
+                        <title ref="r2" lane="1" name="90deg" offset="215999784/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts2" alignment="center">90deg</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="250/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
+                        <adjust-transform scale="1 1" rotation="-180" />
+                        <title ref="r2" lane="1" name="180deg" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts3" alignment="center">180deg</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
+                        <adjust-transform scale="1.7778 1.7778" rotation="-270" />
+                        <title ref="r2" lane="1" name="270deg" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts4" alignment="center">270deg</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="250/50s" start="217199983/60000s" format="r3" tcFormat="NDF">
+                        <adjust-transform scale="1.9642 1.9642" rotation="-45" />
+                        <title ref="r2" lane="1" name="45deg" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts5" alignment="center">45deg</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="video2.mp4" offset="1250/50s" duration="250/50s" start="217199983/60000s" format="r3" tcFormat="NDF">
+                        <adjust-transform position="0 0" scale="2.0031 2.0031" rotation="-90" />
+                        <title ref="r2" lane="1" name="90deg + crop" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts6" alignment="center">90deg + crop</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="video1.mp4" offset="1500/50s" duration="250/50s" start="217799582/60000s" format="r3" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="rotation: 0 (no-op)" offset="217799582/60000s" duration="250/50s" start="0/1s">
+                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
+                            <text>
+                                <text-style ref="ts7" alignment="center">rotation: 0 (no-op)</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
 exports[`transition-test > FCP snapshot 1`] = `
 "<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>
