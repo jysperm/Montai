@@ -150,6 +150,10 @@ my-vlog-project/
   STYLE.md             # Writing style reference (optional)
 ```
 
+## Known Issues
+
+- **FCP "The item is not on an edit frame boundary" warning.** Triggered when source footage has embedded timecode and a frame rate different from the sequence (e.g. 59.94fps footage in a 50fps project). Safe to dismiss — titles and audio still land in the correct positions.
+
 ## Output Compatibility
 
 |  | Final Cut Pro | DaVinci Resolve | Remotion |
