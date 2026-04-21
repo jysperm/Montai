@@ -42,7 +42,7 @@ effects:
   console.log(chalk.green(`Created ${resolvedPath}`));
 }
 
-export async function analyzeCommand(options: { reRun?: string; show?: string; list?: boolean }) {
+export async function analyzeCommand(options: { reRun?: string | boolean; force?: boolean; show?: string; list?: boolean }) {
   await ensureProjectConfig();
   const config = loadProjectConfig();
   const db = await initDb();
@@ -61,16 +61,39 @@ export async function analyzeCommand(options: { reRun?: string; show?: string; l
     return;
   }
 
+  let reRunAll = false;
+  let reRunFile: string | undefined;
+
+  if (options.reRun === true) {
+    if (!options.force) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      const answer = await new Promise<string>((res) => {
+        rl.question(chalk.yellow('Re-analyze ALL videos, music, and voiceover files? (y/N) '), (a) => {
+          rl.close();
+          res(a);
+        });
+      });
+      const normalized = answer.trim().toLowerCase();
+      if (normalized !== 'y' && normalized !== 'yes') {
+        console.log(chalk.dim('Cancelled.'));
+        return;
+      }
+    }
+    reRunAll = true;
+  } else if (typeof options.reRun === 'string') {
+    reRunFile = options.reRun;
+  }
+
   const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
   let totalCost = 0;
 
-  const videoResult = await syncAndAnalyzeVideos(db, config, model, { reRun: options.reRun });
+  const videoResult = await syncAndAnalyzeVideos(db, config, model, { reRun: reRunFile, reRunAll });
   totalCost += videoResult.totalCost;
 
-  const musicResult = await syncAndAnalyzeMusic(db, config, model, { reRun: options.reRun });
+  const musicResult = await syncAndAnalyzeMusic(db, config, model, { reRun: reRunFile, reRunAll });
   totalCost += musicResult.totalCost;
 
-  const voiceoverResult = await syncAndAnalyzeVoiceovers(db, config, model, { reRun: options.reRun });
+  const voiceoverResult = await syncAndAnalyzeVoiceovers(db, config, model, { reRun: reRunFile, reRunAll });
   totalCost += voiceoverResult.totalCost;
 
   console.log(chalk.dim(`Total cost: ${formatCost(totalCost)}`));

@@ -21,7 +21,14 @@ function printFullHelp(program: Command) {
         .join(' ');
       const usage = args ? `${cmd.name()} ${args}` : cmd.name();
       console.log(`${pad}${chalk.cyan(usage)}  ${cmd.description()}`);
-      for (const opt of cmd.options) {
+      for (let i = 0; i < cmd.options.length; i++) {
+        const opt = cmd.options[i];
+        const next = cmd.options[i + 1];
+        if (opt.long === '--re-run' && next && next.long === '--force') {
+          console.log(`${pad}  ${chalk.dim(`${opt.flags}, ${next.flags}`)}  ${opt.description}`);
+          i++;
+          continue;
+        }
         console.log(`${pad}  ${chalk.dim(opt.flags)}  ${opt.description}`);
       }
       const subs = cmd.commands.filter((c) => c.name() !== 'help');
@@ -51,7 +58,8 @@ program
   .description(
     'Transcode, upload and analyze videos'
   )
-  .option('--re-run <filename>', 'Re-analyze a specific video or music file by filename')
+  .option('--re-run [filename]', 'Re-analyze a specific file by filename, or all files when filename is omitted')
+  .option('-f, --force', 'Skip the confirmation prompt when re-running all files')
   .option('--show <filename>', 'Show the stored summary for a video or music file')
   .option('--list', 'List all videos and music files with analysis status')
   .action(analyzeCommand);

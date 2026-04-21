@@ -5,6 +5,8 @@ import { eq } from 'drizzle-orm';
 
 const EXPIRY_HOURS = 48;
 
+export type UploadResult = { fileUri: string; cached: boolean };
+
 async function uploadAndWait(filePath: string): Promise<string> {
   const client = getGeminiClient();
   const uploadResult = await client.files.upload({
@@ -36,7 +38,7 @@ async function uploadAndWait(filePath: string): Promise<string> {
 export async function uploadVideoToGemini(
   videoId: number,
   transcodedPath: string
-): Promise<string> {
+): Promise<UploadResult> {
   const db = getDb();
 
   const cached = db
@@ -49,7 +51,7 @@ export async function uploadVideoToGemini(
     const uploadedAt = new Date(cached.uploadedAt);
     const hoursAgo = (Date.now() - uploadedAt.getTime()) / (1000 * 60 * 60);
     if (hoursAgo < EXPIRY_HOURS) {
-      return cached.fileUri;
+      return { fileUri: cached.fileUri, cached: true };
     }
   }
 
@@ -75,13 +77,13 @@ export async function uploadVideoToGemini(
       .run();
   }
 
-  return fileUri;
+  return { fileUri, cached: false };
 }
 
 export async function uploadMusicToGemini(
   musicId: number,
   filePath: string
-): Promise<string> {
+): Promise<UploadResult> {
   const db = getDb();
 
   const cached = db
@@ -94,7 +96,7 @@ export async function uploadMusicToGemini(
     const uploadedAt = new Date(cached.uploadedAt);
     const hoursAgo = (Date.now() - uploadedAt.getTime()) / (1000 * 60 * 60);
     if (hoursAgo < EXPIRY_HOURS) {
-      return cached.fileUri;
+      return { fileUri: cached.fileUri, cached: true };
     }
   }
 
@@ -120,13 +122,13 @@ export async function uploadMusicToGemini(
       .run();
   }
 
-  return fileUri;
+  return { fileUri, cached: false };
 }
 
 export async function uploadVoiceoverToGemini(
   voiceoverId: number,
   filePath: string
-): Promise<string> {
+): Promise<UploadResult> {
   const db = getDb();
 
   const cached = db
@@ -139,7 +141,7 @@ export async function uploadVoiceoverToGemini(
     const uploadedAt = new Date(cached.uploadedAt);
     const hoursAgo = (Date.now() - uploadedAt.getTime()) / (1000 * 60 * 60);
     if (hoursAgo < EXPIRY_HOURS) {
-      return cached.fileUri;
+      return { fileUri: cached.fileUri, cached: true };
     }
   }
 
@@ -165,5 +167,5 @@ export async function uploadVoiceoverToGemini(
       .run();
   }
 
-  return fileUri;
+  return { fileUri, cached: false };
 }

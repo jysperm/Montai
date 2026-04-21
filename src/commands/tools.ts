@@ -223,10 +223,10 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       try {
         const transcoded = await transcodeForUpload(video.id, video.path);
-        const fileUri = await uploadVideoToGemini(video.id, transcoded.path);
+        const uploaded = await uploadVideoToGemini(video.id, transcoded.path);
         const fileContent: FileContent = {
           type: 'file',
-          uri: fileUri,
+          uri: uploaded.fileUri,
           mimeType: 'video/mp4',
           videoMetadata: {
             startOffset: `${params.startSeconds}s`,

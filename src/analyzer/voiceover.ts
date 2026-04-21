@@ -107,7 +107,7 @@ export async function syncAndAnalyzeVoiceovers(
   db: MontaiDb,
   config: ProjectConfig,
   model: Parameters<typeof complete>[0],
-  options?: { reRun?: string },
+  options?: { reRun?: string; reRunAll?: boolean },
 ): Promise<{ totalCost: number }> {
   const voiceoverFiles = resolveVoiceoverFiles(config);
   if (voiceoverFiles.length === 0) {
@@ -164,7 +164,16 @@ export async function syncAndAnalyzeVoiceovers(
 
   let voiceoversToAnalyze;
 
-  if (options?.reRun) {
+  if (options?.reRunAll) {
+    voiceoversToAnalyze = db
+      .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
+      .from(voiceovers)
+      .orderBy(asc(voiceovers.filename))
+      .all();
+    for (const track of voiceoversToAnalyze) {
+      db.delete(voiceoverAnalyses).where(eq(voiceoverAnalyses.voiceoverId, track.id)).run();
+    }
+  } else if (options?.reRun) {
     voiceoversToAnalyze = db
       .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
       .from(voiceovers)
@@ -195,7 +204,7 @@ export async function syncAndAnalyzeVoiceovers(
   }
 
   if (voiceoversToAnalyze.length === 0) {
-    console.log(chalk.green(`All voiceover files already analyzed. Use ${chalk.bold('--re-run <filename>')} to re-analyze.`));
+    console.log(chalk.green(`All voiceover files already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
     return { totalCost: 0 };
   }
 
@@ -296,9 +305,13 @@ export async function syncAndAnalyzeVoiceovers(
 
     try {
       const t0 = Date.now();
-      const fileUri = await uploadVoiceoverToGemini(track.id, track.path);
-      logLine(chalk.green(`  ✓ Uploaded ${track.filename} (${formatDuration(Date.now() - t0)})`));
-      analyzeQueue.enqueue({ track, fileUri });
+      const uploaded = await uploadVoiceoverToGemini(track.id, track.path);
+      if (uploaded.cached) {
+        logLine(chalk.green(`  ✓ Uploaded ${track.filename} (cached)`));
+      } else {
+        logLine(chalk.green(`  ✓ Uploaded ${track.filename} (${formatDuration(Date.now() - t0)})`));
+      }
+      analyzeQueue.enqueue({ track, fileUri: uploaded.fileUri });
     } catch (err) {
       logLine(chalk.red(`  ✗ Failed to upload ${track.filename}: ${err instanceof Error ? err.message : err}`));
       failed++;

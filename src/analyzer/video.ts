@@ -159,7 +159,7 @@ export async function syncAndAnalyzeVideos(
   db: MontaiDb,
   config: ProjectConfig,
   model: Parameters<typeof complete>[0],
-  options?: { reRun?: string },
+  options?: { reRun?: string; reRunAll?: boolean },
 ): Promise<{ totalCost: number }> {
   const videoFiles = resolveVideoFiles(config);
   if (videoFiles.length === 0) {
@@ -251,7 +251,13 @@ export async function syncAndAnalyzeVideos(
   // Get videos to analyze
   let videosToAnalyze;
 
-  if (options?.reRun) {
+  if (options?.reRunAll) {
+    videosToAnalyze = db
+      .select()
+      .from(videos)
+      .orderBy(asc(videos.filename))
+      .all();
+  } else if (options?.reRun) {
     // First try matching by filename (basename)
     videosToAnalyze = db
       .select()
@@ -282,7 +288,7 @@ export async function syncAndAnalyzeVideos(
   }
 
   if (videosToAnalyze.length === 0) {
-    console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--re-run <filename>')} to re-analyze.`));
+    console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
     return { totalCost: 0 };
   }
 
@@ -412,9 +418,13 @@ export async function syncAndAnalyzeVideos(
 
     try {
       const t0 = Date.now();
-      const fileUri = await uploadVideoToGemini(video.id, transcodedPath);
-      logLine(chalk.green(`  ✓ Uploaded ${video.filename} (${formatDuration(Date.now() - t0)})`));
-      analyzeQueue.enqueue({ video, fileUri });
+      const uploaded = await uploadVideoToGemini(video.id, transcodedPath);
+      if (uploaded.cached) {
+        logLine(chalk.green(`  ✓ Uploaded ${video.filename} (cached)`));
+      } else {
+        logLine(chalk.green(`  ✓ Uploaded ${video.filename} (${formatDuration(Date.now() - t0)})`));
+      }
+      analyzeQueue.enqueue({ video, fileUri: uploaded.fileUri });
     } catch (err) {
       logLine(chalk.red(`  ✗ Failed to upload ${video.filename}: ${err instanceof Error ? err.message : err}`));
       failed++;
