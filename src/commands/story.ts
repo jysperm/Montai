@@ -17,6 +17,7 @@ import { formatDuration, formatTimeAgo, formatStoryLine, countItemsByType, forma
 import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { getStoryTools } from './tools.js';
+import { resolveFeatureFlags } from '../feature-flags.js';
 import { renderTimeline } from '../utils/render-timeline.js';
 import { exportCommand } from './export.js';
 import { renderCommand } from './render.js';
@@ -193,10 +194,16 @@ export async function storyCommand(
       : m.filename,
   ]));
 
+  const features = resolveFeatureFlags(config, {
+    hasMusic: allMusic.length > 0,
+    hasVoiceovers: allVoiceoversData.length > 0,
+  });
+
   // In-memory state
   const toolsCtx = {
     db,
     config,
+    features,
     languageName: languageNames[config.language] ?? config.language,
     overlayLanguageNames: config.effects.languages.map((l) => languageNames[l] ?? l).join(' and '),
     allVideos,
@@ -231,9 +238,7 @@ export async function storyCommand(
         language: config.language,
         overlayLanguages: config.effects.languages,
         agentInstructions: agentInstructions ?? null,
-        hasMusic: allMusic.length > 0 || !!config.models.musicGeneration,
-        hasMusicGeneration: !!config.models.musicGeneration,
-        hasVoiceovers: allVoiceoversData.length > 0,
+        features,
       }),
       model,
     },
@@ -487,11 +492,11 @@ export async function storyCommand(
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(toolsCtx.currentItems), null, 2) : null,
     computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
     styleReference: styleReference ?? null,
-    fullVoiceoverAnalyses: fullVoiceoverAnalyses.length > 0 ? fullVoiceoverAnalyses : null,
-    summaryVoiceoverAnalyses: summaryVoiceoverAnalyses.length > 0 ? summaryVoiceoverAnalyses : null,
-    fullMusicAnalyses: fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,
-    summaryMusicAnalyses: summaryMusicAnalyses.length > 0 ? summaryMusicAnalyses : null,
-    generatedMusic: generatedMusicData.length > 0 ? generatedMusicData : null,
+    fullVoiceoverAnalyses: features.voiceover && fullVoiceoverAnalyses.length > 0 ? fullVoiceoverAnalyses : null,
+    summaryVoiceoverAnalyses: features.voiceover && summaryVoiceoverAnalyses.length > 0 ? summaryVoiceoverAnalyses : null,
+    fullMusicAnalyses: features.music && fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,
+    summaryMusicAnalyses: features.music && summaryMusicAnalyses.length > 0 ? summaryMusicAnalyses : null,
+    generatedMusic: features.musicGeneration && generatedMusicData.length > 0 ? generatedMusicData : null,
   });
 
   // Helper to run agent and display response, catching errors

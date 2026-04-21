@@ -28,6 +28,12 @@ export const EffectsSchema = z.object({
   languages: z.array(z.string()).default(['en']),
 });
 
+export const FeatureFlagsSchema = z.object({
+  music: z.boolean().optional(),
+  musicGeneration: z.boolean().optional(),
+  voiceover: z.boolean().optional(),
+}).default({});
+
 export const AssetsSchema = z.object({
   videos: z.array(z.string()).min(1),
   music: z.array(z.string()).default([]),
@@ -49,6 +55,7 @@ export const ProjectConfigSchema = z.preprocess(
     output: OutputSchema.default(() => OutputSchema.parse({})),
     models: ModelsSchema.default(() => ModelsSchema.parse({})),
     effects: EffectsSchema.default(() => EffectsSchema.parse({})),
+    featureFlags: FeatureFlagsSchema,
   }),
 );
 
@@ -56,4 +63,5 @@ export type Assets = z.infer<typeof AssetsSchema>;
 export type Output = z.infer<typeof OutputSchema>;
 export type Models = z.infer<typeof ModelsSchema>;
 export type Effects = z.infer<typeof EffectsSchema>;
+export type FeatureFlagsOverride = z.infer<typeof FeatureFlagsSchema>;
 export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;

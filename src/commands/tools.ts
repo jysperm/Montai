@@ -6,6 +6,7 @@ import type { MontaiDb } from '../db/index.js';
 import { stories, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
 import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
+import type { FeatureFlags } from '../feature-flags.js';
 import { uploadVideoToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { TimelineItemSchema, spliceTimelineItems, expandTimeline, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
@@ -18,6 +19,7 @@ const MAX_VIDEO_FILES_PER_TURN = 10;
 export interface StoryToolsContext {
   db: MontaiDb;
   config: ProjectConfig;
+  features: FeatureFlags;
   languageName: string;
   overlayLanguageNames: string;
   allVideos: { id: number; path: string; filename: string }[];
@@ -487,13 +489,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, listStoriesTool, switchStoryTool];
-  if (ctx.allMusic.length > 0 || ctx.config.models.musicGeneration) {
+  if (ctx.features.music) {
     tools.push(getMusicAnalysisTool);
   }
-  if (ctx.config.models.musicGeneration) {
+  if (ctx.features.musicGeneration) {
     tools.push(generateMusicTool);
   }
-  if (ctx.allVoiceovers.length > 0) {
+  if (ctx.features.voiceover) {
     tools.push(getVoiceoverAnalysisTool);
   }
 

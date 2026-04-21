@@ -41,6 +41,8 @@ models:
   musicGeneration: lyria-002            # Optional: enables AI music generation
 effects:
   languages: [zh, en]           # Subtitle / caption languages
+featureFlags:                    # Optional overrides (see Feature Flags)
+  music: false
 ```
 
 `language` controls the language used for all internal text: video analyses, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
@@ -50,6 +52,33 @@ Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individu
 For backward compatibility, a top-level `videos` key (without `assets` wrapper) is still accepted and automatically mapped to `assets.videos`.
 
 All generated files (`montai.db`, `.montai/`, `output/`, `fcpxml/`) are located relative to the directory containing `montai.yaml` (the project directory).
+
+## Feature Flags
+
+A `FeatureFlags` object (variable name `features` in code, type `FeatureFlags` in `src/feature-flags.ts`) gates optional capabilities across the LLM prompt and tool surface. Each flag resolves to a boolean at runtime: a computed default based on project context, optionally overridden by the `featureFlags` section in `montai.yaml`. The same resolved `features` object is passed into both the prompt templates (Handlebars `{{#if features.X}}`) and the tool list assembly.
+
+The goal is a single switch per feature that controls both what the LLM is told about (prompt) and what it can call (tools), so that adding a new capability only requires defining a flag, its default, and the guarded prompt/tool sections.
+
+### Defined features
+
+| Feature | Description | Controls | Default |
+|---------|-------------|----------|---------|
+| `music` | Background music selection from the library and/or generated tracks | `getMusicAnalysis` tool; music item format and editing guidance in `story-system`; music analyses (library + summaries) in `story-context` | Project has music files (`assets.music` non-empty) **or** `models.musicGeneration` is configured |
+| `musicGeneration` | AI-generated background music via Lyria 2 | `generateMusic` tool; "Using generateMusic" prompt section; generated-music list in `story-context` | `models.musicGeneration` is configured |
+| `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool; voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
+
+### User overrides
+
+Users may override any default by setting the flag explicitly under `featureFlags`:
+
+```yaml
+featureFlags:
+  music: false            # disable music even though music files exist
+  musicGeneration: true   # force-enable (still requires the model to be configured to actually work)
+  voiceover: false
+```
+
+An unset override leaves the default in place. Overrides only affect flag resolution — they do not add missing capabilities (e.g. setting `musicGeneration: true` without configuring `models.musicGeneration` will fail at tool-call time).
 
 ## Database Design
 
