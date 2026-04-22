@@ -100,6 +100,7 @@ export async function storyCommand(
     return {
       videoId: s.videoId,
       filename: video?.filename ?? 'unknown',
+      durationSeconds: video?.durationSeconds ?? 0,
       overview: s.overview,
       location: s.location,
       timeOfDay: s.timeOfDay,

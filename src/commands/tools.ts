@@ -22,7 +22,7 @@ export interface StoryToolsContext {
   features: FeatureFlags;
   languageName: string;
   overlayLanguageNames: string;
-  allVideos: { id: number; path: string; filename: string }[];
+  allVideos: { id: number; path: string; filename: string; durationSeconds?: number | null }[];
   allVideoAnalyses: (typeof videoAnalyses.$inferSelect)[];
   allMusic: (typeof music.$inferSelect)[];
   allMusicAnalyses: (typeof musicAnalyses.$inferSelect)[];
@@ -221,6 +221,20 @@ export function getStoryTools(ctx: StoryToolsContext) {
         return { content: [errorText], details: {} };
       }
 
+      // Gemini returns a 500 INTERNAL when videoMetadata.startOffset is at or
+      // past the uploaded video's actual duration (instead of a proper 400).
+      // Reject before uploading so the LLM retries with a valid range; endOffset
+      // past duration is harmless and gets clamped.
+      const duration = video.durationSeconds ?? 0;
+      if (duration > 0 && params.startSeconds >= duration) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Error: startSeconds ${params.startSeconds}s is past the end of video ${video.filename} (duration ${duration}s). Pick a start within the video.`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+      const clampedEnd = duration > 0 ? Math.min(params.endSeconds, duration) : params.endSeconds;
+
       try {
         const transcoded = await transcodeForUpload(video.id, video.path);
         const uploaded = await uploadVideoToGemini(video.id, transcoded.path);
@@ -230,7 +244,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
           mimeType: 'video/mp4',
           videoMetadata: {
             startOffset: `${params.startSeconds}s`,
-            endOffset: `${params.endSeconds}s`,
+            endOffset: `${clampedEnd}s`,
           },
         };
         const textContent: TextContent = {
@@ -261,10 +275,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       const analysis = ctx.allVideoAnalyses.find((s) => s.videoId === params.videoId);
       const video = ctx.allVideos.find((v) => v.id === params.videoId);
+      const header = [video?.filename, video?.durationSeconds ? `${video.durationSeconds}s` : null]
+        .filter(Boolean)
+        .join(', ');
       const textContent: TextContent = {
         type: 'text' as const,
         text: analysis
-          ? `Analysis for video ${params.videoId}:\n${renderPrompt('video-analysis', {
+          ? `Analysis for video ${params.videoId}${header ? ` (${header})` : ''}:\n${renderPrompt('video-analysis', {
               videoId: params.videoId,
               filename: video?.filename ?? 'unknown',
               overview: analysis.overview,

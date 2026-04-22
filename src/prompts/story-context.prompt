@@ -29,7 +29,7 @@ Creating a new video edit from source footage.
 ## Video Analyses
 
 {{#each fullVideoAnalyses}}
---- Video ID {{this.videoId}} ({{this.filename}}) ---
+--- Video ID {{this.videoId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
 {{> video-analysis this}}
 
 {{/each}}
@@ -39,7 +39,7 @@ Creating a new video edit from source footage.
 Segments, speech content, quality notes, and technical notes are omitted. Use `getVideoAnalysis` to retrieve full details.
 
 {{#each summaryVideoAnalyses}}
---- Video ID {{this.videoId}} ({{this.filename}}) ---
+--- Video ID {{this.videoId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
 {{> video-summary this}}
 
 {{/each}}
