@@ -44,7 +44,7 @@ Positioned sequentially — array order among clips determines playback order.
     durationSeconds: number
     direction?: "from-left" | "from-right" | "from-top" | "from-bottom"  // used by slide and wipe
   }
-  rotation?: number                   // degrees clockwise; use 90/180/270 to fix camera orientation. Applied before crop
+  rotation?: number                   // degrees, positive = clockwise; use 90/180/270 to fix camera orientation. Applied before crop
   crop?: { left: number, top: number, right: number, bottom: number }     // static crop, percentages of frame height (all 0 = full frame)
   cropEnd?: { left: number, top: number, right: number, bottom: number }  // if provided, animates from crop → cropEnd (Ken Burns effect)
 }
