@@ -16,6 +16,7 @@ import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../
 import { formatDuration, formatTimeAgo, formatStoryLine, countItemsByType, formatItemCounts } from '../utils/format.js';
 import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
+import { ApiDebugCapture } from '../utils/api-debug.js';
 import { getStoryTools } from './tools.js';
 import { resolveFeatureFlags } from '../feature-flags.js';
 import { renderTimeline } from '../utils/render-timeline.js';
@@ -231,6 +232,8 @@ export async function storyCommand(
 
   const { tools: allTools, resetWatchCount } = getStoryTools(toolsCtx);
 
+  const apiDebug = new ApiDebugCapture();
+
   // Create agent
   const agent = new Agent({
     initialState: {
@@ -244,6 +247,7 @@ export async function storyCommand(
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(messages)),
+    streamFn: apiDebug.streamFn,
   });
 
   agent.setTools(allTools);
@@ -414,6 +418,10 @@ export async function storyCommand(
                 console.log(chalk.red(`  Error from Gemini API: ${detail}`));
               } catch {
                 console.log(chalk.red(`  Error: ${raw}`));
+              }
+              const dumpPath = apiDebug.dumpError(assistantMsg);
+              if (dumpPath) {
+                console.log(chalk.dim(`  Debug dump written to ${dumpPath}`));
               }
             }
           }
