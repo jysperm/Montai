@@ -1,5 +1,7 @@
+import { createRequire } from 'module';
 import chalk from 'chalk';
 import { Command } from 'commander';
+import updateNotifier from 'update-notifier';
 import { analyzeCommand } from './commands/analyze.js';
 import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
@@ -43,12 +45,22 @@ function printFullHelp(program: Command) {
   printCommands(program.commands, 2);
 }
 
+const require = createRequire(import.meta.url);
+const pkg = require('../package.json') as { name: string; version: string };
+
+const notifier = updateNotifier({ pkg });
+if (notifier.update) {
+  console.error(
+    chalk.yellow(`${chalk.bold('[!]')} Update available: ${chalk.cyan(notifier.update.current)} → ${chalk.cyan(notifier.update.latest)}. Run ${chalk.cyan(`npm i -g ${pkg.name}`)} to update.`),
+  );
+}
+
 const program = new Command();
 
 program
   .name('montai')
   .description('AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs')
-  .version('0.1.0')
+  .version(pkg.version)
   .addHelpCommand(false)
   .helpOption(false);
 
