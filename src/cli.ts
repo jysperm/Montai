@@ -1,4 +1,3 @@
-#!/usr/bin/env -S npx tsx
 import chalk from 'chalk';
 import { Command } from 'commander';
 import { analyzeCommand } from './commands/analyze.js';

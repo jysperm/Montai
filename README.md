@@ -5,10 +5,19 @@ AI-powered video editing tool that extracts storylines from unscripted footage a
 ## Install
 
 ```bash
+npm install -g montai-cli
+```
+
+<details>
+<summary>Install from source</summary>
+
+```bash
 git clone https://github.com/jysperm/Montai.git
 cd Montai
 npm ci && npm link
 ```
+
+</details>
 
 Prerequisites:
 

@@ -1,36 +1,58 @@
 {
-  "name": "montai",
+  "name": "montai-cli",
   "version": "0.1.0",
+  "description": "AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs",
   "type": "module",
-  "bin": {
-    "montai": "./src/cli.ts"
+  "author": "jysperm <jysperm@gmail.com>",
+  "homepage": "https://github.com/jysperm/Montai",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jysperm/Montai.git"
   },
+  "bugs": {
+    "url": "https://github.com/jysperm/Montai/issues"
+  },
+  "keywords": ["video", "editing", "ai", "llm", "gemini", "remotion", "vlog", "fcpxml", "cli"],
+  "engines": {
+    "node": ">=22"
+  },
+  "bin": {
+    "montai": "./bin/montai.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "remotion",
+    "patches",
+    "tsconfig.json"
+  ],
   "scripts": {
-    "montai": "tsx src/cli.ts",
-    "postinstall": "patch-package"
+    "postinstall": "patch-package --error-on-fail",
+    "prepublishOnly": "tsc --noEmit"
   },
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@inquirer/prompts": "^8.4.1",
-    "@mariozechner/pi-agent-core": "^0.52.12",
-    "@mariozechner/pi-ai": "^0.52.12",
-    "@remotion/cli": "^4.0.434",
-    "@remotion/media": "^4.0.434",
-    "@remotion/transitions": "^4.0.434",
+    "@mariozechner/pi-agent-core": "0.52.12",
+    "@mariozechner/pi-ai": "0.52.12",
+    "@remotion/cli": "4.0.434",
+    "@remotion/media": "4.0.434",
+    "@remotion/transitions": "4.0.434",
     "@types/debug": "^4.1.13",
     "better-sqlite3": "^11.0.0",
     "chalk": "^5.4.0",
     "commander": "^13.0.0",
     "debug": "^4.4.3",
-    "drizzle-kit": "^0.31.9",
+    "drizzle-kit": "0.31.9",
     "drizzle-orm": "^0.45.1",
     "handlebars": "^4.7.8",
     "ora": "^8.0.0",
     "patch-package": "^8.0.1",
     "react": "^18.0.0",
     "react-dom": "^18.0.0",
-    "remotion": "^4.0.434",
+    "remotion": "4.0.434",
     "string-width": "^8.2.0",
+    "tsx": "^4.19.0",
     "yaml": "^2.7.0",
     "zod": "^4.3.6"
   },
@@ -38,7 +60,6 @@
     "@types/better-sqlite3": "^7.6.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.2.14",
-    "tsx": "^4.19.0",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
   }

@@ -11,6 +11,5 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src"],
-  "exclude": ["src/remotion/project"]
+  "include": ["src"]
 }

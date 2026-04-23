@@ -22,7 +22,7 @@ export async function renderCommand(name?: string, options?: { fromArchived?: bo
 
   // Resolve Remotion project path relative to this package
   const remotionProjectDir = fileURLToPath(
-    new URL('../remotion/project', import.meta.url),
+    new URL('../../remotion', import.meta.url),
   );
 
   // Prepare public dir with video hard links for all specs

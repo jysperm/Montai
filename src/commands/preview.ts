@@ -22,7 +22,7 @@ export async function previewCommand(name?: string, options?: { fromArchived?: b
 
   // Resolve Remotion project path relative to this package
   const remotionProjectDir = fileURLToPath(
-    new URL('../remotion/project', import.meta.url),
+    new URL('../../remotion', import.meta.url),
   );
 
   console.log(chalk.blue(
