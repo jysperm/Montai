@@ -18,9 +18,9 @@ export class ApiDebugCapture {
 
     const wrappedOptions = {
       ...options,
-      onPayload: (payload: unknown) => {
+      onPayload: (payload: unknown, model: any) => {
         this.lastPayload = payload;
-        options?.onPayload?.(payload);
+        return options?.onPayload?.(payload, model);
       },
     };
 

@@ -264,7 +264,7 @@ export async function storyCommand(
     streamFn: apiDebug.streamFn,
   });
 
-  agent.setTools(allTools);
+  agent.state.tools = allTools;
   toolsCtx.agent = agent;
 
   let lastAssistantText = '';
@@ -566,9 +566,9 @@ export async function storyCommand(
 
   // Inject context and hint as standalone user messages (no response triggered)
   const userMsg = (text: string) => ({ role: 'user' as const, content: text, timestamp: Date.now() });
-  agent.appendMessage(userMsg(contextMessage));
+  agent.state.messages = [...agent.state.messages, userMsg(contextMessage)];
   if (options.hint) {
-    agent.appendMessage(userMsg(`Direction from the user: ${options.hint}`));
+    agent.state.messages = [...agent.state.messages, userMsg(`Direction from the user: ${options.hint}`)];
   }
 
   // Run initial prompt (or skip with --no-intro)
@@ -587,13 +587,13 @@ export async function storyCommand(
       console.log('');
     }
   } else {
-    agent.setTools([]);
+    agent.state.tools = [];
     const introInstruction = story?.storyline
       ? 'Briefly introduce the current storyline and timeline state, then wait for my direction.'
       : 'Briefly introduce what these source videos contain and wait for my direction before proceeding.';
     await runAgent(introInstruction);
   }
-  agent.setTools(allTools);
+  agent.state.tools = allTools;
 
   // Slash commands
   const slashCommands: Record<string, { description: string }> = {
@@ -789,7 +789,7 @@ export async function storyCommand(
             timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(toolsCtx.currentItems), null, 2) : null,
             computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
           });
-          agent.appendMessage({ role: 'user' as const, content: switchContext, timestamp: Date.now() });
+          agent.state.messages = [...agent.state.messages, { role: 'user' as const, content: switchContext, timestamp: Date.now() }];
 
           // Show timeline if available
           const timelineLines = renderTimeline(

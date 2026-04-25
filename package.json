@@ -12,7 +12,17 @@
   "bugs": {
     "url": "https://github.com/jysperm/Montai/issues"
   },
-  "keywords": ["video", "editing", "ai", "llm", "gemini", "remotion", "vlog", "fcpxml", "cli"],
+  "keywords": [
+    "video",
+    "editing",
+    "ai",
+    "llm",
+    "gemini",
+    "remotion",
+    "vlog",
+    "fcpxml",
+    "cli"
+  ],
   "engines": {
     "node": ">=22"
   },
@@ -33,8 +43,8 @@
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@inquirer/prompts": "^8.4.1",
-    "@mariozechner/pi-agent-core": "0.52.12",
-    "@mariozechner/pi-ai": "0.52.12",
+    "@mariozechner/pi-agent-core": "^0.70.2",
+    "@mariozechner/pi-ai": "^0.70.2",
     "@remotion/cli": "4.0.434",
     "@remotion/media": "4.0.434",
     "@remotion/transitions": "4.0.434",
@@ -53,6 +63,7 @@
     "remotion": "4.0.434",
     "string-width": "^8.2.0",
     "tsx": "^4.19.0",
+    "typebox": "^1.1.33",
     "update-notifier": "^7.3.1",
     "yaml": "^2.7.0",
     "zod": "^4.3.6"

@@ -1,0 +1,28 @@
+diff --git a/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts b/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
+index af45997..df021e2 100644
+--- a/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
++++ b/node_modules/@mariozechner/pi-agent-core/dist/types.d.ts
+@@ -1,4 +1,4 @@
+-import type { AssistantMessage, AssistantMessageEvent, ImageContent, Message, Model, SimpleStreamOptions, streamSimple, TextContent, Tool, ToolResultMessage } from "@mariozechner/pi-ai";
++import type { AssistantMessage, AssistantMessageEvent, FileContent, ImageContent, Message, Model, SimpleStreamOptions, streamSimple, TextContent, Tool, ToolResultMessage } from "@mariozechner/pi-ai";
+ import type { Static, TSchema } from "typebox";
+ /**
+  * Stream function used by the agent loop.
+@@ -46,7 +46,7 @@ export interface BeforeToolCallResult {
+  * There is no deep merge for `content` or `details`.
+  */
+ export interface AfterToolCallResult {
+-    content?: (TextContent | ImageContent)[];
++    content?: (TextContent | ImageContent | FileContent)[];
+     details?: unknown;
+     isError?: boolean;
+     /**
+@@ -258,7 +258,7 @@ export interface AgentState {
+ /** Final or partial result produced by a tool. */
+ export interface AgentToolResult<T> {
+     /** Text or image content returned to the model. */
+-    content: (TextContent | ImageContent)[];
++    content: (TextContent | ImageContent | FileContent)[];
+     /** Arbitrary structured details for logs or UI rendering. */
+     details: T;
+     /**

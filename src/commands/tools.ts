@@ -1,7 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
 import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import type { Agent } from '@mariozechner/pi-agent-core';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import type { MontaiDb } from '../db/index.js';
 import { stories, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
 import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
@@ -456,7 +456,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
         if (ctx.agent) {
           const contextMessage = renderPrompt('story-switch', { name: ctx.currentStoryName, isNew: true });
-          ctx.agent.appendMessage({ role: 'user' as const, content: contextMessage, timestamp: Date.now() });
+          ctx.agent.state.messages = [...ctx.agent.state.messages, { role: 'user' as const, content: contextMessage, timestamp: Date.now() }];
         }
 
         const nameHint = ctx.currentStoryName ? ` Name "${ctx.currentStoryName}" is pre-set;` : '';
@@ -496,7 +496,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
           timelineItems: ctx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(ctx.currentItems), null, 2) : null,
           computedTimeline: ctx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(ctx.currentItems)) : null,
         });
-        ctx.agent.appendMessage({ role: 'user' as const, content: contextMessage, timestamp: Date.now() });
+        ctx.agent.state.messages = [...ctx.agent.state.messages, { role: 'user' as const, content: contextMessage, timestamp: Date.now() }];
       }
 
       const textContent: TextContent = {

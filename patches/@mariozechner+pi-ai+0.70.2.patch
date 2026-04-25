@@ -1,8 +1,8 @@
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js b/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
-index 0bf2b89..4639fbf 100644
+index 1062755..540a3a9 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/anthropic.js
-@@ -71,6 +71,8 @@ const fromClaudeCodeName = (name, tools) => {
+@@ -72,6 +72,8 @@ const fromClaudeCodeName = (name, tools) => {
   * Convert content blocks to Anthropic API format
   */
  function convertContentBlocks(content) {
@@ -11,7 +11,7 @@ index 0bf2b89..4639fbf 100644
      // If only text blocks, return as concatenated string for simplicity
      const hasImages = content.some((c) => c.type === "image");
      if (!hasImages) {
-@@ -527,7 +529,7 @@ function convertMessages(messages, model, isOAuthToken, cacheControl) {
+@@ -739,7 +741,7 @@ function convertMessages(messages, model, isOAuthToken, cacheControl) {
                  }
              }
              else {
@@ -21,10 +21,10 @@ index 0bf2b89..4639fbf 100644
                          return {
                              type: "text",
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
-index 8886935..bdcb45c 100644
+index 1bc51fa..6f0612a 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
-@@ -81,6 +81,21 @@ export function convertMessages(model, context) {
+@@ -98,6 +98,21 @@ export function convertMessages(model, context) {
                      if (item.type === "text") {
                          return { text: sanitizeSurrogates(item.text) };
                      }
@@ -46,16 +46,7 @@ index 8886935..bdcb45c 100644
                      else {
                          return {
                              inlineData: {
-@@ -141,7 +156,7 @@ export function convertMessages(model, context) {
-                     // convert unsigned function calls to text to avoid API validation errors.
-                     // We include a note telling the model this is historical context to prevent mimicry.
-                     const isGemini3 = model.id.toLowerCase().includes("gemini-3");
--                    if (isGemini3 && !thoughtSignature) {
-+                    if (isGemini3 && !thoughtSignature && !isSameProviderAndModel) {
-                         const argsStr = JSON.stringify(block.arguments ?? {}, null, 2);
-                         parts.push({
-                             text: `[Historical context: a different model called tool "${block.name}" with arguments: ${argsStr}. Do not mimic this format - use proper function calling.]`,
-@@ -170,12 +185,13 @@ export function convertMessages(model, context) {
+@@ -176,12 +191,13 @@ export function convertMessages(model, context) {
              });
          }
          else if (msg.role === "toolResult") {
@@ -69,8 +60,8 @@ index 8886935..bdcb45c 100644
 +            const fileContent = msg.content.filter((c) => c.type === "file");
              const hasText = textResult.length > 0;
              const hasImages = imageContent.length > 0;
-             // Gemini 3 supports multimodal function responses with images nested inside functionResponse.parts
-@@ -219,6 +235,35 @@ export function convertMessages(model, context) {
+             // Gemini 3+ models support multimodal function responses with images nested inside
+@@ -224,6 +240,34 @@ export function convertMessages(model, context) {
                      parts: [{ text: "Tool result image:" }, ...imageParts],
                  });
              }
@@ -91,7 +82,6 @@ index 8886935..bdcb45c 100644
 +                    }
 +                    return part;
 +                });
-+                // Append file parts to the last user turn (which has the functionResponse)
 +                const lastContent = contents[contents.length - 1];
 +                if (lastContent?.role === "user") {
 +                    lastContent.parts.push(...fileParts);
@@ -107,10 +97,10 @@ index 8886935..bdcb45c 100644
      }
      return contents;
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
-index 8c97431..cf079ae 100644
+index fdc4439..8510672 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
-@@ -445,7 +445,7 @@ export function convertMessages(model, context, compat) {
+@@ -566,7 +566,7 @@ export function convertMessages(model, context, compat) {
                  });
              }
              else {
@@ -120,10 +110,10 @@ index 8c97431..cf079ae 100644
                          return {
                              type: "text",
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
-index 00c5801..bf04117 100644
+index 3081455..183e6a5 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/openai-responses-shared.js
-@@ -61,7 +61,7 @@ export function convertResponsesMessages(model, context, allowedToolCallProvider
+@@ -79,7 +79,7 @@ export function convertResponsesMessages(model, context, allowedToolCallProvider
                  });
              }
              else {
@@ -133,10 +123,10 @@ index 00c5801..bf04117 100644
                          return {
                              type: "input_text",
 diff --git a/node_modules/@mariozechner/pi-ai/dist/types.d.ts b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
-index 4227403..5247330 100644
+index df45596..751554a 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/types.d.ts
 +++ b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
-@@ -82,6 +82,15 @@ export interface ImageContent {
+@@ -111,6 +111,15 @@ export interface ImageContent {
      data: string;
      mimeType: string;
  }
@@ -152,7 +142,7 @@ index 4227403..5247330 100644
  export interface ToolCall {
      type: "toolCall";
      id: string;
-@@ -106,7 +115,7 @@ export interface Usage {
+@@ -135,7 +144,7 @@ export interface Usage {
  export type StopReason = "stop" | "length" | "toolUse" | "error" | "aborted";
  export interface UserMessage {
      role: "user";
@@ -161,7 +151,7 @@ index 4227403..5247330 100644
      timestamp: number;
  }
  export interface AssistantMessage {
-@@ -124,7 +133,7 @@ export interface ToolResultMessage<TDetails = any> {
+@@ -154,7 +163,7 @@ export interface ToolResultMessage<TDetails = any> {
      role: "toolResult";
      toolCallId: string;
      toolName: string;
