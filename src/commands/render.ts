@@ -13,8 +13,8 @@ export async function renderCommand(name?: string, options?: { fromArchived?: bo
   const config = loadProjectConfig();
   const db = getDb();
 
-  let specs = loadExpandedTimelines(db, config, name);
-  if (!specs) return;
+  let { timelines: specs } = loadExpandedTimelines(db, config, name);
+  if (specs.length === 0) return;
 
   if (options?.fromArchived) {
     specs = remapToArchived(specs);

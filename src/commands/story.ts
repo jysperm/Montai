@@ -1,6 +1,8 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import * as readline from 'readline';
+import { spawn, type ChildProcess } from 'child_process';
+import { fileURLToPath } from 'url';
 import { select } from '@inquirer/prompts';
 import stringWidth from 'string-width';
 import { eq, desc } from 'drizzle-orm';
@@ -8,7 +10,7 @@ import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
 import { videos, videoAnalyses, projectContext, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses } from '../db/schema.js';
-import { loadProjectConfig, readProjectFile } from '../utils/project.js';
+import { loadProjectConfig, readProjectFile, loadExpandedTimelines } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
 import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
 import { z } from 'zod';
@@ -20,9 +22,8 @@ import { ApiDebugCapture } from '../utils/api-debug.js';
 import { getStoryTools } from './tools.js';
 import { resolveFeatureFlags } from '../feature-flags.js';
 import { renderTimeline } from '../utils/render-timeline.js';
-import { exportCommand } from './export.js';
-import { renderCommand } from './render.js';
-import { previewCommand } from './preview.js';
+import { exportFcpxmlFiles } from './export.js';
+import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
 
 function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -64,6 +65,12 @@ async function selectStoryInteractive(allStories: StoryRow[]): Promise<StorySele
   }
 }
 
+// TUI output convention: each output block adds its own trailing blank line
+// (console.log('')) for spacing. The prompt uses '> ' without a leading '\n',
+// relying on the previous block's trailing blank line for separation.
+// Use console.log for all visible content (ensures trailing '\n'); reserve
+// process.stdout.write for cursor/ANSI control only. If a write lacks a
+// trailing '\n', readline will erase it when drawing the next prompt.
 export async function storyCommand(
   name?: string,
   options: { new?: boolean; list?: boolean; hint?: string; intro?: boolean } = {},
@@ -177,6 +184,7 @@ export async function storyCommand(
 
   if (story) {
     console.log(chalk.green(`Resuming story: ${story.title} ${chalk.cyan(story.name)}`));
+    console.log('');
   } else {
     console.log(chalk.blue('Starting new story...'));
   }
@@ -218,6 +226,7 @@ export async function storyCommand(
     currentStoryName: story?.name ?? null,
     currentItems: [] as TimelineItem[],
     agent: null as import('@mariozechner/pi-agent-core').Agent | null,
+    timelineVersion: 0,
   };
 
   // Restore raw items from stored timeline on resume
@@ -230,6 +239,10 @@ export async function storyCommand(
   }
 
   let totalCost = 0;
+  let autoExport = false;
+  let autoPreview = false;
+  let previewChild: ChildProcess | null = null;
+  let linkedMedia = new Set<string>();
 
   const { tools: allTools, resetWatchCount } = getStoryTools(toolsCtx);
 
@@ -256,6 +269,7 @@ export async function storyCommand(
 
   let lastAssistantText = '';
   let lastToolArgs: Record<string, unknown> = {};
+  let hadToolOutput = false;
   let debugStep = 0;
   let debugTurnStartTime = 0;
 
@@ -313,6 +327,7 @@ export async function storyCommand(
             break;
           }
 
+          hadToolOutput = true;
           const check = chalk.green('✓');
           const toolLabel = chalk.green(event.toolName);
 
@@ -510,19 +525,28 @@ export async function storyCommand(
 
   // Helper to run agent and display response, catching errors
   async function runAgent(message: string): Promise<void> {
+    hadToolOutput = false;
     try {
       await agent.prompt(message);
       await agent.waitForIdle();
     } catch (err) {
       spinner.stop();
-      console.log(chalk.red(`\n  Agent error: ${err}`));
+      console.log('');
+      console.log(chalk.red(`  Agent error: ${err}`));
       console.log(chalk.dim('  You can retry or give different instructions.'));
+      console.log('');
     }
     spinner.stop();
 
     if (lastAssistantText) {
+      if (hadToolOutput) {
+        console.log('');
+      }
       const formatted = lastAssistantText.trimEnd().replace(/\*\*(.+?)\*\*/g, (_, text) => chalk.bold(text));
-      console.log(`\n${formatted}`);
+      console.log(formatted);
+      if (!formatted.endsWith('\n')) {
+        console.log('');
+      }
       lastAssistantText = '';
     }
 
@@ -533,10 +557,10 @@ export async function storyCommand(
       toolsCtx.currentStoryName ?? undefined,
     );
     if (timelineLines.length > 0) {
-      console.log('');
       for (const line of timelineLines) {
         console.log(line);
       }
+      console.log('');
     }
   }
 
@@ -560,6 +584,7 @@ export async function storyCommand(
       for (const line of timelineLines) {
         console.log(line);
       }
+      console.log('');
     }
   } else {
     agent.setTools([]);
@@ -573,14 +598,10 @@ export async function storyCommand(
   // Slash commands
   const slashCommands: Record<string, { description: string }> = {
     switch: { description: 'switch to another story' },
-    export: { description: '.fcpxml from timeline' },
-    render: { description: 'video via Remotion' },
-    preview: { description: 'open Remotion Studio' },
+    export: { description: 'toggle auto export on timeline change' },
+    preview: { description: 'toggle background Remotion Studio' },
   };
   const slashCommandActions: Record<string, (storyName: string) => Promise<void>> = {
-    export: (name) => exportCommand(name),
-    render: (name) => renderCommand(name),
-    preview: (name) => previewCommand(name),
   };
   const slashCommandNames = Object.keys(slashCommands);
 
@@ -626,7 +647,6 @@ export async function storyCommand(
   // Switch to slash prompt when '/' is typed at the beginning
   let slashMode = false;
   let hintRowCount = 0;
-  const normalPrompt = chalk.green('\n> ');
 
   function getTerminalRows(text: string): number {
     const cols = process.stdout.columns || 80;
@@ -706,11 +726,13 @@ export async function storyCommand(
     });
   };
 
+  let prevTimelineVersion = toolsCtx.timelineVersion;
+
   try {
     while (true) {
       slashMode = false;
       hintRowCount = 0;
-      const userInput = await askQuestion(normalPrompt);
+      const userInput = await askQuestion(chalk.green('> '));
 
       if (userInput === null) {
         // readline closed (ctrl-c, ctrl-d)
@@ -745,6 +767,7 @@ export async function storyCommand(
             toolsCtx.currentStoryName = existingStory.name;
             toolsCtx.currentItems = existingStory.timeline ? z.array(TimelineItemSchema).parse(JSON.parse(existingStory.timeline)) : [];
             console.log(chalk.green(`Switched to story: ${existingStory.title} ${chalk.cyan(existingStory.name)}`));
+            console.log('');
           } else {
             if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(targetName)) {
               console.log(chalk.red('Story name must be kebab-case (lowercase letters, numbers, hyphens).'));
@@ -754,6 +777,7 @@ export async function storyCommand(
             toolsCtx.currentStoryName = targetName;
             toolsCtx.currentItems = [];
             console.log(chalk.blue(`Starting new story: ${chalk.cyan(targetName)}`));
+            console.log('');
           }
 
           // Inject context into agent conversation
@@ -775,10 +799,63 @@ export async function storyCommand(
             toolsCtx.currentStoryName ?? undefined,
           );
           if (timelineLines.length > 0) {
-            console.log('');
             for (const line of timelineLines) {
               console.log(line);
             }
+            console.log('');
+          }
+
+          toolsCtx.timelineVersion++;
+        } else if (cmd === 'export') {
+          autoExport = !autoExport;
+          console.log(chalk.blue(`Auto export: ${autoExport ? 'on' : 'off'}`));
+        } else if (cmd === 'preview') {
+          autoPreview = !autoPreview;
+          if (autoPreview) {
+            const storyName = toolsCtx.currentStoryName;
+            if (!storyName) {
+              console.log(chalk.red('No story yet. Create a storyline first.'));
+              autoPreview = false;
+              continue;
+            }
+            const { timelines } = loadExpandedTimelines(db, config, storyName, { quiet: true });
+            const publicDir = preparePublicDir(timelines);
+            linkedMedia = collectMediaFiles(timelines);
+            const remotionProjectDir = fileURLToPath(new URL('../../remotion', import.meta.url));
+            previewChild = spawn('npx', ['remotion', 'studio', 'src/index.tsx', `--public-dir=${publicDir}`], {
+              cwd: remotionProjectDir,
+              stdio: ['ignore', 'pipe', 'pipe'],
+            });
+            let urlShown = false;
+            const onData = (data: Buffer) => {
+              if (urlShown) return;
+              const match = data.toString().match(/(https?:\/\/localhost:\d+)/);
+              if (match) {
+                console.log(chalk.blue(`  Remotion Studio: ${match[1]}`));
+                urlShown = true;
+              }
+            };
+            previewChild.stdout?.on('data', onData);
+            previewChild.stderr?.on('data', onData);
+            previewChild.on('error', (err) => {
+              console.log(chalk.red(`  Remotion Studio failed to start: ${err.message}`));
+              previewChild = null;
+              autoPreview = false;
+            });
+            previewChild.on('exit', () => {
+              if (autoPreview) {
+                console.log(chalk.yellow('  Remotion Studio exited — auto preview disabled'));
+                autoPreview = false;
+              }
+              previewChild = null;
+            });
+            console.log(chalk.blue('Auto preview: on — Remotion Studio starting in background'));
+          } else {
+            if (previewChild) {
+              previewChild.kill();
+              previewChild = null;
+            }
+            console.log(chalk.blue('Auto preview: off'));
           }
         } else {
           const storyName = toolsCtx.currentStoryName;
@@ -796,18 +873,64 @@ export async function storyCommand(
       } else {
         if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;
 
+        console.log('');
         spinner.text = 'Thinking...';
         spinner.start();
         await runAgent(trimmed);
       }
+
+      if (toolsCtx.timelineVersion !== prevTimelineVersion) {
+        prevTimelineVersion = toolsCtx.timelineVersion;
+        const storyName = toolsCtx.currentStoryName;
+        if (storyName && (autoExport || autoPreview)) {
+          const result = loadExpandedTimelines(db, config, storyName, { quiet: true });
+          if (result.errors.length > 0) {
+            const targets = [autoPreview && 'Remotion', autoExport && 'FCPXML'].filter(Boolean).join(' and ');
+            console.log(chalk.yellow(`${targets} failed: ${result.errors.join('; ')}`));
+          } else if (result.timelines.length > 0) {
+            const parts: string[] = [];
+
+            if (autoPreview) {
+              const currentMedia = collectMediaFiles(result.timelines);
+              const hasNewMedia = [...currentMedia].some(f => !linkedMedia.has(f));
+              if (hasNewMedia) {
+                preparePublicDir(result.timelines);
+                linkedMedia = currentMedia;
+              } else {
+                writeTimelinesJson(result.timelines);
+              }
+              parts.push('Remotion');
+            }
+
+            if (autoExport) {
+              exportFcpxmlFiles(result.timelines, db);
+              parts.push('FCPXML');
+            }
+
+            let msg = parts.join(' and ') + ' updated';
+            if (result.correctionCount > 0) {
+              msg += ` with ${result.correctionCount} correction${result.correctionCount !== 1 ? 's' : ''}`;
+            }
+            console.log(chalk.dim(msg));
+          } else if (autoPreview) {
+            writeTimelinesJson([]);
+            linkedMedia = new Set();
+          }
+        }
+      }
     }
   } finally {
     rl.close();
+    if (previewChild) {
+      autoPreview = false;
+      previewChild.kill();
+      previewChild = null;
+    }
   }
 
   process.removeListener('unhandledRejection', rejectionHandler);
 
-  console.log(chalk.dim(`\nTotal cost: ${formatCost(totalCost)}`));
+  console.log(chalk.dim(`Total cost: ${formatCost(totalCost)}`));
 
   if (toolsCtx.currentStoryId) {
     const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();

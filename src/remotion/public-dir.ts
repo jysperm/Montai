@@ -3,6 +3,22 @@ import { mkdirSync, linkSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { resolve, basename } from 'path';
 import type { ExpandedTimeline } from '../schemas/timeline.js';
 
+export function collectMediaFiles(timelines: ExpandedTimeline[]): Set<string> {
+  const files = new Set<string>();
+  for (const t of timelines) {
+    for (const clip of t.clips) files.add(basename(clip.sourceFile));
+    for (const a of t.audioTracks ?? []) if (a.sourceFile) files.add(basename(a.sourceFile));
+    for (const v of t.voiceoverTracks ?? []) if (v.sourceFile) files.add(basename(v.sourceFile));
+  }
+  return files;
+}
+
+export function writeTimelinesJson(timelines: ExpandedTimeline[]): void {
+  const publicDir = resolve('.montai/public');
+  mkdirSync(publicDir, { recursive: true });
+  writeFileSync(resolve(publicDir, 'timelines.json'), JSON.stringify(timelines, null, 2));
+}
+
 export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[]): string {
   const timelineArray = Array.isArray(timelines) ? timelines : [timelines];
   const publicDir = resolve('.montai/public');

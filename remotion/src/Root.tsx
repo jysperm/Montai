@@ -1,6 +1,6 @@
-import { useMemo } from 'react';
+import { useState, useEffect } from 'react';
 import type { AnyZodObject } from 'zod';
-import { Composition, staticFile } from 'remotion';
+import { Composition, staticFile, watchStaticFile } from 'remotion';
 import { MontaiVideo, calculateTotalFrames, type TimelineProps } from './MontaiVideo';
 
 function loadTimelinesSync(): TimelineProps[] {
@@ -18,7 +18,17 @@ function loadTimelinesSync(): TimelineProps[] {
 }
 
 export const RemotionRoot = () => {
-  const timelines = useMemo(() => loadTimelinesSync(), []);
+  const [timelines, setTimelines] = useState(() => loadTimelinesSync());
+
+  useEffect(() => {
+    const { cancel } = watchStaticFile('timelines.json', () => {
+      fetch(staticFile('timelines.json'))
+        .then(r => r.json())
+        .then(data => setTimelines(data))
+        .catch(err => console.error('Failed to reload timelines.json:', err));
+    });
+    return cancel;
+  }, []);
 
   return (
     <>

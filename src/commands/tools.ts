@@ -32,6 +32,7 @@ export interface StoryToolsContext {
   currentStoryName: string | null;
   currentItems: TimelineItem[];
   agent: Agent | null;
+  timelineVersion: number;
 }
 
 export function getStoryTools(ctx: StoryToolsContext) {
@@ -167,6 +168,8 @@ export function getStoryTools(ctx: StoryToolsContext) {
         })
         .where(eq(stories.id, ctx.currentStoryId))
         .run();
+
+      ctx.timelineVersion++;
 
       const finalClipCount = ctx.currentItems.filter((i) => i.type === 'clip').length;
       const overlayCount = ctx.currentItems.filter((i) => i.type === 'overlay').length;

@@ -140,7 +140,17 @@ export function getVoiceoverFilename(filepath: string): string {
  * If name is given, loads that single story; otherwise loads all stories with timelines.
  * Returns null and prints an error if no timelines are found.
  */
-export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?: string): ExpandedTimeline[] | null {
+export interface LoadExpandedOptions {
+  quiet?: boolean;
+}
+
+export interface LoadExpandedResult {
+  timelines: ExpandedTimeline[];
+  correctionCount: number;
+  errors: string[];
+}
+
+export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?: string, options?: LoadExpandedOptions): LoadExpandedResult {
   let storyRows: { name: string; title: string; timeline: string }[];
   if (name) {
     const row = db.select({ name: stories.name, title: stories.title, timeline: stories.timeline }).from(stories).where(eq(stories.name, name)).get();
@@ -158,29 +168,38 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   }
 
   if (storyRows.length === 0) {
-    console.log(
-      chalk.red(
-        name
-          ? `Timeline "${name}" not found. Run ${chalk.bold('montai story')} first.`
-          : `No timelines found. Run ${chalk.bold('montai story')} first.`,
-      ),
-    );
-    return null;
+    if (!options?.quiet) {
+      console.log(
+        chalk.yellow(
+          name
+            ? `Timeline "${name}" not found. Run ${chalk.bold('montai story')} first.`
+            : `No timelines found. Run ${chalk.bold('montai story')} first.`,
+        ),
+      );
+    }
+    return { timelines: [], correctionCount: 0, errors: [] };
   }
 
   const allVideos = db.select().from(videos).all();
   const allMusic = db.select().from(music).all();
   const allVoiceovers = db.select().from(voiceovers).all();
-  return storyRows.map(r => {
+  let correctionCount = 0;
+  const allErrors: string[] = [];
+  const timelines = storyRows.map(r => {
     const items = z.array(TimelineItemSchema).parse(JSON.parse(r.timeline));
     const { timeline, corrections, errors } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic, allVoiceovers);
-    if (corrections.length > 0) {
-      console.log(chalk.yellow(`Timeline "${r.name}" corrections:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
-    }
-    if (errors.length > 0) {
-      console.log(chalk.red(`Timeline "${r.name}" errors:\n${errors.map((e) => `  - ${e}`).join('\n')}`));
+    correctionCount += corrections.length;
+    allErrors.push(...errors);
+    if (!options?.quiet) {
+      if (corrections.length > 0) {
+        console.log(chalk.yellow(`Timeline "${r.name}" corrections:\n${corrections.map((c) => `  - ${c}`).join('\n')}`));
+      }
+      if (errors.length > 0) {
+        console.log(chalk.red(`Timeline "${r.name}" errors:\n${errors.map((e) => `  - ${e}`).join('\n')}`));
+      }
     }
     return timeline;
   });
+  return { timelines, correctionCount, errors: allErrors };
 }
 

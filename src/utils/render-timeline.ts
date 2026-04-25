@@ -422,7 +422,6 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   // Assemble output
   const pad = ' '.repeat(padding);
   const lines: string[] = [];
-  lines.push('');
   lines.push(pad + chalk.dim(summary));
   for (let i = lanes.length - 1; i >= 0; i--) {
     lines.push(pad + renderLane(lanes[i], trackWidth));

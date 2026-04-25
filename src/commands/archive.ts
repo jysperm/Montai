@@ -128,8 +128,8 @@ export async function archiveCommand(
   const config = loadProjectConfig();
   const db = getDb();
 
-  const specs = loadExpandedTimelines(db, config);
-  if (!specs) return;
+  const { timelines: specs } = loadExpandedTimelines(db, config);
+  if (specs.length === 0) return;
 
   const allVideos = db.select().from(videos).all();
   const videoMap = new Map(allVideos.map(v => [v.id, v]));

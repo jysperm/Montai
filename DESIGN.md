@@ -142,13 +142,15 @@ Sessions can be resumed: `montai story <name>` restores the current storyline an
 
 After each agent response, a TUI timeline visualization is printed showing clips as `[ vN ]` blocks (proportional to duration), transitions as `~`, and overlays as `‹arrow style arrow›` on lanes above the clip track. Overlays that overlap in time are placed on separate lanes, with lanes ordered bottom-up (closest to clips first). Arrow characters indicate overlay position (e.g. `↙` for bottom-left, `─` for center).
 
+The TUI provides slash commands: `/switch <name>` switches stories, `/render` triggers a render, and `/export` and `/preview` are toggles for auto mode. When `/export` is on, FCPXML is regenerated after each LLM turn that modifies the timeline. When `/preview` is on, Remotion Studio runs in the background and `timelines.json` is updated after each timeline change (full `preparePublicDir` only runs when new media files appear). A single status line is printed after the auto operations (e.g. "Remotion and FCPXML updated with 2 corrections").
+
 ### 3. Render (`montai render [name]`)
 
 Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files, then runs `npx remotion render` for each timeline against Montai's built-in static Remotion project with `--props` and `--public-dir` flags. Output goes to `output/<name>.mp4`.
 
 ### 4. Preview (`montai preview [name]`)
 
-Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files and a `timelines.json` index, then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Root.tsx dynamically registers one Composition per timeline, so all stories appear in the Studio sidebar.
+Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files and a `timelines.json` index, then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Root.tsx dynamically registers one Composition per timeline, so all stories appear in the Studio sidebar. Root.tsx uses `watchStaticFile` to monitor `timelines.json` for changes and automatically re-fetches it, enabling live updates when the story TUI's auto-preview mode rewrites the file.
 
 ### 5. Export (`montai export [name]`)
 

@@ -1,40 +1,49 @@
 import chalk from 'chalk';
 import { writeFileSync, mkdirSync } from 'fs';
 import { basename, resolve } from 'path';
-import { initDb } from '../db/index.js';
+import { initDb, type MontaiDb } from '../db/index.js';
 import { videos, music, voiceovers } from '../db/schema.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { generateFcpxml, type VideoFormatInfo, type AudioFormatInfo } from '../fcpxml/generate.js';
 import { remapToArchived } from '../utils/archived-videos.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
+import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 export async function exportCommand(name?: string, options?: { fcp?: boolean; davinci?: boolean; fromArchived?: boolean }) {
   const target: 'fcp' | 'davinci' = options?.davinci ? 'davinci' : 'fcp';
   const config = loadProjectConfig();
   const db = await initDb();
 
-  let specs = loadExpandedTimelines(db, config, name);
-  if (!specs) return;
+  let { timelines: specs } = loadExpandedTimelines(db, config, name);
+  if (specs.length === 0) return;
 
+  let archivedMeta: Map<string, VideoFormatInfo> | undefined;
   if (options?.fromArchived) {
     specs = remapToArchived(specs);
-  }
-
-  // When using archived files, probe them directly for accurate metadata;
-  // otherwise use metadata from the database.
-  const archivedMeta = new Map<string, VideoFormatInfo>();
-  if (options?.fromArchived) {
+    archivedMeta = new Map();
     for (const spec of specs) {
       for (const clip of spec.clips) {
         const filename = basename(clip.sourceFile);
         if (!archivedMeta.has(filename)) {
-          const meta = getVideoMetadata(clip.sourceFile);
-          archivedMeta.set(filename, meta);
+          archivedMeta.set(filename, getVideoMetadata(clip.sourceFile));
         }
       }
     }
   }
 
+  exportFcpxmlFiles(specs, db, target, archivedMeta);
+
+  for (const spec of specs) {
+    console.log(chalk.green(`FCPXML written to fcpxml/${spec.name}.fcpxml`));
+  }
+}
+
+export function exportFcpxmlFiles(
+  specs: ExpandedTimeline[],
+  db: MontaiDb,
+  target: 'fcp' | 'davinci' = 'fcp',
+  archivedMeta?: Map<string, VideoFormatInfo>,
+): void {
   const allVideos = db.select().from(videos).all();
   const allMusic = db.select().from(music).all();
   const allVoiceovers = db.select().from(voiceovers).all();
@@ -46,7 +55,7 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
     for (const clip of spec.clips) {
       const filename = basename(clip.sourceFile);
       if (!videoMeta.has(filename)) {
-        const probed = archivedMeta.get(filename);
+        const probed = archivedMeta?.get(filename);
         if (probed) {
           videoMeta.set(filename, probed);
         } else {
@@ -67,7 +76,6 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
       }
     }
 
-    // Build audio metadata map for music files
     const audioMetaMap = new Map<string, AudioFormatInfo>();
     for (const audio of spec.audioTracks ?? []) {
       if (!audio.sourceFile) continue;
@@ -84,7 +92,6 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
       }
     }
 
-    // Build voiceover metadata map
     const voiceoverMetaMap = new Map<string, AudioFormatInfo>();
     for (const vo of spec.voiceoverTracks ?? []) {
       if (!vo.sourceFile) continue;
@@ -109,6 +116,5 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
     }, audioMetaMap, voiceoverMetaMap);
     const outputPath = resolve(`fcpxml/${spec.name}.fcpxml`);
     writeFileSync(outputPath, fcpxml, 'utf-8');
-    console.log(chalk.green(`FCPXML written to fcpxml/${spec.name}.fcpxml`));
   }
 }

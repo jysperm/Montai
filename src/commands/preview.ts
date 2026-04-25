@@ -10,8 +10,8 @@ export async function previewCommand(name?: string, options?: { fromArchived?: b
   const config = loadProjectConfig();
   const db = getDb();
 
-  let specs = loadExpandedTimelines(db, config, name);
-  if (!specs) return;
+  let { timelines: specs } = loadExpandedTimelines(db, config, name);
+  if (specs.length === 0) return;
 
   if (options?.fromArchived) {
     specs = remapToArchived(specs);
