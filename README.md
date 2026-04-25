@@ -78,6 +78,8 @@ montai export --davinci    # for DaVinci Resolve
 
 The `montai story` command opens an interactive session where you chat with AI to craft your storyline and timeline. You can use any language to iteratively refine the edit — adjust pacing, reorder scenes, add or remove clips, and tweak transitions — all through natural conversation.
 
+![montai story demo](example/demo.gif)
+
 ### Editing Capabilities
 
 - **Clip trimming** — select segments from any analyzed video with precise start/end times
