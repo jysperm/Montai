@@ -268,7 +268,7 @@ export async function storyCommand(
   toolsCtx.agent = agent;
 
   let lastAssistantText = '';
-  let lastToolArgs: Record<string, unknown> = {};
+  const toolArgsMap = new Map<string, Record<string, unknown>>();
   let hadToolOutput = false;
   let debugStep = 0;
   let debugTurnStartTime = 0;
@@ -303,12 +303,14 @@ export async function storyCommand(
           break;
         }
         case 'tool_execution_start':
-          lastToolArgs = event.args as Record<string, unknown>;
+          toolArgsMap.set(event.toolCallId, (event.args ?? {}) as Record<string, unknown>);
           spinner.text = `${event.toolName}...`;
           break;
         case 'tool_execution_end': {
           spinner.stop();
-          logToolCall(event.toolName, lastToolArgs, event.result);
+          const toolArgs = toolArgsMap.get(event.toolCallId) ?? {};
+          toolArgsMap.delete(event.toolCallId);
+          logToolCall(event.toolName, toolArgs, event.result);
 
           // Check both framework-level isError (from thrown exceptions) and
           // tool-level isError (returned in result) — pi-agent-core only sets
@@ -333,27 +335,29 @@ export async function storyCommand(
 
           switch (event.toolName) {
             case 'updateStoryline': {
-              const title = lastToolArgs.title as string;
-              const storyName = lastToolArgs.name as string;
-              const narrative = lastToolArgs.narrative as string;
-              console.log(`  ${check} ${toolLabel}: ${title}  ${chalk.cyan(storyName)}`);
-              for (const line of narrative.split('\n')) {
-                console.log(chalk.dim(`    ${line}`));
+              const title = toolArgs.title as string | undefined;
+              const storyName = toolArgs.name as string | undefined;
+              const narrative = toolArgs.narrative as string | undefined;
+              console.log(`  ${check} ${toolLabel}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
+              if (narrative) {
+                for (const line of narrative.split('\n')) {
+                  console.log(chalk.dim(`    ${line}`));
+                }
               }
               console.log('');
               break;
             }
             case 'watchSegment': {
-              const videoId = lastToolArgs.videoId as number;
-              const startSec = lastToolArgs.startSeconds as number;
-              const endSec = lastToolArgs.endSeconds as number;
+              const videoId = toolArgs.videoId as number;
+              const startSec = toolArgs.startSeconds as number;
+              const endSec = toolArgs.endSeconds as number;
               const dur = formatDuration(endSec - startSec);
               console.log(`  ${check} ${toolLabel}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
               break;
             }
             case 'updateTimeline': {
-              const deleteCount = lastToolArgs.deleteCount as number;
-              const newItems = (lastToolArgs.items ?? []) as Array<{ type: string }>;
+              const deleteCount = toolArgs.deleteCount as number;
+              const newItems = (toolArgs.items ?? []) as Array<{ type: string }>;
               const addedCounts = countItemsByType(newItems);
               const hasAdded = newItems.length > 0;
               const hasDeleted = deleteCount !== 0;
@@ -375,22 +379,22 @@ export async function storyCommand(
               break;
             }
             case 'getVideoAnalysis': {
-              const videoId = lastToolArgs.videoId as number;
+              const videoId = toolArgs.videoId as number;
               console.log(`  ${check} ${toolLabel}: video ${videoId}`);
               break;
             }
             case 'getMusicAnalysis': {
-              const musicId = lastToolArgs.musicId as number;
+              const musicId = toolArgs.musicId as number;
               console.log(`  ${check} ${toolLabel}: music ${musicId}`);
               break;
             }
             case 'getVoiceoverAnalysis': {
-              const voiceoverId = lastToolArgs.voiceoverId as number;
+              const voiceoverId = toolArgs.voiceoverId as number;
               console.log(`  ${check} ${toolLabel}: voiceover ${voiceoverId}`);
               break;
             }
             case 'generateMusic': {
-              const prompt = lastToolArgs.prompt as string;
+              const prompt = toolArgs.prompt as string;
               const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
               const idMatch = resultText.match(/Music ID: (\d+)/);
               const musicId = idMatch ? idMatch[1] : '?';
@@ -402,8 +406,8 @@ export async function storyCommand(
               break;
             }
             case 'switchStory': {
-              const targetName = lastToolArgs.name as string | undefined;
-              const isNew = lastToolArgs.new as boolean | undefined;
+              const targetName = toolArgs.name as string | undefined;
+              const isNew = toolArgs.new as boolean | undefined;
               if (isNew) {
                 console.log(`  ${check} ${toolLabel}: new story`);
               } else {

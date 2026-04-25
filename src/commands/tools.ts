@@ -43,7 +43,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     label: 'Update Storyline',
     description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${ctx.languageName}.`,
     parameters: Type.Object({
-      name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Omit to keep the existing name' })),
+      name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Required on first call to create the story; omit on subsequent calls to keep the existing name' })),
       title: Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}` }),
       narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${ctx.languageName}` }),
     }),
@@ -224,10 +224,16 @@ export function getStoryTools(ctx: StoryToolsContext) {
         return { content: [errorText], details: {} };
       }
 
-      // Gemini returns a 500 INTERNAL when videoMetadata.startOffset is at or
-      // past the uploaded video's actual duration (instead of a proper 400).
-      // Reject before uploading so the LLM retries with a valid range; endOffset
-      // past duration is harmless and gets clamped.
+      // Gemini returns a 500 INTERNAL (instead of a proper 400) for invalid
+      // video ranges. Validate before uploading so the LLM retries with a valid range.
+      if (params.startSeconds >= params.endSeconds) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: `Error: startSeconds (${params.startSeconds}s) must be less than endSeconds (${params.endSeconds}s).`,
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
       const duration = video.durationSeconds ?? 0;
       if (duration > 0 && params.startSeconds >= duration) {
         const errorText: TextContent = {
