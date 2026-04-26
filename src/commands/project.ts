@@ -10,6 +10,7 @@ import { getModel } from '@mariozechner/pi-ai';
 import { assertComplete, getTextContent } from '../analyzer/utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
 import { formatDuration, formatTimeAgo, formatFileSize, formatStoryLine } from '../utils/format.js';
+import { parseTimeToSeconds } from '../analyzer/video.js';
 
 function formatVideoSpec(v: { width: number | null; height: number | null; fps: string | null; bitDepth: number | null; colorTransfer: string | null }): string {
   const parts: string[] = [];
@@ -155,6 +156,21 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     const totalDuration = allVideos.reduce((sum, v) => sum + (v.durationSeconds ?? 0), 0);
     const totalSize = allVideos.reduce((sum, v) => sum + getFileSize(v.path), 0);
 
+    let highlightPct: number | null = null;
+    if (totalDuration > 0) {
+      const allAnalyses = db.select().from(videoAnalyses).all();
+      let totalHighlightSeconds = 0;
+      for (const a of allAnalyses) {
+        const highlights = JSON.parse(a.highlights) as Array<{ startTime: string; endTime: string }>;
+        for (const hl of highlights) {
+          totalHighlightSeconds += parseTimeToSeconds(hl.endTime) - parseTimeToSeconds(hl.startTime);
+        }
+      }
+      if (totalHighlightSeconds > 0) {
+        highlightPct = Math.round((totalHighlightSeconds / totalDuration) * 100);
+      }
+    }
+
     const specCounts = new Map<string, number>();
     for (const v of allVideos) {
       const spec = formatVideoSpec(v);
@@ -162,9 +178,10 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     }
 
     const maxCountWidth = Math.max(...Array.from(specCounts.values()).map(c => String(c).length));
+    const highlightSuffix = highlightPct != null ? `, ${highlightPct}% highlights` : '';
     console.log();
     console.log(chalk.bold('Videos'));
-    console.log(chalk.dim(`  ${allVideos.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}`));
+    console.log(chalk.dim(`  ${allVideos.length} files, ${formatDuration(totalDuration)}, ${formatFileSize(totalSize)}${highlightSuffix}`));
     for (const [spec, count] of specCounts.entries()) {
       const label = count > 1 ? `${String(count).padStart(maxCountWidth)}× ${spec}` : `${' '.repeat(maxCountWidth + 2)}${spec}`;
       console.log(`  ${label}`);

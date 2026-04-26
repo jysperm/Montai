@@ -23,7 +23,7 @@ function formatCacheRate(usage: { input: number; cacheRead: number }): string | 
   return `${Math.round((usage.cacheRead / total) * 100)}% cached`;
 }
 
-function parseTimeToSeconds(time: string): number {
+export function parseTimeToSeconds(time: string): number {
   const parts = time.split(':').map(Number);
   if (parts.length === 3) return parts[0] * 3600 + parts[1] * 60 + parts[2];
   if (parts.length === 2) return parts[0] * 60 + parts[1];
