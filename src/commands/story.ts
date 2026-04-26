@@ -813,6 +813,22 @@ export async function storyCommand(
         } else if (cmd === 'export') {
           autoExport = !autoExport;
           console.log(chalk.blue(`Auto export: ${autoExport ? 'on' : 'off'}`));
+          if (autoExport) {
+            const storyName = toolsCtx.currentStoryName;
+            if (storyName) {
+              const result = loadExpandedTimelines(db, config, storyName, { quiet: true });
+              if (result.errors.length > 0) {
+                console.log(chalk.yellow(`FCPXML failed: ${result.errors.join('; ')}`));
+              } else if (result.timelines.length > 0) {
+                exportFcpxmlFiles(result.timelines, db);
+                let msg = 'FCPXML exported';
+                if (result.correctionCount > 0) {
+                  msg += ` with ${result.correctionCount} correction${result.correctionCount !== 1 ? 's' : ''}`;
+                }
+                console.log(chalk.dim(msg));
+              }
+            }
+          }
         } else if (cmd === 'preview') {
           autoPreview = !autoPreview;
           if (autoPreview) {
