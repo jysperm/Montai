@@ -43,8 +43,8 @@
   "dependencies": {
     "@google/genai": "^1.0.0",
     "@inquirer/prompts": "^8.4.1",
-    "@mariozechner/pi-agent-core": "^0.70.2",
-    "@mariozechner/pi-ai": "^0.70.2",
+    "@mariozechner/pi-agent-core": "0.70.2",
+    "@mariozechner/pi-ai": "0.70.2",
     "@remotion/cli": "4.0.434",
     "@remotion/media": "4.0.434",
     "@remotion/transitions": "4.0.434",
