@@ -342,8 +342,7 @@ export async function syncAndAnalyzeVideos(
       };
 
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      const currentContext = db.select().from(projectContext).get();
-      const analysisPrompt = renderPrompt('analyze-video', { language: config.language, facts: currentContext?.facts ?? null, agentInstructions: agentInstructions ?? null });
+      const analysisPrompt = renderPrompt('analyze-video', { language: config.language, agentInstructions: agentInstructions ?? null });
 
       const messages: Message[] = [
         {

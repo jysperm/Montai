@@ -1,10 +1,11 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { statSync } from 'fs';
+import { createHash } from 'crypto';
 import { asc, eq, desc } from 'drizzle-orm';
 import { initDb } from '../db/index.js';
 import { videos, videoAnalyses, music, voiceovers, stories, projectContext } from '../db/schema.js';
-import { loadProjectConfig } from '../utils/project.js';
+import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { renderPrompt } from '../prompts/index.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { assertComplete, getTextContent } from '../analyzer/utils.js';
@@ -52,60 +53,22 @@ function getFileSize(path: string): number {
   }
 }
 
-export async function projectCommand(options: { addFact?: string; facts?: boolean }) {
+export async function projectCommand(_options: Record<string, never> = {}) {
   const config = loadProjectConfig();
   const db = await initDb();
-
-  if (options.addFact) {
-    const existing = db.select().from(projectContext).get();
-    const prompt = renderPrompt('merge-facts', { existingFacts: existing?.facts ?? null, newFact: options.addFact, language: config.language });
-
-    const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
-    const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-    const spinner = ora('Merging fact...').start();
-
-    const result = await completeWithLogging(model, {
-      messages: [{ role: 'user', content: [{ type: 'text', text: prompt }], timestamp: Date.now() }],
-    }, { apiKey });
-    assertComplete(result);
-    const mergedFacts = getTextContent(result).trim();
-
-    if (existing) {
-      db.update(projectContext)
-        .set({ facts: mergedFacts, overviewStale: true, updatedAt: new Date().toISOString() })
-        .where(eq(projectContext.id, existing.id))
-        .run();
-    } else {
-      db.insert(projectContext)
-        .values({ facts: mergedFacts, updatedAt: new Date().toISOString() })
-        .run();
-    }
-
-    spinner.succeed('Fact added');
-    console.log(chalk.dim(mergedFacts));
-    return;
-  }
-
-  if (options.facts) {
-    const existing = db.select().from(projectContext).get();
-    if (existing?.facts) {
-      console.log(chalk.bold('Project Facts'));
-      console.log(existing.facts);
-    } else {
-      console.log(chalk.dim(`No project facts yet. Use ${chalk.reset.bold('montai project --add-fact "<text>"')} to add one.`));
-    }
-    return;
-  }
 
   // Default: show project overview + stats
 
   // --- Overview ---
   const existing = db.select().from(projectContext).get();
+  const agentInstructions = readProjectFile('AGENTS.md');
+  const agentsHash = createHash('md5').update(agentInstructions ?? '').digest('hex');
   let overview: string | null = null;
 
-  if (existing?.overview && !existing.overviewStale) {
+  const cacheValid = existing?.overview && !existing.overviewStale && existing.agentsHash === agentsHash;
+  if (cacheValid) {
     console.log(chalk.bold('Overview') + chalk.dim(' (cached)'));
-    console.log(existing.overview);
+    console.log(existing!.overview!);
   } else {
     const allAnalyses = db
       .select({
@@ -123,7 +86,7 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
     if (allAnalyses.length === 0) {
       console.log(chalk.dim(`No video analyses yet — run ${chalk.reset.bold('montai analyze')} to generate overview.`));
     } else {
-      const prompt = renderPrompt('project-overview', { facts: existing?.facts ?? null, videoAnalyses: allAnalyses, language: config.language });
+      const prompt = renderPrompt('project-overview', { agentInstructions: agentInstructions ?? null, videoAnalyses: allAnalyses, language: config.language });
       const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const spinner = ora('Generating overview...').start();
@@ -228,12 +191,12 @@ export async function projectCommand(options: { addFact?: string; facts?: boolea
   if (overview) {
     if (existing) {
       db.update(projectContext)
-        .set({ overview, overviewStale: false, updatedAt: new Date().toISOString() })
+        .set({ overview, overviewStale: false, agentsHash, updatedAt: new Date().toISOString() })
         .where(eq(projectContext.id, existing.id))
         .run();
     } else {
       db.insert(projectContext)
-        .values({ facts: '', overview, overviewStale: false, updatedAt: new Date().toISOString() })
+        .values({ overview, overviewStale: false, agentsHash, updatedAt: new Date().toISOString() })
         .run();
     }
   }

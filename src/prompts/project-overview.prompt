@@ -1,8 +1,8 @@
 You are summarizing a video editing project based on all analyzed video footage.
 
-{{#if facts}}
-Project Facts (provided by the user):
-{{{facts}}}
+{{#if agentInstructions}}
+Project context (provided by the user in AGENTS.md):
+{{{agentInstructions}}}
 
 {{/if}}
 Video Analyses:

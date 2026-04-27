@@ -77,9 +77,7 @@ program
 
 program
   .command('project')
-  .description('Show project overview, stats, and manage facts')
-  .option('--add-fact <text>', 'Add a project fact (AI merges into existing facts)')
-  .option('--facts', 'Show current project facts')
+  .description('Show project overview and stats')
   .action(projectCommand);
 
 program

@@ -120,7 +120,7 @@ If your source footage is HDR (e.g. HLG), enable color management in Project Set
 | `analyze` | Transcode, upload and analyze videos |
 | `analyze --list` | List all videos and music files with analysis status |
 | `analyze --show <filename>` | Show the stored summary for a video or music file |
-| `project` | Show project overview and manage facts |
+| `project` | Show project overview and stats |
 | `story [name]` | Interactive storyline + timeline editing session |
 | `story --new` | Force create a new story |
 | `story --list` | List all stories |
@@ -158,7 +158,6 @@ my-vlog-project/
   montai.db            # Project database
   montai.yaml          # Project config
   AGENTS.md            # Instructions/knowledge for the agent (optional)
-  STYLE.md             # Writing style reference (optional)
 ```
 
 ## Known Issues

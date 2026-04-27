@@ -33,9 +33,9 @@ export const videoAnalyses = sqliteTable('video_analyses', {
 
 export const projectContext = sqliteTable('project_context', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  facts: text('facts').notNull(),
   overview: text('overview'),
   overviewStale: integer('overview_stale', { mode: 'boolean' }),
+  agentsHash: text('agents_hash'),
   updatedAt: text('updated_at').notNull(),
 });
 

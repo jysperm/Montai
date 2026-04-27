@@ -9,7 +9,7 @@ import { eq, desc, count, sql } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
-import { videos, videoAnalyses, projectContext, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses, sessions, sessionMessages } from '../db/schema.js';
+import { videos, videoAnalyses, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses, sessions, sessionMessages } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile, loadExpandedTimelines } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
 import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
@@ -153,7 +153,6 @@ export async function storyCommand(
   const config = loadProjectConfig();
   const db = await initDb();
   const agentInstructions = readProjectFile('AGENTS.md');
-  const styleReference = readProjectFile('STYLE.md');
 
   // --list: show all stories and exit
   if (options.list) {
@@ -261,9 +260,6 @@ export async function storyCommand(
       transcription: JSON.parse(a.transcription),
     };
   });
-
-  const context = db.select().from(projectContext).get();
-  const facts = context?.facts ?? null;
 
   // Resume or resolve story
   let story: StoryRow | undefined;
@@ -661,11 +657,9 @@ export async function storyCommand(
   const contextMessage = renderPrompt('story-context', {
     fullVideoAnalyses: fullVideoAnalyses.length > 0 ? fullVideoAnalyses : null,
     summaryVideoAnalyses: summaryVideoAnalyses.length > 0 ? summaryVideoAnalyses : null,
-    facts: facts ?? null,
     storyline: story?.storyline ?? null,
     timelineItems: toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(toolsCtx.currentItems), null, 2) : null,
     computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
-    styleReference: styleReference ?? null,
     fullVoiceoverAnalyses: features.voiceover && fullVoiceoverAnalyses.length > 0 ? fullVoiceoverAnalyses : null,
     summaryVoiceoverAnalyses: features.voiceover && summaryVoiceoverAnalyses.length > 0 ? summaryVoiceoverAnalyses : null,
     fullMusicAnalyses: features.music && fullMusicAnalyses.length > 0 ? fullMusicAnalyses : null,

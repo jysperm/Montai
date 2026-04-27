@@ -45,7 +45,7 @@ featureFlags:                    # Optional overrides (see Feature Flags)
   music: false
 ```
 
-`language` controls the language used for all internal text: video analyses, project facts, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
+`language` controls the language used for all internal text: video analyses, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
 Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
@@ -90,7 +90,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
 - **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 2, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
-- **project_context** — User-provided facts about the project (markdown bullet list), managed via `montai project --add-fact`. Also stores an AI-generated project overview (`overview`) that synthesizes all video analyses and user facts, viewable via `montai project`. The overview is cached and auto-invalidated (`overview_stale`) when facts or video analyses change.
+- **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
@@ -108,16 +108,14 @@ Runs a 3-stage concurrent pipeline for videos, followed by a 2-stage pipeline fo
 
 1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.montai/transcoded/` and reused until the source file changes.
 2. **Upload** — Upload transcoded video to LLM File API (or reuse cached ref if still active in `gemini_files` table).
-3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If project facts exist (from `montai project --add-fact`), they are included as context in the analysis prompt.
+3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If `AGENTS.md` exists in the project directory, its contents are injected into the analysis prompt as user-provided context.
 
 While video N is being analyzed, video N+1 can be uploading, and video N+2 can be transcoding.
 
 **Music pipeline** — simpler 2-stage pipelined pipeline (no transcoding needed):
 
 1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table with `musicId`).
-2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`.
-
-If project facts exist (from `montai project --add-fact`), they are included as context in the analysis prompt.
+2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`. `AGENTS.md` is injected as context (same as video).
 
 **Voiceover pipeline** — same 2-stage structure as music (no transcoding):
 
@@ -385,7 +383,6 @@ The `generateMusic` tool in the story agent generates instrumental background mu
 my-vlog-project/
   montai.yaml                  # User-authored
   AGENTS.md                    # Optional: instructions/knowledge for the LLM (used in analyze + story)
-  STYLE.md                     # Optional: writing style reference from previous scripts (used in story only)
   montai.db                    # SQLite (auto-created)
   musics/                       # Background music files (optional)
     track1.mp3

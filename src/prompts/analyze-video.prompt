@@ -4,14 +4,6 @@ Watch the entire video carefully and produce a structured analysis in JSON forma
 
 Respond in {{langName language}} for all descriptive text fields.
 
-{{#if facts}}
-Here are known facts about this project provided by the user:
-
-{{{facts}}}
-
-Use these facts to inform your analysis — for example, identifying people by their relationships or understanding the broader context of this footage.
-{{/if}}
-
 Return a JSON object with this exact structure:
 {
   "overview": "Brief overall description of the video content",
