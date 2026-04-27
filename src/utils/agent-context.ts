@@ -1,7 +1,30 @@
 import type { AgentMessage } from '@mariozechner/pi-agent-core';
 import type { FileContent, TextContent, Message } from '@mariozechner/pi-ai';
 
+const GEMINI_FILE_EXPIRY_MS = 48 * 60 * 60 * 1000;
 const MAX_VIDEO_FILES_IN_CONTEXT = 10;
+
+export function removeExpiredFileRefs(messages: AgentMessage[]): AgentMessage[] {
+  const cutoff = Date.now() - GEMINI_FILE_EXPIRY_MS;
+
+  return messages.map((msg) => {
+    const m = msg as Message;
+    if (m.role !== 'toolResult' || m.timestamp >= cutoff) return msg;
+    if (!Array.isArray(m.content)) return msg;
+
+    const hasFiles = (m.content as Array<{ type: string }>).some((c) => c.type === 'file');
+    if (!hasFiles) return msg;
+
+    const newContent = (m.content as Array<{ type: string }>).map((c) => {
+      if (c.type === 'file') {
+        return { type: 'text' as const, text: '(Video file reference expired after 48h. Refer to your earlier observations.)' } as TextContent;
+      }
+      return c;
+    });
+
+    return { ...m, content: newContent } as AgentMessage;
+  });
+}
 
 /**
  * Extract FileContent from ToolResultMessages and place them in separate

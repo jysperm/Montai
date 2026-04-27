@@ -3,7 +3,7 @@ import type { FileContent, TextContent } from '@mariozechner/pi-ai';
 import type { Agent } from '@mariozechner/pi-agent-core';
 import { Type } from 'typebox';
 import type { MontaiDb } from '../db/index.js';
-import { stories, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
+import { stories, sessions, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
 import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
@@ -33,6 +33,7 @@ export interface StoryToolsContext {
   currentItems: TimelineItem[];
   agent: Agent | null;
   timelineVersion: number;
+  sessionId: number;
 }
 
 export function getStoryTools(ctx: StoryToolsContext) {
@@ -95,6 +96,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
         ctx.currentStoryId = result.id;
       }
       ctx.currentStoryName = name;
+
+      ctx.db.update(sessions)
+        .set({ currentStoryId: ctx.currentStoryId })
+        .where(eq(sessions.id, ctx.sessionId))
+        .run();
 
       const textContent: TextContent = {
         type: 'text' as const,
@@ -460,6 +466,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
         ctx.currentStoryName = params.name ?? null;
         ctx.currentItems = [];
 
+        ctx.db.update(sessions)
+          .set({ currentStoryId: null })
+          .where(eq(sessions.id, ctx.sessionId))
+          .run();
+
         if (ctx.agent) {
           const contextMessage = renderPrompt('story-switch', { name: ctx.currentStoryName, isNew: true });
           ctx.agent.state.messages = [...ctx.agent.state.messages, { role: 'user' as const, content: contextMessage, timestamp: Date.now() }];
@@ -493,6 +504,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
       ctx.currentStoryId = story.id;
       ctx.currentStoryName = story.name;
       ctx.currentItems = story.timeline ? z.array(TimelineItemSchema).parse(JSON.parse(story.timeline)) : [];
+
+      ctx.db.update(sessions)
+        .set({ currentStoryId: ctx.currentStoryId })
+        .where(eq(sessions.id, ctx.sessionId))
+        .run();
 
       // Inject storyline + timeline only (project-level context is already in conversation)
       if (ctx.agent) {

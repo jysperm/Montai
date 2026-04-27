@@ -94,6 +94,8 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
+- **sessions** — Agent conversation sessions for `montai story`. Each `montai story` invocation creates a session; `--resume` restores one. Stores `currentStoryId` (nullable FK to stories) which is written immediately on every change. A session can span multiple stories via `/switch`.
+- **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
 - **gemini_files** — Cached Gemini File API references for uploaded videos, music, and voiceover files (videoId, musicId, or voiceoverId, all nullable)
 
 ## Pipeline
@@ -138,7 +140,9 @@ Uses an agent loop with tools:
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 
-Sessions can be resumed: `montai story <name>` restores the current storyline and timeline state. Running `montai story` with no name shows an interactive arrow-key picker listing existing stories (plus a "new story" option); `--new` forces a fresh story. Use `--no-intro` to skip the initial LLM summary and go straight to input.
+Stories can be resumed: `montai story <name>` restores the current storyline and timeline state. Running `montai story` with no name shows an interactive arrow-key picker listing existing stories (plus a "new story" option); `--new` forces a fresh story. Use `--no-intro` to skip the initial LLM summary and go straight to input.
+
+Agent conversation sessions are persisted to the database. Each `montai story` invocation creates a new session; messages are appended at each `turn_end`. Use `--resume` to restore a previous session with full conversation history (interactive picker, or `--resume <id>` for a specific session). Use `--sessions` to list historical sessions. On resume, the system prompt is re-rendered from current config; context/hint injection is skipped since the history already contains them. Expired Gemini File API references (>48h) are automatically replaced with text placeholders before sending to the LLM.
 
 After each agent response, a TUI timeline visualization is printed showing clips as `[ vN ]` blocks (proportional to duration), transitions as `~`, and overlays as `‹arrow style arrow›` on lanes above the clip track. Overlays that overlap in time are placed on separate lanes, with lanes ordered bottom-up (closest to clips first). Arrow characters indicate overlay position (e.g. `↙` for bottom-left, `─` for center).
 

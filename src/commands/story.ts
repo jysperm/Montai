@@ -5,16 +5,16 @@ import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 import { select } from '@inquirer/prompts';
 import stringWidth from 'string-width';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, count, sql } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import { initDb } from '../db/index.js';
-import { videos, videoAnalyses, projectContext, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses } from '../db/schema.js';
+import { videos, videoAnalyses, projectContext, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses, sessions, sessionMessages } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile, loadExpandedTimelines } from '../utils/project.js';
 import { renderPrompt, languageNames } from '../prompts/index.js';
 import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
 import { z } from 'zod';
-import { extractFileContentFromToolResults, limitVideoFilesInContext } from '../utils/agent-context.js';
+import { extractFileContentFromToolResults, limitVideoFilesInContext, removeExpiredFileRefs } from '../utils/agent-context.js';
 import { formatDuration, formatTimeAgo, formatStoryLine, countItemsByType, formatItemCounts } from '../utils/format.js';
 import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
@@ -29,6 +29,81 @@ function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, '0')}`;
+}
+
+function formatUserInput(text: string, isSlash = false): string {
+  const cols = process.stdout.columns || 80;
+  const prompt = isSlash ? chalk.cyan('/ ') : chalk.green('> ');
+  const padRight = Math.max(0, cols - stringWidth('> ' + text));
+  return prompt + chalk.bgHex('#303030')(text + ' '.repeat(padRight));
+}
+
+function formatAssistantText(text: string): string {
+  return text.trimEnd().replace(/\*\*(.+?)\*\*/g, (_, t: string) => chalk.bold(t));
+}
+
+function printToolCall(toolName: string, args: Record<string, unknown>) {
+  const check = chalk.green('✓');
+  const label = chalk.green(toolName);
+
+  switch (toolName) {
+    case 'updateStoryline': {
+      const title = args.title as string | undefined;
+      const storyName = args.name as string | undefined;
+      const narrative = args.narrative as string | undefined;
+      console.log(`  ${check} ${label}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
+      if (narrative) {
+        for (const line of narrative.split('\n')) {
+          console.log(chalk.dim(`    ${line}`));
+        }
+      }
+      console.log('');
+      return;
+    }
+    case 'watchSegment': {
+      const videoId = args.videoId as number;
+      const startSec = args.startSeconds as number;
+      const endSec = args.endSeconds as number;
+      const dur = formatDuration(endSec - startSec);
+      console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
+      return;
+    }
+    case 'updateTimeline': {
+      const deleteCount = args.deleteCount as number;
+      const newItems = (args.items ?? []) as Array<{ type: string }>;
+      const addedCounts = countItemsByType(newItems);
+      const hasAdded = newItems.length > 0;
+      const hasDeleted = deleteCount !== 0;
+
+      let summary: string;
+      if (deleteCount === -1) {
+        summary = `replaced with ${formatItemCounts(addedCounts)}`;
+      } else if (hasAdded && hasDeleted) {
+        summary = `updated ${formatItemCounts(addedCounts)}`;
+      } else if (hasAdded) {
+        summary = `added ${formatItemCounts(addedCounts)}`;
+      } else if (hasDeleted) {
+        summary = `deleted ${deleteCount} item${deleteCount !== 1 ? 's' : ''}`;
+      } else {
+        summary = 'no changes';
+      }
+      console.log(`  ${check} ${label}: ${summary}`);
+      return;
+    }
+    case 'generateMusic': {
+      const prompt = args.prompt as string;
+      console.log(`  ${check} ${label}: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"`)
+      return;
+    }
+    case 'switchStory': {
+      const targetName = args.name as string | undefined;
+      const isNew = args.new as boolean | undefined;
+      console.log(isNew ? `  ${check} ${label}: new story` : `  ${check} ${label}: ${chalk.cyan(targetName ?? '?')}`);
+      return;
+    }
+    default:
+      console.log(`  ${check} ${label}${args.videoId ? `: video ${args.videoId}` : args.musicId ? `: music ${args.musicId}` : args.voiceoverId ? `: voiceover ${args.voiceoverId}` : ''}`);
+  }
 }
 
 type StoryRow = typeof stories.$inferSelect;
@@ -73,7 +148,7 @@ async function selectStoryInteractive(allStories: StoryRow[]): Promise<StorySele
 // trailing '\n', readline will erase it when drawing the next prompt.
 export async function storyCommand(
   name?: string,
-  options: { new?: boolean; list?: boolean; hint?: string; intro?: boolean } = {},
+  options: { new?: boolean; list?: boolean; hint?: string; intro?: boolean; resume?: boolean | string; sessions?: boolean } = {},
 ) {
   const config = loadProjectConfig();
   const db = await initDb();
@@ -88,6 +163,40 @@ export async function storyCommand(
     } else {
       for (const s of allStories) {
         console.log(formatStoryLine(s));
+      }
+    }
+    return;
+  }
+
+  // --sessions: list historical sessions and exit
+  if (options.sessions) {
+    const allSessions = db.select().from(sessions).orderBy(desc(sessions.id)).all();
+
+    if (allSessions.length === 0) {
+      console.log(chalk.dim('No sessions found.'));
+    } else {
+      let hasOutput = false;
+      for (const s of allSessions) {
+        const msgs = db.select({
+          messageCount: count(),
+          startedAt: sql<number>`MIN(json_extract(${sessionMessages.content}, '$.timestamp'))`,
+          lastActivity: sql<number>`MAX(json_extract(${sessionMessages.content}, '$.timestamp'))`,
+        }).from(sessionMessages).where(eq(sessionMessages.sessionId, s.id)).get()!;
+
+        if (msgs.messageCount === 0) continue;
+
+        const storyRow = s.currentStoryId
+          ? db.select().from(stories).where(eq(stories.id, s.currentStoryId)).get()
+          : null;
+        const storyLabel = storyRow ? `${chalk.cyan(storyRow.name)}  ${storyRow.title}` : chalk.dim('no story');
+        const startStr = msgs.startedAt ? formatTimeAgo(new Date(msgs.startedAt).toISOString()) : '?';
+        const endStr = msgs.lastActivity ? formatTimeAgo(new Date(msgs.lastActivity).toISOString()) : '?';
+        const timeStr = startStr === endStr ? startStr : `${startStr} – ${endStr}`;
+        console.log(`  ${chalk.dim(`#${s.id}`)}  ${storyLabel}  ${chalk.dim(`${msgs.messageCount} messages, ${timeStr}`)}`);
+        hasOutput = true;
+      }
+      if (!hasOutput) {
+        console.log(chalk.dim('No sessions found.'));
       }
     }
     return;
@@ -156,10 +265,93 @@ export async function storyCommand(
   const context = db.select().from(projectContext).get();
   const facts = context?.facts ?? null;
 
-  // Resolve story: by name, interactive pick, or create new
+  // Resume or resolve story
   let story: StoryRow | undefined;
+  let isResuming = false;
+  let resumedSessionId: number | null = null;
+  let resumedMessages: Message[] = [];
 
-  if (options.new) {
+  if (options.resume != null) {
+    // --resume: restore a previous session
+    let sessionId: number;
+
+    if (options.resume === true) {
+      // Interactive session picker
+      const recentSessions = db.select().from(sessions).orderBy(desc(sessions.id)).all();
+      const sessionChoices: { id: number; label: string }[] = [];
+
+      for (const s of recentSessions) {
+        const msgs = db.select({
+          messageCount: count(),
+          startedAt: sql<number>`MIN(json_extract(${sessionMessages.content}, '$.timestamp'))`,
+          lastActivity: sql<number>`MAX(json_extract(${sessionMessages.content}, '$.timestamp'))`,
+        }).from(sessionMessages).where(eq(sessionMessages.sessionId, s.id)).get()!;
+
+        if (msgs.messageCount === 0) continue;
+
+        const storyRow = s.currentStoryId
+          ? db.select().from(stories).where(eq(stories.id, s.currentStoryId)).get()
+          : null;
+        const storyLabel = storyRow ? `${storyRow.name} ${storyRow.title}` : 'no story';
+        const startStr = msgs.startedAt ? formatTimeAgo(new Date(msgs.startedAt).toISOString()) : '?';
+        const endStr = msgs.lastActivity ? formatTimeAgo(new Date(msgs.lastActivity).toISOString()) : '?';
+        const timeStr = startStr === endStr ? startStr : `${startStr} – ${endStr}`;
+        sessionChoices.push({
+          id: s.id,
+          label: `#${s.id}  ${storyLabel}  ${msgs.messageCount} messages, ${timeStr}`,
+        });
+      }
+
+      if (sessionChoices.length === 0) {
+        console.log(chalk.red('No sessions to resume.'));
+        return;
+      }
+
+      try {
+        sessionId = await select<number>({
+          message: 'Select a session to resume',
+          choices: sessionChoices.map((s) => ({ name: s.label, value: s.id })),
+          loop: false,
+          pageSize: 15,
+        });
+      } catch (err) {
+        if (err instanceof Error && err.name === 'ExitPromptError') return;
+        throw err;
+      }
+    } else {
+      sessionId = parseInt(options.resume as string, 10);
+      if (isNaN(sessionId)) {
+        console.log(chalk.red('Invalid session id.'));
+        return;
+      }
+    }
+
+    const sessionRow = db.select().from(sessions).where(eq(sessions.id, sessionId)).get();
+    if (!sessionRow) {
+      console.log(chalk.red(`Session #${sessionId} not found.`));
+      return;
+    }
+
+    const rows = db.select().from(sessionMessages)
+      .where(eq(sessionMessages.sessionId, sessionId))
+      .orderBy(sessionMessages.id)
+      .all();
+    resumedMessages = rows.map((r) => JSON.parse(r.content) as Message);
+
+    if (sessionRow.currentStoryId) {
+      story = db.select().from(stories).where(eq(stories.id, sessionRow.currentStoryId)).get();
+      if (!story) {
+        console.log(chalk.red(`Story for session #${sessionId} has been deleted.`));
+        return;
+      }
+    }
+
+    isResuming = true;
+    resumedSessionId = sessionId;
+
+    console.log(chalk.green(`Resuming session #${sessionId} (${rows.length} messages)`));
+    console.log('');
+  } else if (options.new) {
     // Force create new — story will be created by updateStoryline tool
     story = undefined;
   } else if (name) {
@@ -182,17 +374,19 @@ export async function storyCommand(
     }
   }
 
-  if (story) {
-    console.log(chalk.green(`Resuming story: ${story.title} ${chalk.cyan(story.name)}`));
-    console.log('');
-  } else {
-    console.log(chalk.blue('Starting new story...'));
+  if (!isResuming) {
+    if (story) {
+      console.log(chalk.green(`Resuming story: ${story.title} ${chalk.cyan(story.name)}`));
+      console.log('');
+    } else {
+      console.log(chalk.blue('Starting new story...'));
+    }
   }
 
   // Set up agent
   const model = getModel('google', config.models.editing as Parameters<typeof getModel>[1]);
   const spinner = ora({ text: 'Thinking...', discardStdin: false });
-  if (options.intro !== false) {
+  if (options.intro !== false && !isResuming) {
     spinner.start();
   }
 
@@ -208,6 +402,18 @@ export async function storyCommand(
     hasMusic: allMusic.length > 0,
     hasVoiceovers: allVoiceoversData.length > 0,
   });
+
+  // Create or resume session
+  let currentSessionId: number;
+  if (isResuming) {
+    currentSessionId = resumedSessionId!;
+  } else {
+    const sessionRow = db.insert(sessions)
+      .values({ currentStoryId: story?.id ?? null })
+      .returning()
+      .get();
+    currentSessionId = sessionRow.id;
+  }
 
   // In-memory state
   const toolsCtx = {
@@ -227,6 +433,7 @@ export async function storyCommand(
     currentItems: [] as TimelineItem[],
     agent: null as import('@mariozechner/pi-agent-core').Agent | null,
     timelineVersion: 0,
+    sessionId: currentSessionId,
   };
 
   // Restore raw items from stored timeline on resume
@@ -260,7 +467,7 @@ export async function storyCommand(
       model,
     },
     getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
-    transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(messages)),
+    transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(removeExpiredFileRefs(messages))),
     streamFn: apiDebug.streamFn,
   });
 
@@ -272,6 +479,7 @@ export async function storyCommand(
   let hadToolOutput = false;
   let debugStep = 0;
   let debugTurnStartTime = 0;
+  let dbMessageCount = isResuming ? resumedMessages.length : 0;
 
   agent.subscribe((event) => {
     try {
@@ -330,93 +538,15 @@ export async function storyCommand(
           }
 
           hadToolOutput = true;
-          const check = chalk.green('✓');
-          const toolLabel = chalk.green(event.toolName);
+          printToolCall(event.toolName, toolArgs);
 
-          switch (event.toolName) {
-            case 'updateStoryline': {
-              const title = toolArgs.title as string | undefined;
-              const storyName = toolArgs.name as string | undefined;
-              const narrative = toolArgs.narrative as string | undefined;
-              console.log(`  ${check} ${toolLabel}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
-              if (narrative) {
-                for (const line of narrative.split('\n')) {
-                  console.log(chalk.dim(`    ${line}`));
-                }
-              }
-              console.log('');
-              break;
+          // generateMusic: extract musicId from tool result (not available in replay)
+          if (event.toolName === 'generateMusic') {
+            const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
+            const idMatch = resultText.match(/Music ID: (\d+)/);
+            if (idMatch) {
+              console.log(chalk.dim(`    → musicId ${idMatch[1]}`));
             }
-            case 'watchSegment': {
-              const videoId = toolArgs.videoId as number;
-              const startSec = toolArgs.startSeconds as number;
-              const endSec = toolArgs.endSeconds as number;
-              const dur = formatDuration(endSec - startSec);
-              console.log(`  ${check} ${toolLabel}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
-              break;
-            }
-            case 'updateTimeline': {
-              const deleteCount = toolArgs.deleteCount as number;
-              const newItems = (toolArgs.items ?? []) as Array<{ type: string }>;
-              const addedCounts = countItemsByType(newItems);
-              const hasAdded = newItems.length > 0;
-              const hasDeleted = deleteCount !== 0;
-
-              let summary: string;
-              if (deleteCount === -1) {
-                summary = `replaced with ${formatItemCounts(addedCounts)}`;
-              } else if (hasAdded && hasDeleted) {
-                summary = `updated ${formatItemCounts(addedCounts)}`;
-              } else if (hasAdded) {
-                summary = `added ${formatItemCounts(addedCounts)}`;
-              } else if (hasDeleted) {
-                summary = `deleted ${deleteCount} item${deleteCount !== 1 ? 's' : ''}`;
-              } else {
-                summary = 'no changes';
-              }
-
-              console.log(`  ${check} ${toolLabel}: ${summary}`);
-              break;
-            }
-            case 'getVideoAnalysis': {
-              const videoId = toolArgs.videoId as number;
-              console.log(`  ${check} ${toolLabel}: video ${videoId}`);
-              break;
-            }
-            case 'getMusicAnalysis': {
-              const musicId = toolArgs.musicId as number;
-              console.log(`  ${check} ${toolLabel}: music ${musicId}`);
-              break;
-            }
-            case 'getVoiceoverAnalysis': {
-              const voiceoverId = toolArgs.voiceoverId as number;
-              console.log(`  ${check} ${toolLabel}: voiceover ${voiceoverId}`);
-              break;
-            }
-            case 'generateMusic': {
-              const prompt = toolArgs.prompt as string;
-              const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
-              const idMatch = resultText.match(/Music ID: (\d+)/);
-              const musicId = idMatch ? idMatch[1] : '?';
-              console.log(`  ${check} ${toolLabel}: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}" → musicId ${musicId}`);
-              break;
-            }
-            case 'listStories': {
-              console.log(`  ${check} ${toolLabel}`);
-              break;
-            }
-            case 'switchStory': {
-              const targetName = toolArgs.name as string | undefined;
-              const isNew = toolArgs.new as boolean | undefined;
-              if (isNew) {
-                console.log(`  ${check} ${toolLabel}: new story`);
-              } else {
-                console.log(`  ${check} ${toolLabel}: ${chalk.cyan(targetName ?? '?')}`);
-              }
-              break;
-            }
-            default:
-              console.log(`  ${check} ${toolLabel}`);
           }
 
           spinner.text = 'Thinking...';
@@ -454,6 +584,22 @@ export async function storyCommand(
             if (text) {
               lastAssistantText = text;
             }
+          }
+
+          // Persist new messages to DB
+          const currentMessages = agent.state.messages;
+          if (currentMessages.length > dbMessageCount) {
+            const newMessages = currentMessages.slice(dbMessageCount);
+            for (const m of newMessages) {
+              db.insert(sessionMessages)
+                .values({ sessionId: currentSessionId, content: JSON.stringify(m) })
+                .run();
+            }
+            db.update(sessions)
+              .set({ currentStoryId: toolsCtx.currentStoryId })
+              .where(eq(sessions.id, currentSessionId))
+              .run();
+            dbMessageCount = currentMessages.length;
           }
           break;
         }
@@ -546,7 +692,7 @@ export async function storyCommand(
       if (hadToolOutput) {
         console.log('');
       }
-      const formatted = lastAssistantText.trimEnd().replace(/\*\*(.+?)\*\*/g, (_, text) => chalk.bold(text));
+      const formatted = formatAssistantText(lastAssistantText);
       console.log(formatted);
       if (!formatted.endsWith('\n')) {
         console.log('');
@@ -570,13 +716,50 @@ export async function storyCommand(
 
   // Inject context and hint as standalone user messages (no response triggered)
   const userMsg = (text: string) => ({ role: 'user' as const, content: text, timestamp: Date.now() });
-  agent.state.messages = [...agent.state.messages, userMsg(contextMessage)];
-  if (options.hint) {
-    agent.state.messages = [...agent.state.messages, userMsg(`Direction from the user: ${options.hint}`)];
-  }
 
-  // Run initial prompt (or skip with --no-intro)
-  if (options.intro === false) {
+  if (isResuming) {
+    agent.state.messages = resumedMessages;
+
+    // Replay conversation history — skip injected context/hint at the start
+    let replayStart = 0;
+    if (resumedMessages.length > 0 && (resumedMessages[0] as Message).role === 'user') {
+      replayStart = 1;
+      if (replayStart < resumedMessages.length) {
+        const next = resumedMessages[replayStart] as Message;
+        if (next.role === 'user' && typeof next.content === 'string' && next.content.startsWith('Direction from the user: ')) {
+          replayStart++;
+        }
+      }
+    }
+    let hadReplayToolOutput = false;
+    for (let i = replayStart; i < resumedMessages.length; i++) {
+      const m = resumedMessages[i] as Message;
+      if (m.role === 'user') {
+        hadReplayToolOutput = false;
+        const text = typeof m.content === 'string' ? m.content : null;
+        if (text) {
+          console.log(formatUserInput(text));
+          console.log('');
+        }
+      } else if (m.role === 'assistant') {
+        const content = Array.isArray(m.content) ? m.content as Array<{ type: string; text?: string; name?: string; arguments?: Record<string, unknown> }> : [];
+        const toolCalls = content.filter((c) => c.type === 'toolCall');
+        for (const tc of toolCalls) {
+          const tcArgs = tc.arguments ?? {};
+          printToolCall(tc.name ?? 'tool', tcArgs);
+        }
+        if (toolCalls.length > 0) hadReplayToolOutput = true;
+        const text = content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
+        if (hadReplayToolOutput && text) console.log('');
+        if (text) {
+          hadReplayToolOutput = false;
+          const formatted = formatAssistantText(text);
+          console.log(formatted);
+          if (!formatted.endsWith('\n')) console.log('');
+        }
+      }
+    }
+
     // Print timeline if available
     const timelineLines = renderTimeline(
       toolsCtx.currentItems,
@@ -591,6 +774,28 @@ export async function storyCommand(
       console.log('');
     }
   } else {
+    agent.state.messages = [...agent.state.messages, userMsg(contextMessage)];
+    if (options.hint) {
+      agent.state.messages = [...agent.state.messages, userMsg(`Direction from the user: ${options.hint}`)];
+    }
+  }
+
+  // Run initial prompt (or skip with --no-intro)
+  if (!isResuming && options.intro === false) {
+    // Print timeline if available
+    const timelineLines = renderTimeline(
+      toolsCtx.currentItems,
+      process.stdout.columns || 80,
+      getMusicNames(),
+      toolsCtx.currentStoryName ?? undefined,
+    );
+    if (timelineLines.length > 0) {
+      for (const line of timelineLines) {
+        console.log(line);
+      }
+      console.log('');
+    }
+  } else if (!isResuming) {
     agent.state.tools = [];
     const introInstruction = story?.storyline
       ? 'Briefly introduce the current storyline and timeline state, then wait for my direction.'
@@ -748,11 +953,7 @@ export async function storyCommand(
       // Redraw user input line with background highlight
       readline.moveCursor(process.stdout, 0, -1);
       readline.clearLine(process.stdout, 0);
-      const cols = process.stdout.columns || 80;
-      const promptStr = slashMode ? chalk.cyan('/ ') : chalk.green('> ');
-      const displayText = slashMode ? trimmed : trimmed;
-      const padRight = Math.max(0, cols - stringWidth('> ' + displayText));
-      process.stdout.write(promptStr + chalk.bgHex('#303030')(displayText + ' '.repeat(padRight)) + '\n');
+      process.stdout.write(formatUserInput(trimmed, slashMode) + '\n');
 
       if (slashMode) {
         const cmd = trimmed.toLowerCase();
@@ -794,6 +995,19 @@ export async function storyCommand(
             computedTimeline: toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(toolsCtx.currentItems)) : null,
           });
           agent.state.messages = [...agent.state.messages, { role: 'user' as const, content: switchContext, timestamp: Date.now() }];
+
+          // Persist switch: currentStoryId + new messages
+          const switchMessages = agent.state.messages.slice(dbMessageCount);
+          for (const m of switchMessages) {
+            db.insert(sessionMessages)
+              .values({ sessionId: currentSessionId, content: JSON.stringify(m) })
+              .run();
+          }
+          db.update(sessions)
+            .set({ currentStoryId: toolsCtx.currentStoryId })
+            .where(eq(sessions.id, currentSessionId))
+            .run();
+          dbMessageCount = agent.state.messages.length;
 
           // Show timeline if available
           const timelineLines = renderTimeline(
@@ -950,16 +1164,16 @@ export async function storyCommand(
 
   process.removeListener('unhandledRejection', rejectionHandler);
 
+  console.log('');
   console.log(chalk.dim(`Total cost: ${formatCost(totalCost)}`));
 
   if (toolsCtx.currentStoryId) {
     const finalStory = db.select().from(stories).where(eq(stories.id, toolsCtx.currentStoryId)).get();
     if (finalStory) {
-      console.log(chalk.green(`Story saved: ${finalStory.title} ${chalk.cyan(finalStory.name)}`));
-      if (finalStory.timeline) {
-        const cmd = chalk.bold.green;
-        console.log(chalk.green(`You can ${cmd('montai preview')}, ${cmd('montai export')}, or ${cmd(`montai render ${finalStory.name}`)}.`));
-      }
+      console.log(chalk.dim(`Story saved: ${finalStory.title} ${finalStory.name}`));
     }
+  }
+  if (dbMessageCount > 0) {
+    console.log(chalk.dim(`Run ${chalk.bold(`montai story --resume ${currentSessionId}`)} to continue this session.`));
   }
 }

@@ -89,6 +89,8 @@ program
   .option('--list', 'List all stories')
   .option('--hint <text>', 'Initial direction hint for new story')
   .option('--no-intro', 'Skip initial LLM summary, go straight to input')
+  .option('--resume [session-id]', 'Resume a previous session')
+  .option('--sessions', 'List historical sessions')
   .action(storyCommand);
 
 program

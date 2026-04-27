@@ -22,9 +22,7 @@ export const videos = sqliteTable('videos', {
 
 export const videoAnalyses = sqliteTable('video_analyses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  videoId: integer('video_id')
-    .notNull()
-    .references(() => videos.id),
+  videoId: integer('video_id').notNull().references(() => videos.id),
   overview: text('overview').notNull(),
   location: text('location'),
   timeOfDay: text('time_of_day'),
@@ -65,9 +63,7 @@ export const music = sqliteTable('music', {
 
 export const musicAnalyses = sqliteTable('music_analyses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  musicId: integer('music_id')
-    .notNull()
-    .references(() => music.id),
+  musicId: integer('music_id').notNull().references(() => music.id),
   overview: text('overview').notNull(),
   segments: text('segments').notNull(), // JSON array
 });
@@ -84,21 +80,27 @@ export const voiceovers = sqliteTable('voiceovers', {
 
 export const voiceoverAnalyses = sqliteTable('voiceover_analyses', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  voiceoverId: integer('voiceover_id')
-    .notNull()
-    .references(() => voiceovers.id),
+  voiceoverId: integer('voiceover_id').notNull().references(() => voiceovers.id),
   transcription: text('transcription').notNull(), // JSON array
   overview: text('overview').notNull(),
 });
 
+export const sessions = sqliteTable('sessions', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  currentStoryId: integer('current_story_id').references(() => stories.id),
+});
+
+export const sessionMessages = sqliteTable('session_messages', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  sessionId: integer('session_id').notNull().references(() => sessions.id),
+  content: text('content').notNull(),
+});
+
 export const geminiFiles = sqliteTable('gemini_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  videoId: integer('video_id')
-    .references(() => videos.id),
-  musicId: integer('music_id')
-    .references(() => music.id),
-  voiceoverId: integer('voiceover_id')
-    .references(() => voiceovers.id),
+  videoId: integer('video_id').references(() => videos.id),
+  musicId: integer('music_id').references(() => music.id),
+  voiceoverId: integer('voiceover_id').references(() => voiceovers.id),
   fileUri: text('file_uri').notNull(),
   uploadedAt: text('uploaded_at').notNull(),
   state: text('state').notNull(),
