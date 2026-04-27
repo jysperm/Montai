@@ -121,4 +121,10 @@ program.action(() => {
   printFullHelp(program);
 });
 
+// Any --help/-h anywhere in argv prints the same full help as bare `montai`.
+if (process.argv.slice(2).some((a) => a === '--help' || a === '-h')) {
+  printFullHelp(program);
+  process.exit(0);
+}
+
 await program.parseAsync();
