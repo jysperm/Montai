@@ -1,6 +1,6 @@
 {
   "name": "montai-cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs",
   "type": "module",
   "author": "jysperm <jysperm@gmail.com>",
