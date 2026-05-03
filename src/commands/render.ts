@@ -25,8 +25,14 @@ export async function renderCommand(name?: string, options?: { fromArchived?: bo
     new URL('../../remotion', import.meta.url),
   );
 
-  // Prepare public dir with video hard links for all specs
-  const publicDir = preparePublicDir(specs);
+  let publicDir: string;
+  try {
+    publicDir = preparePublicDir(specs);
+  } catch (err) {
+    console.log(chalk.red(err instanceof Error ? err.message : String(err)));
+    console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
+    process.exit(1);
+  }
 
   const outputDir = resolve('output');
   mkdirSync(outputDir, { recursive: true });

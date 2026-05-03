@@ -98,9 +98,9 @@ export const sessionMessages = sqliteTable('session_messages', {
 
 export const geminiFiles = sqliteTable('gemini_files', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  videoId: integer('video_id').references(() => videos.id),
-  musicId: integer('music_id').references(() => music.id),
-  voiceoverId: integer('voiceover_id').references(() => voiceovers.id),
+  // Nullable so old upload-cache rows can migrate without blocking schema push.
+  // Rows without cacheKey are ignored by the current path-keyed cache.
+  cacheKey: text('cache_key').unique(),
   fileUri: text('file_uri').notNull(),
   uploadedAt: text('uploaded_at').notNull(),
   state: text('state').notNull(),

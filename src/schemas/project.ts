@@ -32,6 +32,12 @@ export const FeatureFlagsSchema = z.object({
   music: z.boolean().optional(),
   musicGeneration: z.boolean().optional(),
   voiceover: z.boolean().optional(),
+  previewTools: z.boolean().optional(),
+  // FPS the analyze pipeline transcodes source videos at. The analyze step
+  // itself still calls Gemini at default (1fps) sampling — bumping this only
+  // pre-warms the transcode cache so subsequent watchSegment calls at the
+  // same fps don't have to re-transcode.
+  transcodeFps: z.number().min(1).optional(),
 }).default({});
 
 export const AssetsSchema = z.object({

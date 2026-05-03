@@ -1,5 +1,7 @@
 import { eq, desc } from 'drizzle-orm';
-import type { FileContent, TextContent } from '@mariozechner/pi-ai';
+import { existsSync, readFileSync } from 'fs';
+import { resolve } from 'path';
+import type { FileContent, ImageContent, TextContent } from '@mariozechner/pi-ai';
 import type { Agent } from '@mariozechner/pi-agent-core';
 import { Type } from 'typebox';
 import type { MontaiDb } from '../db/index.js';
@@ -7,14 +9,20 @@ import { stories, sessions, type videoAnalyses, type music, type musicAnalyses, 
 import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
-import { uploadVideoToGemini } from '../gemini/upload.js';
+import { uploadFileToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { TimelineItemSchema, spliceTimelineItems, expandTimeline, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
 import { z } from 'zod';
 import { generateMusicTrack } from '../lyria/generate.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
+import { loadExpandedTimelines } from '../utils/project.js';
+import { preparePublicDir } from '../remotion/public-dir.js';
+import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 
-const MAX_VIDEO_FILES_PER_TURN = 10;
+// Shared per-turn cap across all tools that inject media (videos/images) into
+// the model context — Gemini limits how many file refs a single request can
+// carry, so it must be a unified budget rather than per-tool.
+const MAX_MEDIA_PER_TURN = 10;
 
 export interface StoryToolsContext {
   db: MontaiDb;
@@ -37,7 +45,25 @@ export interface StoryToolsContext {
 }
 
 export function getStoryTools(ctx: StoryToolsContext) {
-  let watchCountThisTurn = 0;
+  let mediaCountThisTurn = 0;
+
+  // Resolve the current expanded timeline by re-loading from DB. Returns an
+  // error string if the story has no clips yet (preview tools are meaningless
+  // without a backbone) or expandTimeline reports validation errors.
+  function loadCurrentExpanded() {
+    const storyName = ctx.currentStoryName;
+    if (!storyName) {
+      return { error: 'No active story. Save the storyline and timeline first.' as const };
+    }
+    const result = loadExpandedTimelines(ctx.db, ctx.config, storyName, { quiet: true });
+    if (result.errors.length > 0) {
+      return { error: `Timeline has errors: ${result.errors.join('; ')}` as const };
+    }
+    if (result.timelines.length === 0 || result.timelines[0].clips.length === 0) {
+      return { error: 'Timeline has no clips yet — add clips before requesting a preview.' as const };
+    }
+    return { spec: result.timelines[0] };
+  }
 
   const updateStorylineTool = {
     name: 'updateStoryline',
@@ -202,21 +228,22 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const watchSegmentTool = {
     name: 'watchSegment',
     label: 'Watch Segment',
-    description: `Watch a specific segment of a video. Maximum ${MAX_VIDEO_FILES_PER_TURN} segments per turn.`,
+    description: `Watch a specific segment of a SOURCE video. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
     parameters: Type.Object({
       videoId: Type.Number({ description: 'The video ID' }),
       startSeconds: Type.Number({ description: 'Start time in seconds' }),
       endSeconds: Type.Number({ description: 'End time in seconds' }),
+      fps: Type.Optional(Type.Number({ minimum: 1, description: 'Sampling frame rate (default 1). Raise to 2-5 to inspect fast-changing visuals in short segments.' })),
     }),
     async execute(
       _toolCallId: string,
-      params: { videoId: number; startSeconds: number; endSeconds: number },
+      params: { videoId: number; startSeconds: number; endSeconds: number; fps?: number },
     ) {
-      watchCountThisTurn++;
-      if (watchCountThisTurn > MAX_VIDEO_FILES_PER_TURN) {
+      mediaCountThisTurn++;
+      if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
         const errorText: TextContent = {
           type: 'text' as const,
-          text: `Error: You have already watched ${MAX_VIDEO_FILES_PER_TURN} segments this turn. Wait for the next turn to watch more segments.`,
+          text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`,
         };
         return { content: [errorText], details: {}, isError: true };
       }
@@ -249,10 +276,18 @@ export function getStoryTools(ctx: StoryToolsContext) {
         return { content: [errorText], details: {}, isError: true };
       }
       const clampedEnd = duration > 0 ? Math.min(params.endSeconds, duration) : params.endSeconds;
+      const fps = params.fps ?? 1;
+      if (fps < 1) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: 'Error: fps must be >= 1.',
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
 
       try {
-        const transcoded = await transcodeForUpload(video.id, video.path);
-        const uploaded = await uploadVideoToGemini(video.id, transcoded.path);
+        const transcoded = await transcodeForUpload(video.id, video.path, fps);
+        const uploaded = await uploadFileToGemini(transcoded.path);
         const fileContent: FileContent = {
           type: 'file',
           uri: uploaded.fileUri,
@@ -260,6 +295,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
           videoMetadata: {
             startOffset: `${params.startSeconds}s`,
             endOffset: `${clampedEnd}s`,
+            ...(params.fps !== undefined ? { fps: params.fps } : {}),
           },
         };
         const textContent: TextContent = {
@@ -273,6 +309,128 @@ export function getStoryTools(ctx: StoryToolsContext) {
           text: `Error watching segment: ${err}`,
         };
         return { content: [errorText], details: {} };
+      }
+    },
+  };
+
+  const previewFrameTool = {
+    name: 'previewFrame',
+    label: 'Preview Frame',
+    description: `Render a single frame of the CURRENT EDITED timeline (with crop, rotation, overlays, and other post effects applied) and view it as an image. Use this to verify how an effect actually looks at a specific moment. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    parameters: Type.Object({
+      clipIndex: Type.Number({ description: '0-based clip index in the current timeline.' }),
+      timeOffset: Type.Number({ description: 'Seconds within the clip. >= 0 = from clip start, < 0 = from clip end (same convention as overlay startOffset).' }),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { clipIndex: number; timeOffset: number },
+    ) {
+      mediaCountThisTurn++;
+      if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
+        return { content: [{ type: 'text' as const, text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.` } satisfies TextContent], details: {}, isError: true };
+      }
+
+      const loaded = loadCurrentExpanded();
+      if ('error' in loaded) {
+        return { content: [{ type: 'text' as const, text: `Error: ${loaded.error}` } satisfies TextContent], details: {}, isError: true };
+      }
+      const spec = loaded.spec;
+
+      if (params.clipIndex < 0 || params.clipIndex >= spec.clips.length) {
+        return { content: [{ type: 'text' as const, text: `Error: clipIndex ${params.clipIndex} out of range (timeline has ${spec.clips.length} clips, valid range 0-${spec.clips.length - 1}).` } satisfies TextContent], details: {}, isError: true };
+      }
+
+      try {
+        const frame = resolveStartFrame(spec, params.clipIndex, params.timeOffset);
+        // Cross-session disk cache: hash of (spec, frame). Reuses prior renders
+        // until the timeline changes shape.
+        const hash = stillHash(spec, frame);
+        const outPath = resolve('.montai/.cache/stills', `${hash}.png`);
+        // preparePublicDir is needed even on cache hit so that a follow-up
+        // previewFinalVideo (which also uses the bundle's public/) finds media.
+        preparePublicDir(spec);
+        if (!existsSync(outPath)) {
+          await renderStillFrame({ spec, frame, outPath });
+        }
+        const buffer = readFileSync(outPath);
+        const image: ImageContent = {
+          type: 'image',
+          data: buffer.toString('base64'),
+          mimeType: 'image/png',
+        };
+        const text: TextContent = {
+          type: 'text',
+          text: `Rendered frame of clip ${params.clipIndex} at timeOffset ${params.timeOffset}s (frame ${frame} of the ${spec.fps}fps composition).`,
+        };
+        return { content: [text, image], details: {} };
+      } catch (err) {
+        return { content: [{ type: 'text' as const, text: `Render failed: ${err instanceof Error ? err.message : err}` } satisfies TextContent], details: {}, isError: true };
+      }
+    },
+  };
+
+  const previewFinalVideoTool = {
+    name: 'previewFinalVideo',
+    label: 'Preview Final Video',
+    description: `Render a time range of the CURRENT EDITED timeline as a video and view the final composition. Use this to get an overall, end-to-end preview of how the edit plays out. Defaults to the whole timeline at 1fps. Heavier than previewFrame — prefer previewFrame for single-moment checks. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    parameters: Type.Object({
+      startSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline start, in seconds (default 0).' })),
+      endSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline end, in seconds (default = end of timeline).' })),
+      fps: Type.Optional(Type.Number({ minimum: 1, description: 'Sampling frame rate (default 1). Raise to 2-5 to inspect fast-changing visuals.' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { startSeconds?: number; endSeconds?: number; fps?: number },
+    ) {
+      mediaCountThisTurn++;
+      if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
+        return { content: [{ type: 'text' as const, text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.` } satisfies TextContent], details: {}, isError: true };
+      }
+
+      const loaded = loadCurrentExpanded();
+      if ('error' in loaded) {
+        return { content: [{ type: 'text' as const, text: `Error: ${loaded.error}` } satisfies TextContent], details: {}, isError: true };
+      }
+      const spec = loaded.spec;
+
+      const totalSeconds = totalTimelineSeconds(spec);
+      const startSeconds = Math.max(0, params.startSeconds ?? 0);
+      const endSeconds = Math.min(totalSeconds, params.endSeconds ?? totalSeconds);
+      const previewFps = params.fps ?? 1;
+
+      if (endSeconds <= startSeconds) {
+        return { content: [{ type: 'text' as const, text: `Error: empty range — startSeconds (${startSeconds}) must be < endSeconds (${endSeconds}); timeline is ${totalSeconds.toFixed(2)}s.` } satisfies TextContent], details: {}, isError: true };
+      }
+      if (previewFps < 1) {
+        return { content: [{ type: 'text' as const, text: 'Error: fps must be >= 1.' } satisfies TextContent], details: {}, isError: true };
+      }
+
+      try {
+        preparePublicDir(spec);
+        const hash = previewHash(spec, startSeconds, endSeconds, previewFps);
+        const outPath = resolve('.montai/.cache/previews', `${hash}.mp4`);
+        if (!existsSync(outPath)) {
+          await renderRange({ spec, startSeconds, endSeconds, fps: previewFps, outPath });
+        }
+        const upload = await uploadFileToGemini(outPath);
+        const durationSeconds = endSeconds - startSeconds;
+        const file: FileContent = {
+          type: 'file',
+          uri: upload.fileUri,
+          mimeType: 'video/mp4',
+          videoMetadata: {
+            startOffset: '0s',
+            endOffset: `${durationSeconds.toFixed(2)}s`,
+            fps: previewFps,
+          },
+        };
+        const text: TextContent = {
+          type: 'text',
+          text: `Rendered preview ${startSeconds.toFixed(2)}s–${endSeconds.toFixed(2)}s of the edited timeline (${durationSeconds.toFixed(2)}s @ ${previewFps}fps${upload.cached ? ', cached upload' : ''}).`,
+        };
+        return { content: [text, file], details: {} };
+      } catch (err) {
+        return { content: [{ type: 'text' as const, text: `Render failed: ${err instanceof Error ? err.message : err}` } satisfies TextContent], details: {}, isError: true };
       }
     },
   };
@@ -531,6 +689,9 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, listStoriesTool, switchStoryTool];
+  if (ctx.features.previewTools) {
+    tools.push(previewFrameTool, previewFinalVideoTool);
+  }
   if (ctx.features.music) {
     tools.push(getMusicAnalysisTool);
   }
@@ -544,7 +705,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   return {
     tools,
     resetWatchCount() {
-      watchCountThisTurn = 0;
+      mediaCountThisTurn = 0;
     },
   };
 }

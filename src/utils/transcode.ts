@@ -1,11 +1,14 @@
 import { spawn } from 'child_process';
-import { existsSync, mkdirSync, statSync, renameSync, unlinkSync } from 'fs';
+import { existsSync, mkdirSync, readdirSync, statSync, renameSync, unlinkSync } from 'fs';
 import { join, dirname } from 'path';
 
 const TRANSCODE_DIR = '.montai/transcoded';
 
-function getTranscodedPath(videoId: number): string {
-  return join(TRANSCODE_DIR, `${videoId}.mp4`);
+// Filename encodes the sample fps so that different fps requests don't clobber
+// each other. fps=1 keeps the legacy unsuffixed name for cache continuity.
+function getTranscodedPath(videoId: number, fps: number): string {
+  const suffix = fps === 1 ? '' : `-${fps}fps`;
+  return join(TRANSCODE_DIR, `${videoId}${suffix}.mp4`);
 }
 
 function isTranscodedFresh(transcodedPath: string, sourcePath: string): boolean {
@@ -15,27 +18,44 @@ function isTranscodedFresh(transcodedPath: string, sourcePath: string): boolean 
   return outMtime > srcMtime;
 }
 
+// A transcode at fps=N can serve any request for fps<=N (Gemini just ignores
+// extra frames). Pick the smallest fresh cache that satisfies the request to
+// keep the upload size minimal.
+function findReusableTranscode(videoId: number, requiredFps: number, sourcePath: string): string | null {
+  if (!existsSync(TRANSCODE_DIR)) return null;
+  const pattern = new RegExp(`^${videoId}(?:-(\\d+(?:\\.\\d+)?)fps)?\\.mp4$`);
+  const candidates = readdirSync(TRANSCODE_DIR)
+    .map((name) => {
+      const m = name.match(pattern);
+      if (!m) return null;
+      const fps = m[1] ? parseFloat(m[1]) : 1;
+      return { name, fps };
+    })
+    .filter((c): c is { name: string; fps: number } => c !== null && c.fps >= requiredFps)
+    .sort((a, b) => a.fps - b.fps);
+  for (const c of candidates) {
+    const p = join(TRANSCODE_DIR, c.name);
+    if (isTranscodedFresh(p, sourcePath)) return p;
+  }
+  return null;
+}
+
 /**
- * Transcode video to 1 FPS, 720p, 8-bit color for Gemini upload.
- * Caches the result in .montai/transcoded/{videoId}.mp4.
- *
- * Uses async spawn so that SIGINT/SIGTSTP are handled properly
- * (the event loop stays free to process signals).
- * Writes to a temp file and renames on success to avoid leaving
- * partial files that would be mistaken for valid cache.
+ * Transcode video to a low-fps, 720p, 8-bit mp4 for Gemini upload.
+ * Result cached at .montai/transcoded/{videoId}[-Nfps].mp4. A request at fps=N
+ * may reuse an existing transcode at any fps>=N (the returned `path` may be a
+ * higher-fps reuse — its basename uniquely identifies the file).
  */
 export interface TranscodeResult {
   path: string;
   cached: boolean;
 }
 
-export async function transcodeForUpload(videoId: number, sourcePath: string): Promise<TranscodeResult> {
-  const outPath = getTranscodedPath(videoId);
+export async function transcodeForUpload(videoId: number, sourcePath: string, fps = 1): Promise<TranscodeResult> {
+  const reusable = findReusableTranscode(videoId, fps, sourcePath);
+  if (reusable) return { path: reusable, cached: true };
 
-  if (isTranscodedFresh(outPath, sourcePath)) {
-    return { path: outPath, cached: true };
-  }
-
+  const outPath = getTranscodedPath(videoId, fps);
   mkdirSync(dirname(outPath), { recursive: true });
 
   const tmpPath = outPath.replace(/\.mp4$/, '.tmp.mp4');
@@ -44,7 +64,7 @@ export async function transcodeForUpload(videoId: number, sourcePath: string): P
     const child = spawn('ffmpeg', [
       '-y',
       '-i', sourcePath,
-      '-vf', 'scale=-2:720,fps=1',
+      '-vf', `scale=-2:720,fps=${fps}`,
       '-c:v', 'libx264',
       '-preset', 'fast',
       '-crf', '28',
@@ -55,8 +75,6 @@ export async function transcodeForUpload(videoId: number, sourcePath: string): P
       tmpPath,
     ], { stdio: ['ignore', 'ignore', 'pipe'] });
 
-    // Drain stderr to prevent pipe buffer from filling up;
-    // keep the tail for error reporting.
     let stderrTail = '';
     child.stderr.on('data', (data: Buffer) => {
       stderrTail = data.toString().slice(-2000);

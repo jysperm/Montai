@@ -464,7 +464,15 @@ export class StoryAgent {
         return;
       }
       const { timelines } = loadExpandedTimelines(this.db, this.config, storyName, { quiet: true });
-      const publicDir = preparePublicDir(timelines);
+      let publicDir: string;
+      try {
+        publicDir = preparePublicDir(timelines);
+      } catch (err) {
+        console.log(chalk.red(err instanceof Error ? err.message : String(err)));
+        console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
+        this.autoPreview = false;
+        return;
+      }
       this.linkedMedia = collectMediaFiles(timelines);
       const remotionProjectDir = fileURLToPath(new URL('../../remotion', import.meta.url));
       this.previewChild = spawn('npx', ['remotion', 'studio', 'src/index.tsx', `--public-dir=${publicDir}`], {
@@ -544,13 +552,17 @@ export class StoryAgent {
       if (this.autoPreview) {
         const currentMedia = collectMediaFiles(result.timelines);
         const hasNewMedia = [...currentMedia].some(f => !this.linkedMedia.has(f));
-        if (hasNewMedia) {
-          preparePublicDir(result.timelines);
-          this.linkedMedia = currentMedia;
-        } else {
-          writeTimelinesJson(result.timelines);
+        try {
+          if (hasNewMedia) {
+            preparePublicDir(result.timelines);
+            this.linkedMedia = currentMedia;
+          } else {
+            writeTimelinesJson(result.timelines);
+          }
+          parts.push('Remotion');
+        } catch (err) {
+          console.log(chalk.yellow(`Remotion failed: ${err instanceof Error ? err.message : String(err)}`));
         }
-        parts.push('Remotion');
       }
 
       if (this.autoExport) {
@@ -558,11 +570,13 @@ export class StoryAgent {
         parts.push('FCPXML');
       }
 
-      let msg = parts.join(' and ') + ' updated';
-      if (result.correctionCount > 0) {
-        msg += ` with ${result.correctionCount} correction${result.correctionCount !== 1 ? 's' : ''}`;
+      if (parts.length > 0) {
+        let msg = parts.join(' and ') + ' updated';
+        if (result.correctionCount > 0) {
+          msg += ` with ${result.correctionCount} correction${result.correctionCount !== 1 ? 's' : ''}`;
+        }
+        console.log(chalk.dim(msg));
       }
-      console.log(chalk.dim(msg));
     } else if (this.autoPreview) {
       writeTimelinesJson([]);
       this.linkedMedia = new Set();

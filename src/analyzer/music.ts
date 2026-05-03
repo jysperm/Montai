@@ -7,7 +7,7 @@ import { resolveMusicFiles, getMusicFilename, readProjectFile } from '../utils/p
 import { getAudioMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { extname, resolve, basename } from 'path';
-import { uploadMusicToGemini } from '../gemini/upload.js';
+import { uploadFileToGemini } from '../gemini/upload.js';
 import { renderPrompt } from '../prompts/index.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
@@ -314,7 +314,7 @@ export async function syncAndAnalyzeMusic(
 
     try {
       const t0 = Date.now();
-      const uploaded = await uploadMusicToGemini(track.id, track.path);
+      const uploaded = await uploadFileToGemini(track.path);
       if (uploaded.cached) {
         logLine(chalk.green(`  ✓ Uploaded ${track.filename} (cached)`));
       } else {

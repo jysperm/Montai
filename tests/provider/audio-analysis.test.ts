@@ -10,8 +10,7 @@ import { describe, it, expect } from 'vitest';
 import { getModel, complete, type FileContent, type TextContent, type Message } from '@mariozechner/pi-ai';
 import { GoogleGenAI } from '@google/genai';
 
-const AUDIO_PATH =
-  '/Users/jysperm/jysperm/Montai/example/musics/Sneaky Adventure.mp3';
+const AUDIO_PATH = '/Users/jysperm/jysperm/Montai/example/musics/Sneaky Adventure.mp3';
 
 async function uploadAudio(filePath: string): Promise<string> {
   const client = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY! });

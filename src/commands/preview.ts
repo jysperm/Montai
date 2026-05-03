@@ -17,8 +17,14 @@ export async function previewCommand(name?: string, options?: { fromArchived?: b
     specs = remapToArchived(specs);
   }
 
-  // Prepare public dir with video hard links and timelines.json
-  const publicDir = preparePublicDir(specs);
+  let publicDir: string;
+  try {
+    publicDir = preparePublicDir(specs);
+  } catch (err) {
+    console.log(chalk.red(err instanceof Error ? err.message : String(err)));
+    console.log(`The stored timeline may contain outdated paths. Try re-running ${chalk.bold('montai story')} to regenerate the timeline.`);
+    process.exit(1);
+  }
 
   // Resolve Remotion project path relative to this package
   const remotionProjectDir = fileURLToPath(

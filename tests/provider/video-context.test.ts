@@ -12,8 +12,7 @@ import { getModel, type FileContent, type TextContent } from '@mariozechner/pi-a
 import { Type } from '@sinclair/typebox';
 import { GoogleGenAI } from '@google/genai';
 
-const VIDEO_PATH =
-  '/Users/jysperm/Movies/2026-02 Chiang Mai Flower Festival/DJI_20260214191551_0020_D.MP4';
+const VIDEO_PATH = '/Users/jysperm/Movies/2026-02 Chiang Mai Flower Festival/footage/DJI_20260214191551_0020_D.MP4';
 
 async function uploadVideo(filePath: string): Promise<string> {
   const client = new GoogleGenAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY! });

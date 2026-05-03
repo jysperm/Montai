@@ -9,7 +9,11 @@ You are a professional video editor collaborating interactively with the user to
 
 - `updateStoryline({ name, title, narrative })` — Save the current storyline. First call creates the story record, subsequent calls update it. `name` is a short kebab-case identifier (e.g. "lantern-festival") used as a codename — once set, do not change it unless the user explicitly asks (omit to keep the existing name). `title` is human-readable, `narrative` is free-form markdown describing the edit plan.
 - `updateTimeline({ index, deleteCount, items })` — Update the timeline using splice semantics. `index` is the position, `deleteCount` is how many items to remove (-1 = all from index), `items` is the array of new items to insert. For a full replacement, use `index: 0, deleteCount: -1`.
-- `watchSegment(videoId, startSeconds, endSeconds)` — Watch a specific video segment. Video content will be added to context. Maximum 10 segments per turn.
+- `watchSegment({ videoId, startSeconds, endSeconds, fps? })` — Watch a segment of a SOURCE video. Defaults to 1fps sampling rate; raise to 2-5 to inspect fast-changing visuals.
+{{#if features.previewTools}}
+- `previewFrame({ clipIndex, timeOffset })` — Render one frame of the CURRENT EDITED timeline and view it as an image. Use this to verify how an effect actually looks at a specific moment.
+- `previewFinalVideo({ startSeconds?, endSeconds?, fps? })` — Render a time range of the CURRENT EDITED timeline as a video and view the final composition end-to-end. Defaults render the whole timeline at 1fps sampling rate. Use `previewFrame` if you only need to check a specific moment.
+{{/if}}
 - `getVideoAnalysis(videoId)` — Retrieve the full analysis for a video.
 {{#if features.music}}
 - `getMusicAnalysis(musicId)` — Retrieve the full analysis for a music track.

@@ -66,6 +66,8 @@ The goal is a single switch per feature that controls both what the LLM is told 
 | `music` | Background music selection from the library and/or generated tracks | `getMusicAnalysis` tool; music item format and editing guidance in `story-system`; music analyses (library + summaries) in `story-context` | Project has music files (`assets.music` non-empty) **or** `models.musicGeneration` is configured |
 | `musicGeneration` | AI-generated background music via Lyria 2 | `generateMusic` tool; "Using generateMusic" prompt section; generated-music list in `story-context` | `models.musicGeneration` is configured |
 | `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool; voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
+| `previewTools` | Agent self-preview of the edited timeline (renders a frame or short video and injects it back into the conversation) | `previewFrame` and `previewFinalVideo` tools; tool descriptions in `story-system` | `true` |
+| `transcodeFps` | FPS the analyze pipeline transcodes source videos at. The analyze step itself still calls Gemini at default 1fps sampling — bumping this only pre-warms the transcode/upload cache so a later `watchSegment(fps=N)` doesn't have to re-transcode or re-upload | `transcodeForUpload` + `uploadFileToGemini` path-keyed cache in `analyze` | `1` (number, not a boolean) |
 
 ### User overrides
 
@@ -96,7 +98,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
 - **sessions** — Agent conversation sessions for `montai story`. Each `montai story` invocation creates a session; `--resume` restores one. Stores `currentStoryId` (nullable FK to stories) which is written immediately on every change. A session can span multiple stories via `/switch`.
 - **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
-- **gemini_files** — Cached Gemini File API references for uploaded videos, music, and voiceover files (videoId, musicId, or voiceoverId, all nullable)
+- **gemini_files** — Cached Gemini File API references keyed by nullable `cacheKey` = the project-relative file path. Same scheme for every upload: source video transcodes (`.montai/transcoded/<id>-<n>fps.mp4`), music / voiceover assets (e.g. `musics/track1.mp3`), and previewFinalVideo renders (`.montai/.cache/previews/<sha256>.mp4`). The path encodes everything the cache needs to distinguish — `<id>-<n>fps.mp4` already encodes the videoId+fps, the preview filename encodes the spec hash. Legacy rows with `NULL` cache keys are ignored and naturally replaced on next upload.
 
 ## Pipeline
 
@@ -114,12 +116,12 @@ While video N is being analyzed, video N+1 can be uploading, and video N+2 can b
 
 **Music pipeline** — simpler 2-stage pipelined pipeline (no transcoding needed):
 
-1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table with `musicId`).
+1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table by project-relative path).
 2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`. `AGENTS.md` is injected as context (same as video).
 
 **Voiceover pipeline** — same 2-stage structure as music (no transcoding):
 
-1. **Upload** — Upload audio file to Gemini File API (cached in `gemini_files` with `voiceoverId`).
+1. **Upload** — Upload audio file to Gemini File API (cached in `gemini_files` by project-relative path).
 2. **Analyze** — Transcription-focused analysis: produces per-sentence timestamps with skip markers for unusable content (hesitations, repeats, etc.), plus an overview summary.
 
 Supports resume: skips videos that already have a row in `video_analyses` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
@@ -131,10 +133,23 @@ Interactive session that merges storyline generation and timeline editing into a
 Uses an agent loop with tools:
 - `updateStoryline(name, title, narrative)` — Save/update the storyline
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
-- `watchSegment(videoId, startSeconds, endSeconds)` — Watch a video segment
+- `watchSegment(videoId, startSeconds, endSeconds, fps?)` — Watch a source video segment. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
+- `previewFrame(clipIndex, timeOffset)` — Render one frame of the CURRENT edited timeline (Remotion, with crop/rotation/overlays/etc applied) and inject it as an image. For verifying a specific moment of the edit
+- `previewFinalVideo(startSeconds?, endSeconds?, fps?)` — Render a range of the CURRENT edited timeline as a video, upload to Gemini File API, and inject as a video. Provides an end-to-end preview of the final composition. Defaults to the whole timeline at `fps=1`
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
 - `getVoiceoverAnalysis(voiceoverId)` — Retrieve stored transcription
 - `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in music items
+
+`watchSegment`, `previewFrame`, and `previewFinalVideo` share a single 10-per-turn media budget (Gemini's per-request file-ref limit).
+
+#### Preview implementation (previewFrame / previewFinalVideo)
+
+Both tools use the `@remotion/renderer` programmatic API instead of the CLI:
+- **Bundle reuse**: `bundle()` is called once per process (lazy on first preview tool call) and the result cached as a module-level promise. The output dir `.montai/.cache/remotion-bundle/` is reused across processes via webpack's caching layer. After bundle, `<bundleDir>/public` is replaced with a symlink to `.montai/public/` so newly hard-linked media is reachable without rebundling.
+- **Direct fps output (previewFinalVideo)**: instead of rendering at composition fps and dropping frames via ffmpeg, the spec's `fps` is overridden to the requested preview fps before passing to `selectComposition` / `renderMedia`. MontaiVideo derives all per-frame quantities from `seconds * fps`, so total frames and transition overlaps adjust automatically. Lower preview fps means fewer frames actually rendered (no waste) at the cost of animation sample density — `previewFrame` is preferred when only a single moment matters; `previewFinalVideo` at higher fps is the right choice when checking transitions / Ken Burns / overlay animations. Preview output is rendered at `scale=0.5` of the spec's native resolution to keep file size small without an extra ffmpeg pass.
+- **Cross-session caching**: PNG stills are stored at `.montai/.cache/stills/<sha256(spec, frame)>.png`. Preview videos are stored at `.montai/.cache/previews/<sha256(spec, range, fps)>.mp4` AND tracked in `gemini_files.cacheKey` (= the same relative path) so the corresponding Gemini File API URI is reused (subject to 48h expiry). Any change to the timeline shape changes the hash, so the cache invalidates naturally — and the same path-as-cacheKey mechanism is what gives source-video uploads their cross-session cache too.
+
+Gated by the `previewTools` feature flag (default `true`).
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
 

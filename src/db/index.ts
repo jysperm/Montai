@@ -8,9 +8,10 @@ const require = createRequire(import.meta.url);
 const { pushSQLiteSchema } = require('drizzle-kit/api') as typeof import('drizzle-kit/api');
 
 let db: ReturnType<typeof createDb> | null = null;
+let sqlite: Database.Database | null = null;
 
 function createDb(dbPath: string) {
-  const sqlite = new Database(dbPath);
+  sqlite = new Database(dbPath);
   sqlite.pragma('journal_mode = WAL');
   return drizzle(sqlite, { schema });
 }
@@ -69,6 +70,12 @@ export async function initDb(dbPath = './montai.db') {
   }
   instance.run(sql.raw('PRAGMA foreign_keys = ON'));
   return instance;
+}
+
+export function closeDbForTests() {
+  sqlite?.close();
+  sqlite = null;
+  db = null;
 }
 
 export type MontaiDb = ReturnType<typeof getDb>;

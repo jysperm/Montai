@@ -4,6 +4,7 @@ export interface FeatureFlags {
   music: boolean;
   musicGeneration: boolean;
   voiceover: boolean;
+  previewTools: boolean;
 }
 
 export interface FeatureFlagContext {
@@ -19,6 +20,7 @@ export function resolveFeatureFlags(
     music: context.hasMusic || Boolean(config.models.musicGeneration),
     musicGeneration: Boolean(config.models.musicGeneration),
     voiceover: context.hasVoiceovers,
+    previewTools: true,
     ...config.featureFlags,
   };
 }

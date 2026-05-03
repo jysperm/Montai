@@ -8,7 +8,7 @@ import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
 import { statSync } from 'fs';
 import { resolve, basename } from 'path';
-import { uploadVideoToGemini } from '../gemini/upload.js';
+import { uploadFileToGemini } from '../gemini/upload.js';
 import { renderPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
@@ -417,7 +417,7 @@ export async function syncAndAnalyzeVideos(
 
     try {
       const t0 = Date.now();
-      const uploaded = await uploadVideoToGemini(video.id, transcodedPath);
+      const uploaded = await uploadFileToGemini(transcodedPath);
       if (uploaded.cached) {
         logLine(chalk.green(`  ✓ Uploaded ${video.filename} (cached)`));
       } else {
@@ -439,7 +439,7 @@ export async function syncAndAnalyzeVideos(
 
     try {
       const t0 = Date.now();
-      const transcoded = await transcodeForUpload(video.id, video.path);
+      const transcoded = await transcodeForUpload(video.id, video.path, config.featureFlags.transcodeFps);
       const transcodedSize = formatFileSize(statSync(transcoded.path).size);
       if (transcoded.cached) {
         logLine(chalk.green(`  ✓ Transcoded ${video.filename} (cached, ${transcodedSize})`));

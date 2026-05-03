@@ -94,6 +94,11 @@ The `montai story` command opens an interactive session where you chat with AI t
 - **AI music generation** — generate instrumental background music
 - **Voiceover-driven editing** — match video clips to narration recordings, selecting visuals that fit each spoken segment
 
+### Self-Feedback
+
+- **Inspect a single frame** — view any moment of the current edit as an image to verify how an effect actually looks
+- **Watch the edited video** — view a range (or the whole timeline) end-to-end to check pacing, transitions, and overall flow
+
 ## Export .fcpxml
 
 `montai export` generates .fcpxml 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. .fcpxml preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.

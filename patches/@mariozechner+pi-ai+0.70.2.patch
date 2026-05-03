@@ -21,10 +21,10 @@ index 1062755..540a3a9 100644
                          return {
                              type: "text",
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
-index 1bc51fa..6f0612a 100644
+index 1bc51fa..a7eb28d 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/google-shared.js
-@@ -98,6 +98,21 @@ export function convertMessages(model, context) {
+@@ -98,6 +98,22 @@ export function convertMessages(model, context) {
                      if (item.type === "text") {
                          return { text: sanitizeSurrogates(item.text) };
                      }
@@ -39,6 +39,7 @@ index 1bc51fa..6f0612a 100644
 +                            part.videoMetadata = {
 +                                startOffset: item.videoMetadata.startOffset,
 +                                endOffset: item.videoMetadata.endOffset,
++                                ...(item.videoMetadata.fps !== undefined ? { fps: item.videoMetadata.fps } : {}),
 +                            };
 +                        }
 +                        return part;
@@ -46,7 +47,7 @@ index 1bc51fa..6f0612a 100644
                      else {
                          return {
                              inlineData: {
-@@ -176,12 +191,13 @@ export function convertMessages(model, context) {
+@@ -176,12 +192,13 @@ export function convertMessages(model, context) {
              });
          }
          else if (msg.role === "toolResult") {
@@ -61,7 +62,7 @@ index 1bc51fa..6f0612a 100644
              const hasText = textResult.length > 0;
              const hasImages = imageContent.length > 0;
              // Gemini 3+ models support multimodal function responses with images nested inside
-@@ -224,6 +240,34 @@ export function convertMessages(model, context) {
+@@ -224,6 +241,35 @@ export function convertMessages(model, context) {
                      parts: [{ text: "Tool result image:" }, ...imageParts],
                  });
              }
@@ -78,6 +79,7 @@ index 1bc51fa..6f0612a 100644
 +                        part.videoMetadata = {
 +                            startOffset: fileBlock.videoMetadata.startOffset,
 +                            endOffset: fileBlock.videoMetadata.endOffset,
++                            ...(fileBlock.videoMetadata.fps !== undefined ? { fps: fileBlock.videoMetadata.fps } : {}),
 +                        };
 +                    }
 +                    return part;
@@ -123,10 +125,10 @@ index 3081455..183e6a5 100644
                          return {
                              type: "input_text",
 diff --git a/node_modules/@mariozechner/pi-ai/dist/types.d.ts b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
-index df45596..751554a 100644
+index df45596..0b1ae15 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/types.d.ts
 +++ b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
-@@ -111,6 +111,15 @@ export interface ImageContent {
+@@ -111,6 +111,16 @@ export interface ImageContent {
      data: string;
      mimeType: string;
  }
@@ -137,12 +139,13 @@ index df45596..751554a 100644
 +    videoMetadata?: {
 +        startOffset: string;
 +        endOffset: string;
++        fps?: number;
 +    };
 +}
  export interface ToolCall {
      type: "toolCall";
      id: string;
-@@ -135,7 +144,7 @@ export interface Usage {
+@@ -135,7 +145,7 @@ export interface Usage {
  export type StopReason = "stop" | "length" | "toolUse" | "error" | "aborted";
  export interface UserMessage {
      role: "user";
@@ -151,7 +154,7 @@ index df45596..751554a 100644
      timestamp: number;
  }
  export interface AssistantMessage {
-@@ -154,7 +163,7 @@ export interface ToolResultMessage<TDetails = any> {
+@@ -154,7 +164,7 @@ export interface ToolResultMessage<TDetails = any> {
      role: "toolResult";
      toolCallId: string;
      toolName: string;
