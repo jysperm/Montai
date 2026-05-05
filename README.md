@@ -26,53 +26,7 @@ Prerequisites:
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 - [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
-## Quick Start
-
-1. Create a project directory with your video files and a `montai.yaml`:
-
-```yaml
-assets:
-  videos:
-    - .
-# Language for intermediate text (e.g. analysis, storyline)
-language: en
-output:
-  resolution: 1080p
-  fps: 50
-models:
-  analysis: gemini-3-flash-preview
-  editing: gemini-3.1-pro-preview
-  musicGeneration: lyria-002        # Optional: enables AI music generation
-effects:
-  # Languages for text overlays, specify multiple for bilingual subtitles
-  languages: [zh, en]
-```
-
-2. Analyze all videos (uploads to Gemini, generates per-video summaries):
-
-```bash
-montai analyze
-```
-
-3. Interactive story session — generates storyline and timeline conversationally:
-
-```bash
-montai story
-```
-
-4. Preview, render, or export:
-
-```bash
-# Open Remotion Studio to preview the edit
-montai preview
-
-# Render the final video via Remotion
-montai render
-
-# Export .fcpxml for professional video editors
-montai export --fcp        # for Final Cut Pro (default)
-montai export --davinci    # for DaVinci Resolve
-```
+Recommended to use [direnv](https://direnv.net/) to manage environment variables.
 
 ## Interactive Story Editing
 
@@ -99,35 +53,60 @@ The `montai story` command opens an interactive session where you chat with AI t
 - **Inspect a single frame** — view any moment of the current edit as an image to verify how an effect actually looks
 - **Watch the edited video** — view a range (or the whole timeline) end-to-end to check pacing, transitions, and overall flow
 
-## Export .fcpxml
+## Quick Start
 
-`montai export` generates .fcpxml 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. .fcpxml preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
+1. Create a project directory with a `montai.yaml` (put your videos in `footage`):
 
-### Final Cut Pro (recommended)
+```yaml
+assets:
+  videos:
+    - ./footage
+language: en                   # Language for intermediate text (e.g. analysis, storyline)
+output:
+  resolution: 1080p
+  fps: 50
+models:
+  analysis: gemini-3-flash-preview
+  editing: gemini-3-flash-preview
+  musicGeneration: lyria-002   # Optional: enables AI generated music (recommended)
+effects:
+  languages: [zh, en]          # Languages for text overlays, specify multiple for bilingual subtitles
+featureFlags:
+  transcodeFps: 5              # Optional: transcode at analyzis time to speed up watchSegment calls
+```
 
-First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
+2. Analyze videos (transcodes, uploads to Gemini and generates per-video summaries):
 
-If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
+```bash
+montai analyze
+```
 
-### DaVinci Resolve
+3. Start an interactive story editing session:
 
-First import your video files into the Media Pool, then use File → Import → Timeline → Import AAF, EDL, XML, FCPXML to import the `.fcpxml` file. Resolve will automatically match the media to the timeline clips.
+```bash
+montai story --new
+```
 
-If your source footage is HDR (e.g. HLG), enable color management in Project Settings → Color Management, otherwise the output will look washed out. Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, then choose:
+You can start preview by `/preview` or enable auto-export of .fcpxml by `/export` in the interactive session.
 
-- **Output SDR**: Color Processing Mode "SDR", Output Color Space "Rec.709 Gamma 2.4"
-- **Output HDR**: Color Processing Mode "HDR", Output Color Space "HDR HLG"
+```
+> /preview
+Auto preview: on — Remotion Studio starting in background
+Remotion Studio: http://localhost:3000
+
+> /export
+Auto export: on
+FCPXML exported
+```
 
 ## Commands
 
 | Command | Description |
 |---------|-------------|
 | `analyze` | Transcode, upload and analyze videos |
-| `analyze --list` | List all videos and music files with analysis status |
-| `analyze --show <filename>` | Show the stored summary for a video or music file |
 | `project` | Show project overview and stats |
 | `story [name]` | Interactive storyline + timeline editing session |
-| `story --new` | Force create a new story |
+| `story --new` | Create a new story |
 | `story --list` | List all stories |
 | `export` | Export .fcpxml from a timeline |
 | `export --fcp` | Optimize for Final Cut Pro (default) |
@@ -150,6 +129,28 @@ Montai can be used to curate interesting segments from a large amount of raw foo
 By default, `montai archive` uses passthrough mode to preserve original quality without re-encoding. Use `--encode` to re-encode using project output settings, or `--encode 720p,crf=20,fps=30,8bit` to customize the encoding spec.
 
 After archiving, use `--from-archived` on `render`, `preview`, or `export` to work from the archived clips instead of the original files. The time offsets are automatically remapped based on the archived filenames.
+
+## Export .fcpxml
+
+`montai export` generates .fcpxml 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. .fcpxml preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
+
+### Final Cut Pro (recommended)
+
+First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
+
+If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
+
+<details>
+<summary><h3>DaVinci Resolve</h3></summary>
+
+First import your video files into the Media Pool, then use File → Import → Timeline → Import AAF, EDL, XML, FCPXML to import the `.fcpxml` file. Resolve will automatically match the media to the timeline clips.
+
+If your source footage is HDR (e.g. HLG), enable color management in Project Settings → Color Management, otherwise the output will look washed out. Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, then choose:
+
+- **Output SDR**: Color Processing Mode "SDR", Output Color Space "Rec.709 Gamma 2.4"
+- **Output HDR**: Color Processing Mode "HDR", Output Color Space "HDR HLG"
+
+</details>
 
 ## Project Structure
 
