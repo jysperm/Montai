@@ -13,8 +13,8 @@ import { renderPrompt } from '../prompts/index.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
-import { AsyncQueue, assertComplete, getTextContent, extractJson, formatDuration, formatCost } from './utils.js';
-import { completeWithLogging } from '../utils/llm-logging.js';
+import { AsyncQueue, completeWithSchemaRetry, formatDuration, formatCost } from './utils.js';
+import { VideoAnalysisSchema } from '../schemas/analysis.js';
 import { formatDuration as formatDurationHuman, formatFileSize } from '../utils/format.js';
 
 function formatCacheRate(usage: { input: number; cacheRead: number }): string | null {
@@ -353,20 +353,26 @@ export async function syncAndAnalyzeVideos(
       ];
 
       const t0 = Date.now();
-      const analysisResult = await completeWithLogging(model, { messages }, { apiKey });
-      assertComplete(analysisResult);
-      const analysisText = getTextContent(analysisResult);
-      totalCost += analysisResult.usage.cost.total;
-      const analysisCacheRate = formatCacheRate(analysisResult.usage);
-      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)}, ${config.models.analysis}${analysisCacheRate ? `, ${analysisCacheRate}` : ''})`));
-
-      let parsedAnalysis: Record<string, unknown>;
-      try {
-        parsedAnalysis = JSON.parse(extractJson(analysisText));
-      } catch {
-        logLine(chalk.yellow(`  Warning: Could not parse analysis JSON for ${video.filename}, storing raw text`));
-        parsedAnalysis = { overview: analysisText };
+      const retryResult = await completeWithSchemaRetry({
+        model,
+        messages,
+        apiKey,
+        schema: VideoAnalysisSchema,
+        maxRetries: 2,
+        onAttempt: ({ attempt, error, isFinal }) => {
+          if (error && !isFinal) {
+            logLine(chalk.yellow(`  Retry ${attempt + 1} for ${video.filename}: ${error}`));
+          }
+        },
+      });
+      totalCost += retryResult.totalCost;
+      if (retryResult.finalError) {
+        throw new Error(`schema validation failed after ${retryResult.attempts} attempts: ${retryResult.finalError}`);
       }
+      const parsedAnalysis = retryResult.raw;
+      const analysisCacheRate = formatCacheRate(retryResult.lastResult.usage);
+      const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';
+      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(retryResult.totalCost)}, ${config.models.analysis}${analysisCacheRate ? `, ${analysisCacheRate}` : ''}${attemptsTag})`));
 
       const analysisFields = {
         overview: String(parsedAnalysis.overview ?? ''),

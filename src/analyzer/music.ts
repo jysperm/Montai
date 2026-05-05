@@ -11,8 +11,8 @@ import { uploadFileToGemini } from '../gemini/upload.js';
 import { renderPrompt } from '../prompts/index.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
-import { AsyncQueue, assertComplete, getTextContent, extractJson, formatDuration, formatCost } from './utils.js';
-import { completeWithLogging } from '../utils/llm-logging.js';
+import { AsyncQueue, completeWithSchemaRetry, formatDuration, formatCost } from './utils.js';
+import { MusicAnalysisSchema } from '../schemas/analysis.js';
 
 const mimeTypeMap: Record<string, string> = {
   '.mp3': 'audio/mpeg',
@@ -278,17 +278,23 @@ export async function syncAndAnalyzeMusic(
       ];
 
       const t0 = Date.now();
-      const analysisResult = await completeWithLogging(model, { messages }, { apiKey });
-      assertComplete(analysisResult);
-      const analysisText = getTextContent(analysisResult);
-      totalCost += analysisResult.usage.cost.total;
-
-      let parsed: Record<string, unknown>;
-      try {
-        parsed = JSON.parse(extractJson(analysisText));
-      } catch {
-        parsed = { overview: analysisText };
+      const retryResult = await completeWithSchemaRetry({
+        model,
+        messages,
+        apiKey,
+        schema: MusicAnalysisSchema,
+        maxRetries: 2,
+        onAttempt: ({ attempt, error, isFinal }) => {
+          if (error && !isFinal) {
+            logLine(chalk.yellow(`  Retry ${attempt + 1} for ${track.filename}: ${error}`));
+          }
+        },
+      });
+      totalCost += retryResult.totalCost;
+      if (retryResult.finalError) {
+        throw new Error(`schema validation failed after ${retryResult.attempts} attempts: ${retryResult.finalError}`);
       }
+      const parsed = retryResult.raw;
 
       db.insert(musicAnalyses)
         .values({
@@ -298,7 +304,8 @@ export async function syncAndAnalyzeMusic(
         })
         .run();
 
-      logLine(chalk.green(`  ✓ Analyzed ${track.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(analysisResult.usage.cost.total)})`));
+      const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';
+      logLine(chalk.green(`  ✓ Analyzed ${track.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(retryResult.totalCost)}${attemptsTag})`));
     } catch (err) {
       logLine(chalk.red(`  ✗ Failed to analyze ${track.filename}: ${err instanceof Error ? err.message : err}`));
       failed++;
