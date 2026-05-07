@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer } from 'drizzle-orm/sqlite-core';
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 export const videos = sqliteTable('videos', {
   id: integer('id').primaryKey({ autoIncrement: true }),
@@ -49,6 +49,16 @@ export const stories = sqliteTable('stories', {
   updatedAt: text('updated_at').notNull(),
 });
 
+export const storyMarks = sqliteTable('story_marks', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  storyId: integer('story_id').notNull().references(() => stories.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  timeline: text('timeline').notNull(),
+  createdAt: text('created_at').notNull(),
+}, (t) => [
+  uniqueIndex('story_marks_story_id_name_unique').on(t.storyId, t.name),
+]);
+
 export const music = sqliteTable('music', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   filename: text('filename').notNull(),
@@ -87,12 +97,12 @@ export const voiceoverAnalyses = sqliteTable('voiceover_analyses', {
 
 export const sessions = sqliteTable('sessions', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  currentStoryId: integer('current_story_id').references(() => stories.id),
+  currentStoryId: integer('current_story_id').references(() => stories.id, { onDelete: 'cascade' }),
 });
 
 export const sessionMessages = sqliteTable('session_messages', {
   id: integer('id').primaryKey({ autoIncrement: true }),
-  sessionId: integer('session_id').notNull().references(() => sessions.id),
+  sessionId: integer('session_id').notNull().references(() => sessions.id, { onDelete: 'cascade' }),
   content: text('content').notNull(),
 });
 

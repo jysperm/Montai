@@ -81,6 +81,18 @@ export function formatItemCounts(counts: { clips: number; overlays: number; musi
 }
 
 /**
+ * Format a mark row for display. Returns a single line string.
+ */
+export function formatMarkLine(m: { name: string; timeline: string; createdAt: string }): string {
+  const items = JSON.parse(m.timeline) as Array<Record<string, unknown>>;
+  const duration = computeTimelineDuration(items);
+  const parts = formatItemCountParts(countItemsByType(items as Array<{ type: string }>));
+  const status = [chalk.green(formatDuration(duration)), ...parts.map(p => chalk.green(p))].join(', ') || 'empty';
+  const ago = formatTimeAgo(m.createdAt);
+  return `${chalk.cyan(m.name)}  [${status}]  ${chalk.dim(ago)}`;
+}
+
+/**
  * Format a story row for display. Returns a single line string.
  */
 export function formatStoryLine(s: { name: string; title: string; timeline: string | null; updatedAt: string }, options?: { indent?: boolean }): string {

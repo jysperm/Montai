@@ -4,11 +4,11 @@ import * as readline from 'readline';
 import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
 import stringWidth from 'string-width';
-import { eq, desc } from 'drizzle-orm';
+import { eq, desc, and } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import type { MontaiDb } from '../db/index.js';
-import { stories, sessions, sessionMessages } from '../db/schema.js';
+import { stories, sessions, sessionMessages, storyMarks } from '../db/schema.js';
 import { loadExpandedTimelines } from '../utils/project.js';
 import { renderPrompt } from '../prompts/index.js';
 import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
@@ -21,11 +21,13 @@ import { getStoryTools, type StoryToolsContext } from '../commands/tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
 import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
-import { formatUserInput, formatAssistantText, printToolCall } from './story-ui.js';
+import { formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 
 type StoryRow = typeof stories.$inferSelect;
+
+const AUTO_BACKUP_MARK_NAME = 'last-overwritten';
 
 export interface StoryAgentOptions {
   db: MontaiDb;
@@ -88,6 +90,8 @@ export class StoryAgent {
 
   private slashCommands: Record<string, { description: string }> = {
     switch: { description: 'switch to another story' },
+    mark: { description: 'mark the current timeline as a checkpoint' },
+    marks: { description: 'restore or delete a timeline mark' },
     export: { description: 'toggle auto export on timeline change' },
     preview: { description: 'toggle background Remotion Studio' },
   };
@@ -433,6 +437,141 @@ export class StoryAgent {
     this.toolsCtx.timelineVersion++;
   }
 
+  private generateMarkTimestamp(): string {
+    const d = new Date();
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+  }
+
+  private handleSlashMark(name: string) {
+    if (!this.toolsCtx.currentStoryId) {
+      console.log(chalk.red('No active story to mark. Create a storyline first.'));
+      return;
+    }
+    if (this.toolsCtx.currentItems.length === 0) {
+      console.log(chalk.red('Current timeline is empty — nothing to mark.'));
+      return;
+    }
+
+    const markName = name || this.generateMarkTimestamp();
+    if (name && !/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
+      console.log(chalk.red('Mark name must be kebab-case (lowercase letters, numbers, hyphens).'));
+      return;
+    }
+    if (markName === AUTO_BACKUP_MARK_NAME) {
+      console.log(chalk.red(`"${AUTO_BACKUP_MARK_NAME}" is reserved for the auto-backup created on /marks restore.`));
+      return;
+    }
+
+    const existing = this.db.select().from(storyMarks)
+      .where(and(eq(storyMarks.storyId, this.toolsCtx.currentStoryId), eq(storyMarks.name, markName)))
+      .get();
+    if (existing) {
+      console.log(chalk.red(`A mark named "${markName}" already exists for this story.`));
+      return;
+    }
+
+    const timelineJson = JSON.stringify(stripTimelineDefaults(this.toolsCtx.currentItems));
+    this.db.insert(storyMarks).values({
+      storyId: this.toolsCtx.currentStoryId,
+      name: markName,
+      timeline: timelineJson,
+      createdAt: new Date().toISOString(),
+    }).run();
+
+    console.log(chalk.green(`Marked timeline: ${chalk.cyan(markName)}`));
+    console.log('');
+  }
+
+  private async handleSlashMarks() {
+    if (!this.toolsCtx.currentStoryId) {
+      console.log(chalk.red('No active story. Create a storyline first.'));
+      return;
+    }
+
+    const marks = this.db.select().from(storyMarks)
+      .where(eq(storyMarks.storyId, this.toolsCtx.currentStoryId))
+      .orderBy(desc(storyMarks.createdAt))
+      .all();
+
+    if (marks.length === 0) {
+      console.log(chalk.dim('No marks for this story yet. Use /mark to create one.'));
+      console.log('');
+      return;
+    }
+
+    const selected = await selectMarkInteractive(marks, this.db);
+    if (!selected) {
+      return;
+    }
+
+    await this.restoreMark(selected);
+  }
+
+  private async restoreMark(mark: typeof storyMarks.$inferSelect) {
+    if (!this.toolsCtx.currentStoryId) return;
+
+    let restoredItems: TimelineItem[];
+    try {
+      restoredItems = z.array(TimelineItemSchema).parse(JSON.parse(mark.timeline));
+    } catch (err) {
+      console.log(chalk.red(`Failed to parse mark timeline: ${err instanceof Error ? err.message : String(err)}`));
+      return;
+    }
+
+    // Auto-backup the about-to-be-overwritten timeline to a fixed-name mark
+    // so the user can recover from an accidental restore. Reuses the same slot.
+    const backedUp = this.toolsCtx.currentItems.length > 0;
+    if (backedUp) {
+      this.db.delete(storyMarks)
+        .where(and(eq(storyMarks.storyId, this.toolsCtx.currentStoryId), eq(storyMarks.name, AUTO_BACKUP_MARK_NAME)))
+        .run();
+      this.db.insert(storyMarks).values({
+        storyId: this.toolsCtx.currentStoryId,
+        name: AUTO_BACKUP_MARK_NAME,
+        timeline: JSON.stringify(stripTimelineDefaults(this.toolsCtx.currentItems)),
+        createdAt: new Date().toISOString(),
+      }).run();
+    }
+
+    const now = new Date().toISOString();
+    this.db.update(stories)
+      .set({
+        timeline: JSON.stringify(stripTimelineDefaults(restoredItems)),
+        updatedAt: now,
+      })
+      .where(eq(stories.id, this.toolsCtx.currentStoryId))
+      .run();
+
+    this.toolsCtx.currentItems = restoredItems;
+    this.toolsCtx.timelineVersion++;
+
+    console.log(chalk.green(`Restored timeline mark: ${chalk.cyan(mark.name)}`));
+    if (backedUp) {
+      console.log(chalk.dim(`Previous timeline saved as ${chalk.cyan(AUTO_BACKUP_MARK_NAME)}`));
+    }
+    console.log('');
+    this.printTimeline();
+
+    const restoreContext = renderPrompt('story-mark-restore', {
+      timelineItems: JSON.stringify(stripTimelineDefaults(restoredItems), null, 2),
+      computedTimeline: renderPrompt('computed-timeline', buildComputedTimelineData(restoredItems)),
+    });
+    this.agent.state.messages = [...this.agent.state.messages, { role: 'user' as const, content: restoreContext, timestamp: Date.now() }];
+
+    const newMessages = this.agent.state.messages.slice(this.dbMessageCount);
+    for (const m of newMessages) {
+      this.db.insert(sessionMessages)
+        .values({ sessionId: this.currentSessionId, content: JSON.stringify(m) })
+        .run();
+    }
+    this.db.update(sessions)
+      .set({ currentStoryId: this.toolsCtx.currentStoryId })
+      .where(eq(sessions.id, this.currentSessionId))
+      .run();
+    this.dbMessageCount = this.agent.state.messages.length;
+  }
+
   private handleSlashExport() {
     this.autoExport = !this.autoExport;
     console.log(chalk.blue(`Auto export: ${this.autoExport ? 'on' : 'off'}`));
@@ -516,6 +655,13 @@ export class StoryAgent {
     if (cmd === 'switch' || cmd.startsWith('switch ')) {
       const targetName = cmd.slice('switch'.length).trim();
       await this.handleSlashSwitch(targetName);
+      return true;
+    } else if (cmd === 'mark' || cmd.startsWith('mark ')) {
+      const name = cmd.slice('mark'.length).trim();
+      this.handleSlashMark(name);
+      return true;
+    } else if (cmd === 'marks') {
+      await this.handleSlashMarks();
       return true;
     } else if (cmd === 'export') {
       this.handleSlashExport();

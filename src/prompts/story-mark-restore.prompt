@@ -1,0 +1,9 @@
+User restored a previous timeline snapshot. The current timeline has been overwritten — disregard any prior assumptions about the timeline state.
+
+## Current Timeline Items
+
+```json
+{{{timelineItems}}}
+```
+
+{{{computedTimeline}}}
