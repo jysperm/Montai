@@ -208,8 +208,9 @@ export class StoryAgent {
 
         if (toolResultIsError) {
           const errorContent = (event.result as { content?: Array<{ text?: string }> })?.content?.[0]?.text;
-          const errorSummary = errorContent
-            ? errorContent.split('\n').filter(Boolean).slice(0, 2).join('; ').slice(0, 200)
+          const flattened = errorContent?.replace(/\s+/g, ' ').trim();
+          const errorSummary = flattened
+            ? (flattened.length > 200 ? flattened.slice(0, 200) + '...' : flattened)
             : 'failed';
           console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: ${errorSummary}`);
           this.spinner.text = 'Thinking...';
