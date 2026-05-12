@@ -6,6 +6,13 @@ import { existsSync, unlinkSync } from 'fs';
 import type { MontaiDb } from '../db/index.js';
 import { stories, storyMarks } from '../db/schema.js';
 import { formatDuration, formatStoryLine, formatMarkLine, countItemsByType, formatItemCounts } from '../utils/format.js';
+import {
+  applySlashCompletion,
+  createStoryInputState,
+  handleStoryInputKey,
+  rememberStoryInput,
+  type StoryInputResult,
+} from './story-input.js';
 
 export function formatTimestamp(seconds: number): string {
   const m = Math.floor(seconds / 60);
@@ -16,8 +23,182 @@ export function formatTimestamp(seconds: number): string {
 export function formatUserInput(text: string, isSlash = false): string {
   const cols = process.stdout.columns || 80;
   const prompt = isSlash ? chalk.cyan('/ ') : chalk.green('> ');
-  const padRight = Math.max(0, cols - stringWidth('> ' + text));
-  return prompt + chalk.bgHex('#303030')(text + ' '.repeat(padRight));
+  const plainPrompt = isSlash ? '/ ' : '> ';
+  const continuationPrompt = '  ';
+  return text.split('\n').map((line, index) => {
+    const linePrompt = index === 0 ? prompt : chalk.dim(continuationPrompt);
+    const plainLinePrompt = index === 0 ? plainPrompt : continuationPrompt;
+    const padRight = Math.max(0, cols - stringWidth(plainLinePrompt + line));
+    return linePrompt + chalk.bgHex('#303030')(line + ' '.repeat(padRight));
+  }).join('\n');
+}
+
+type SlashCommands = Record<string, { description: string }>;
+const PROMPT_WIDTH = 2;
+
+export class StoryInput {
+  private db: MontaiDb;
+  private slashCommands: SlashCommands;
+  private slashCommandNames: string[];
+  private history: StoryInputResult[] = [];
+
+  constructor(opts: { db: MontaiDb; slashCommands: SlashCommands }) {
+    this.db = opts.db;
+    this.slashCommands = opts.slashCommands;
+    this.slashCommandNames = Object.keys(this.slashCommands);
+  }
+
+  remember(text: string, slashMode: boolean) {
+    rememberStoryInput(this.history, text, slashMode);
+  }
+
+  read(): Promise<StoryInputResult | null> {
+    if (!process.stdin.isTTY) return Promise.resolve(null);
+
+    return new Promise((resolve) => {
+      readline.emitKeypressEvents(process.stdin);
+      const wasRaw = process.stdin.isRaw;
+      process.stdin.setRawMode(true);
+      process.stdin.resume();
+      process.stdout.write('\x1b[?25h\x1b[>1u\x1b[?2004h');
+
+      const state = createStoryInputState(this.history.length);
+      let renderedRows = 0;
+      let renderedCursorRow = 0;
+      let finished = false;
+
+      const render = () => {
+        if (renderedRows > 0) {
+          const rowsBelowCursor = renderedRows - 1 - renderedCursorRow;
+          if (rowsBelowCursor > 0) readline.moveCursor(process.stdout, 0, rowsBelowCursor);
+          readline.cursorTo(process.stdout, 0);
+          if (renderedRows > 1) readline.moveCursor(process.stdout, 0, -(renderedRows - 1));
+          readline.clearScreenDown(process.stdout);
+        }
+
+        const hint = state.slashMode
+          ? (state.text.startsWith('switch ') ? this.formatSwitchHint(state.text.slice('switch '.length)) : this.formatSlashHint(state.text))
+          : '';
+        process.stdout.write((hint ? hint + '\n' : '') + this.formatInput(state.text, state.slashMode));
+
+        const hintRows = hint ? this.getTerminalRows(hint) : 0;
+        const inputRows = this.getTerminalRows(this.formatPlainInput(state.text));
+        const cursorPosition = this.getCursorPosition(state.text, state.cursor, hintRows);
+        renderedRows = hintRows + inputRows;
+        renderedCursorRow = cursorPosition.row;
+
+        const bottomRow = renderedRows - 1;
+        if (renderedCursorRow !== bottomRow) {
+          readline.moveCursor(process.stdout, 0, renderedCursorRow - bottomRow);
+        }
+        readline.cursorTo(process.stdout, cursorPosition.col);
+      };
+
+      const finish = (result: StoryInputResult | null) => {
+        if (finished) return;
+        finished = true;
+        process.stdin.removeListener('keypress', onKeypress);
+        process.stdin.setRawMode(wasRaw ?? false);
+        process.stdin.pause();
+        process.stdout.write('\x1b[?2004l\x1b[<u');
+        if (renderedRows > 0) {
+          const rowsBelowCursor = renderedRows - 1 - renderedCursorRow;
+          if (rowsBelowCursor > 0) readline.moveCursor(process.stdout, 0, rowsBelowCursor);
+          readline.cursorTo(process.stdout, 0);
+          if (renderedRows > 1) readline.moveCursor(process.stdout, 0, -(renderedRows - 1));
+          readline.clearScreenDown(process.stdout);
+        }
+        resolve(result);
+      };
+
+      const onKeypress = (str: string | undefined, key: readline.Key) => {
+        const action = handleStoryInputKey(state, str, key, this.history);
+        if (action.type === 'cancel') {
+          finish(null);
+        } else if (action.type === 'submit') {
+          finish(action.result);
+        } else if (action.type === 'complete-slash') {
+          applySlashCompletion(state, this.completeSlashInput(state.text));
+          render();
+        } else if (action.type === 'render') {
+          render();
+        }
+      };
+
+      process.stdin.on('keypress', onKeypress);
+      render();
+    });
+  }
+
+  private getTerminalRows(text: string): number {
+    const cols = process.stdout.columns || 80;
+    return text.split('\n').reduce((rows, line) => {
+      const width = stringWidth(line);
+      return rows + Math.max(1, Math.ceil(width / cols));
+    }, 0);
+  }
+
+  private formatInput(text: string, slashMode: boolean): string {
+    const prompt = slashMode ? chalk.cyan('/ ') : chalk.green('> ');
+    return text.split('\n').map((line, index) => {
+      const prefix = index === 0 ? prompt : ' '.repeat(PROMPT_WIDTH);
+      return prefix + line;
+    }).join('\n');
+  }
+
+  private formatPlainInput(text: string): string {
+    return text.split('\n').map((line) => ' '.repeat(PROMPT_WIDTH) + line).join('\n');
+  }
+
+  private getCursorPosition(text: string, cursor: number, hintRows: number) {
+    const cols = process.stdout.columns || 80;
+    const beforeCursor = this.formatPlainInput(text.slice(0, cursor)).split('\n');
+    let row = hintRows;
+    for (const line of beforeCursor.slice(0, -1)) {
+      row += this.getTerminalRows(line);
+    }
+    const width = stringWidth(beforeCursor[beforeCursor.length - 1] ?? '');
+    let rowOffset = Math.floor(width / cols);
+    let col = width % cols;
+    if (width > 0 && col === 0) {
+      rowOffset--;
+      col = cols;
+    }
+    return { row: row + rowOffset, col };
+  }
+
+  private completeSlashInput(line: string): string | null {
+    if (line === 'switch') return 'switch ';
+    if (line.startsWith('switch ')) {
+      const partial = line.slice('switch '.length).toLowerCase();
+      const allStoryNames = this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
+      const hit = allStoryNames.find((n) => n.startsWith(partial));
+      return hit ? `switch ${hit}` : null;
+    }
+    const partial = line.toLowerCase();
+    if (this.slashCommandNames.includes(partial)) return null;
+    return this.slashCommandNames.find((c) => c.startsWith(partial)) ?? null;
+  }
+
+  private formatSlashHint(filter: string): string {
+    return chalk.dim('[tab] to complete: ') + this.slashCommandNames.map((name) => {
+      const matched = !filter || name.startsWith(filter.toLowerCase());
+      const label = '/' + name;
+      const desc = this.slashCommands[name].description;
+      return matched ? `${chalk.cyan(label)} ${chalk.dim(desc)}` : chalk.dim(`${label} ${desc}`);
+    }).join('  ');
+  }
+
+  private formatSwitchHint(filter: string): string {
+    const allStories = this.db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
+    if (allStories.length === 0) {
+      return chalk.dim('enter a name to create a new story');
+    }
+    return chalk.dim('[tab] ') + allStories.map((s) => {
+      const matched = !filter || s.name.startsWith(filter.toLowerCase());
+      return matched ? `${chalk.cyan(s.name)} ${chalk.dim(s.title)}` : chalk.dim(`${s.name} ${s.title}`);
+    }).join('  ') + chalk.dim(' or enter a new name');
+  }
 }
 
 export function formatAssistantText(text: string): string {
@@ -132,6 +313,7 @@ export async function selectStoryInteractive(allStories: StoryRow[], db: MontaiD
     function finish(result: StorySelection | null) {
       process.stdin.removeListener('keypress', onKeypress);
       process.stdin.setRawMode(wasRaw ?? false);
+      process.stdin.pause();
       process.stdout.write('\x1b[?25h');
       if (lineCount > 0) {
         process.stdout.write(`\x1b[${lineCount}A\x1b[0J`);
@@ -197,14 +379,6 @@ export async function selectMarkInteractive(allMarks: MarkRow[], db: MontaiDb): 
   let deleteConfirm: number | null = null;
   let restoreConfirm: number | null = null;
 
-  // The story TUI's interactive loop has its own keypress listener (for slash-mode
-  // hint rendering) plus the readline interface itself listens for keypresses.
-  // While the picker is up we strip them so only the picker's handler is active —
-  // otherwise both render passes fight over the same screen rows and produce
-  // doubled headers / garbled lines on arrow-key navigation.
-  const suspendedListeners = process.stdin.listeners('keypress').slice() as Array<(...args: unknown[]) => void>;
-  for (const l of suspendedListeners) process.stdin.removeListener('keypress', l);
-
   return new Promise((resolve) => {
     readline.emitKeypressEvents(process.stdin);
     const wasRaw = process.stdin.isRaw;
@@ -241,11 +415,11 @@ export async function selectMarkInteractive(allMarks: MarkRow[], db: MontaiDb): 
     function finish(result: MarkRow | null) {
       process.stdin.removeListener('keypress', onKeypress);
       process.stdin.setRawMode(wasRaw ?? false);
+      process.stdin.pause();
       process.stdout.write('\x1b[?25h');
       if (lineCount > 0) {
         process.stdout.write(`\x1b[${lineCount}A\x1b[0J`);
       }
-      for (const l of suspendedListeners) process.stdin.on('keypress', l);
       resolve(result);
     }
 

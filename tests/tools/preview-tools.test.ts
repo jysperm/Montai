@@ -4,7 +4,7 @@ import { resolve } from 'path';
 import { sql } from 'drizzle-orm';
 import * as schema from '../../src/db/schema.js';
 import { closeDbForTests, initDb, type MontaiDb } from '../../src/db/index.js';
-import { getStoryTools, type StoryToolsContext } from '../../src/commands/tools.js';
+import { getStoryTools, type StoryToolsContext } from '../../src/agents/story-tools.js';
 
 const hasGeminiKey = Boolean(process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY);
 const sampleVideo = '/Users/jysperm/Movies/2026-02 Chiang Mai Flower Festival/footage/DJI_20260214191551_0020_D.MP4';

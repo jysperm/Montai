@@ -1,9 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
-import * as readline from 'readline';
 import { spawn, type ChildProcess } from 'child_process';
 import { fileURLToPath } from 'url';
-import stringWidth from 'string-width';
 import { eq, desc, and } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
@@ -17,11 +15,11 @@ import { extractFileContentFromToolResults, limitVideoFilesInContext, removeExpi
 import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { ApiDebugCapture } from '../utils/api-debug.js';
-import { getStoryTools, type StoryToolsContext } from '../commands/tools.js';
+import { getStoryTools, type StoryToolsContext } from './story-tools.js';
 import { renderTimeline } from '../utils/render-timeline.js';
 import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
-import { formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
+import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 
@@ -84,10 +82,6 @@ export class StoryAgent {
 
   private prevTimelineVersion = 0;
 
-  // Readline state
-  private slashMode = false;
-  private hintRowCount = 0;
-
   private slashCommands: Record<string, { description: string }> = {
     switch: { description: 'to another story' },
     mark: { description: 'current timeline as checkpoint' },
@@ -96,6 +90,7 @@ export class StoryAgent {
     preview: { description: 'start Remotion Studio' },
   };
   private slashCommandNames = Object.keys(this.slashCommands);
+  private storyInput!: StoryInput;
 
   constructor(opts: StoryAgentOptions) {
     this.db = opts.db;
@@ -103,6 +98,7 @@ export class StoryAgent {
     this.features = opts.features;
     this.agentInstructions = opts.agentInstructions;
     this.toolsCtx = opts.toolsCtx;
+    this.storyInput = new StoryInput({ db: this.db, slashCommands: this.slashCommands });
     this.hint = opts.hint;
     this.introEnabled = opts.intro !== false;
     this.isResuming = opts.isResuming;
@@ -730,160 +726,41 @@ export class StoryAgent {
     }
   }
 
-  private getTerminalRows(text: string): number {
-    const cols = process.stdout.columns || 80;
-    const width = stringWidth(text);
-    return width === 0 ? 0 : Math.ceil(width / cols);
-  }
+  private async startInteractiveLoop(): Promise<void> {
+    try {
+      while (true) {
+        const userInput = await this.storyInput.read();
 
-  private clearHintArea() {
-    if (this.hintRowCount > 0) {
-      process.stdout.write(`\x1b[${this.hintRowCount}A\r\x1b[0J`);
-      this.hintRowCount = 0;
-    }
-  }
+        if (userInput === null) break;
+        const text = userInput.text;
+        const trimmed = text.trim();
+        if (!trimmed) continue;
 
-  private writeHintAndInput(hint: string, inputText: string) {
-    this.clearHintArea();
-    readline.cursorTo(process.stdout, 0);
-    readline.clearLine(process.stdout, 0);
-    process.stdout.write(hint + '\n');
-    this.hintRowCount = this.getTerminalRows(hint);
-    const prompt = this.slashMode ? chalk.cyan('/ ') : chalk.green('> ');
-    process.stdout.write(prompt + inputText);
-  }
+        const submittedText = userInput.slashMode ? trimmed : text;
+        process.stdout.write(formatUserInput(submittedText, userInput.slashMode) + '\n');
+        this.storyInput.remember(submittedText, userInput.slashMode);
 
-  private formatSlashHint(filter: string): string {
-    return chalk.dim('[tab] to complete: ') + this.slashCommandNames.map((name) => {
-      const matched = !filter || name.startsWith(filter.toLowerCase());
-      const label = '/' + name;
-      const desc = this.slashCommands[name].description;
-      return matched ? `${chalk.cyan(label)} ${chalk.dim(desc)}` : chalk.dim(`${label} ${desc}`);
-    }).join('  ');
-  }
+        if (userInput.slashMode) {
+          const cmd = trimmed.toLowerCase();
+          await this.handleSlashCommand(cmd);
+        } else {
+          if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;
 
-  private formatSwitchHint(filter: string): string {
-    const allStories = this.db.select().from(stories).orderBy(desc(stories.updatedAt)).all();
-    if (allStories.length === 0) {
-      return chalk.dim('enter a name to create a new story');
-    }
-    return chalk.dim('[tab] ') + allStories.map((s) => {
-      const matched = !filter || s.name.startsWith(filter.toLowerCase());
-      return matched ? `${chalk.cyan(s.name)} ${chalk.dim(s.title)}` : chalk.dim(`${s.name} ${s.title}`);
-    }).join('  ') + chalk.dim(' or enter a new name');
-  }
-
-  private startInteractiveLoop(): Promise<void> {
-    return new Promise((resolve) => {
-      const rl = readline.createInterface({
-        input: process.stdin,
-        output: process.stdout,
-        completer: (line: string) => {
-          if (this.slashMode) {
-            if (line === 'switch') {
-              return [['switch '], line];
-            }
-            if (line.startsWith('switch ')) {
-              const partial = line.slice('switch '.length).toLowerCase();
-              const allStoryNames = this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
-              const hits = allStoryNames.filter((n) => n.startsWith(partial)).map((n) => `switch ${n}`);
-              return [hits.length ? hits : [], line];
-            }
-            const partial = line.toLowerCase();
-            if (this.slashCommandNames.includes(partial)) return [[], line];
-            const hits = this.slashCommandNames.filter((c) => c.startsWith(partial));
-            return [hits.length ? hits : [], line];
-          }
-          if (line.startsWith('/')) {
-            const partial = line.slice(1).toLowerCase();
-            if (partial === 'switch') return [['/switch '], line];
-            if (partial.startsWith('switch ')) {
-              const storyPartial = partial.slice('switch '.length);
-              const allStoryNames = this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
-              const hits = allStoryNames.filter((n) => n.startsWith(storyPartial)).map((n) => `/switch ${n}`);
-              return [hits.length ? hits : [], line];
-            }
-            if (this.slashCommandNames.includes(partial)) return [[], line];
-            const hits = this.slashCommandNames.filter((c) => c.startsWith(partial)).map((c) => `/${c}`);
-            return [hits.length ? hits : [], line];
-          }
-          return [[], line];
-        },
-      });
-
-      process.stdin.on('keypress', (_str: string, key: { name?: string }) => {
-        if (key && (key.name === 'return' || key.name === 'enter')) return;
-        const line = rl.line;
-        if (!this.slashMode && line.startsWith('/')) {
-          this.slashMode = true;
-          const rest = line.slice(1);
-          this.writeHintAndInput(this.formatSlashHint(rest), rest);
-          (rl as { line: string }).line = rest;
-          (rl as { cursor: number }).cursor = Math.max(0, rl.cursor - 1);
-        } else if (this.slashMode && line === '') {
-          this.slashMode = false;
-          this.clearHintArea();
-          readline.cursorTo(process.stdout, 0);
-          readline.clearLine(process.stdout, 0);
-          process.stdout.write(chalk.green('> '));
-        } else if (this.slashMode) {
-          const hint = line.startsWith('switch ') ? this.formatSwitchHint(line.slice('switch '.length)) : this.formatSlashHint(line);
-          this.writeHintAndInput(hint, line);
+          console.log('');
+          this.spinner.text = 'Thinking...';
+          this.spinner.start();
+          await this.runAgent(text);
         }
-      });
 
-      const askQuestion = (prompt: string): Promise<string | null> => {
-        return new Promise((innerResolve) => {
-          rl.once('close', () => innerResolve(null));
-          rl.question(prompt, (answer) => {
-            rl.removeAllListeners('close');
-            innerResolve(answer);
-          });
-        });
-      };
-
-      const loop = async () => {
-        try {
-          while (true) {
-            this.slashMode = false;
-            this.hintRowCount = 0;
-            const userInput = await askQuestion(chalk.green('> '));
-
-            if (userInput === null) break;
-            const trimmed = userInput.trim();
-            if (!trimmed) continue;
-
-            readline.moveCursor(process.stdout, 0, -1);
-            readline.clearLine(process.stdout, 0);
-            process.stdout.write(formatUserInput(trimmed, this.slashMode) + '\n');
-
-            if (this.slashMode) {
-              const cmd = trimmed.toLowerCase();
-              await this.handleSlashCommand(cmd);
-            } else {
-              if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;
-
-              console.log('');
-              this.spinner.text = 'Thinking...';
-              this.spinner.start();
-              await this.runAgent(trimmed);
-            }
-
-            this.syncAutoExportPreview();
-          }
-        } finally {
-          rl.close();
-          if (this.previewChild) {
-            this.autoPreview = false;
-            this.previewChild.kill();
-            this.previewChild = null;
-          }
-        }
-        resolve();
-      };
-
-      loop();
-    });
+        this.syncAutoExportPreview();
+      }
+    } finally {
+      if (this.previewChild) {
+        this.autoPreview = false;
+        this.previewChild.kill();
+        this.previewChild = null;
+      }
+    }
   }
 
   async run(contextData: {

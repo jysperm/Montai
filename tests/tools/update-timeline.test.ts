@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest';
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../../src/db/schema.js';
-import { getStoryTools, type StoryToolsContext } from '../../src/commands/tools.js';
+import { getStoryTools, type StoryToolsContext } from '../../src/agents/story-tools.js';
 import type { TimelineItem } from '../../src/schemas/timeline-items.js';
 
 function createTestDb() {
