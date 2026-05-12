@@ -30,6 +30,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
       output: { resolution: '1080p' as const, fps: 50 },
       models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3.1-pro-preview' },
       effects: { languages: ['en'] },
+      featureFlags: {},
     },
     allVideos: [
       { id: 1, path: '/test/video1.mp4', filename: 'video1.mp4' },
@@ -44,9 +45,11 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
     currentStoryName: null,
     currentItems: [],
     agent: null,
+    timelineVersion: 0,
+    sessionId: 0,
     languageName: 'English',
     overlayLanguageNames: 'English',
-    features: { music: true, musicGeneration: false, voiceover: false },
+    features: { music: true, musicGeneration: false, voiceover: false, previewTools: true },
   };
 }
 
@@ -161,6 +164,24 @@ describe('updateTimeline tool', () => {
     });
     expect(result.content[0].text).toContain('musicId=999');
     expect(ctx.currentItems.filter(i => i.type === 'music')).toHaveLength(0);
+  });
+
+  it('wraps music audioStartSeconds into the source duration', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 2,
+      deleteCount: 0,
+      items: [
+        { type: 'music', startClip: 0, endClip: 1, musicId: 1, audioStartSeconds: 43, volume: 0.3 },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    expect(result.content[0].text).toContain('audioStartSeconds 43s exceeds music duration 30s');
+    expect(result.content[0].text).toContain('set to 13s');
+    expect(result.content[0].text).toContain('audioStart=13.0s, audioEnd=33.0s');
+
+    const musicItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'music' }> => i.type === 'music')!;
+    expect(musicItem.audioStartSeconds).toBe(13);
   });
 
 });

@@ -101,6 +101,7 @@ Example — a subtitle on clip 2:
 ```
 
 - If the music is shorter than the item's span, it automatically loops with a 1-second crossfade.
+- When splitting one track into multiple music items that should play continuously, set each item's `audioStartSeconds` from the previous music entry's computed `audioEnd`. Or set it to 0 when you want the track to restart from the beginning.
 
 Example — background music spanning clips 0–7:
 ```json

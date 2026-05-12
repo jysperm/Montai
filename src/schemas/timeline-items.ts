@@ -194,6 +194,8 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
         timelineStart: fmt(start),
         timelineEnd: fmt(end),
         duration: fmt(end - start),
+        audioStart: fmt(m.audioStartSeconds),
+        audioEnd: fmt(m.audioStartSeconds + (end - start)),
       };
     });
 
@@ -275,6 +277,17 @@ export function expandTimeline(
     if (item.type === 'overlay' && item.text.includes('\\n')) {
       corrections.push(`Overlay "${item.text.slice(0, 30)}": escaped \\\\n replaced with newline`);
       item.text = item.text.replace(/\\n/g, '\n');
+    }
+    if (item.type === 'music' && musicFiles) {
+      const musicFile = musicFiles.find((m) => m.id === item.musicId);
+      const musicDuration = musicFile?.durationSeconds;
+      if (musicDuration && item.audioStartSeconds >= musicDuration) {
+        const normalized = item.audioStartSeconds % musicDuration;
+        corrections.push(
+          `Music item (musicId=${item.musicId}): audioStartSeconds ${item.audioStartSeconds}s exceeds music duration ${musicDuration}s - set to ${normalized}s`,
+        );
+        item.audioStartSeconds = normalized;
+      }
     }
   }
 

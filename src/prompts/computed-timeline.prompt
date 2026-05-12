@@ -24,6 +24,6 @@ Overlays:
 
 Music:
 {{#each music}}
-  {{this.timelineStart}}–{{this.timelineEnd}}s music={{this.musicId}} ({{this.duration}}s)
+  {{this.timelineStart}}–{{this.timelineEnd}}s music={{this.musicId}} ({{this.duration}}s, audioStart={{this.audioStart}}s, audioEnd={{this.audioEnd}}s)
 {{/each}}
 {{/if}}

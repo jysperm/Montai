@@ -246,6 +246,10 @@ VoiceoverItem {
 }
 ```
 
+During timeline sanitization, a music item's `audioStartSeconds` is wrapped modulo the source music duration when it exceeds the playable range. The correction is reported explicitly so the agent/user can see that an invalid source offset was changed.
+
+The agent-facing computed timeline summary includes each music item's absolute timeline span, duration, `audioStart`, and `audioEnd`. This gives the agent enough information to split one music track into multiple consecutive items while keeping playback continuous.
+
 When expanding overlays, if `endOffset` is at its default (0), the overlay end time is automatically pulled back to when the outgoing transition starts (i.e. the next clip's incoming transition), so the old subtitle disappears and the new one appears at the transition boundary. Explicit non-zero `endOffset` bypasses this adjustment.
 
 These are expanded via `expandTimeline()` into `ExpandedTimeline` format at consumption time:
@@ -347,6 +351,8 @@ Rotation is expressed on `adjust-transform` (the `rotation` attribute, in degree
 Audio auto-loop crossfade in FCPXML uses different strategies per target:
 - **FCP**: Loop segments are grouped into a secondary storyline (`<spine>`) with Cross Dissolve transitions between clips. Each clip is shrunk by half the crossfade duration to provide "handles" (extra source media for the transition to borrow). The last clip is extended to compensate for handle shrinkage.
 - **DaVinci**: Loop segments are placed on alternating lanes (-N, -N-1) with individual fadeIn/fadeOut, since DaVinci doesn't support transitions in secondary storylines.
+
+Audio lane assignment in FCPXML reuses lanes for non-overlapping music groups and only allocates additional lanes when group time ranges overlap. DaVinci loop segments still reserve two lanes within the group so crossfaded loop pieces can alternate without conflicting.
 
 ## Gemini Integration
 

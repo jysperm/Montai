@@ -89,11 +89,11 @@ export class StoryAgent {
   private hintRowCount = 0;
 
   private slashCommands: Record<string, { description: string }> = {
-    switch: { description: 'switch to another story' },
-    mark: { description: 'mark the current timeline as a checkpoint' },
-    marks: { description: 'restore or delete a timeline mark' },
-    export: { description: 'toggle auto export on timeline change' },
-    preview: { description: 'toggle background Remotion Studio' },
+    switch: { description: 'to another story' },
+    mark: { description: 'current timeline as checkpoint' },
+    marks: { description: 'restore from marks' },
+    export: { description: 'toggle .fcpxml auto-export' },
+    preview: { description: 'start Remotion Studio' },
   };
   private slashCommandNames = Object.keys(this.slashCommands);
 

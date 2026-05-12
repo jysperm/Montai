@@ -342,9 +342,31 @@ export function generateFcpxml(
   const avx = (vol: number, fadeIn: number, fadeOut: number, indent: string) =>
     audioVolumeXml(vol, fadeIn, fadeOut, indent, fps);
 
-  let audioLaneCounter = -1;
+  const audioLaneEndTimes: number[] = [];
+  function assignAudioLane(startTime: number, endTime: number, laneCount: number = 1): number {
+    const EPS = 1e-6;
+    for (let i = 0; ; i++) {
+      let available = true;
+      for (let j = 0; j < laneCount; j++) {
+        if ((audioLaneEndTimes[i + j] ?? -Infinity) > startTime + EPS) {
+          available = false;
+          break;
+        }
+      }
+      if (available) {
+        for (let j = 0; j < laneCount; j++) {
+          audioLaneEndTimes[i + j] = endTime;
+        }
+        return -(i + 1);
+      }
+    }
+  }
+
   for (const group of audioGroups) {
-    const audioLane = audioLaneCounter--;
+    const groupSeqStart = o2s(group[0].startTimeSeconds);
+    const groupSeqEnd = o2s(group[group.length - 1].endTimeSeconds);
+    const laneCount = target === 'fcp' || group.length === 1 ? 1 : 2;
+    const audioLane = assignAudioLane(groupSeqStart, groupSeqEnd, laneCount);
     const filename = basename(group[0].sourceFile);
     const audioAssetId = audioAssetMap.get(filename)!;
     const { parentClipIdx, offset: spineOffset } = apo(group[0].startTimeSeconds);
@@ -471,7 +493,6 @@ export function generateFcpxml(
     } else {
       // DaVinci: separate lanes per loop segment with fadeIn/fadeOut (no spine transitions).
       // Alternate between two lanes (-N, -N-1) so overlapping segments don't conflict.
-      audioLaneCounter--; // reserve a second lane for alternation
       for (let gi = 0; gi < group.length; gi++) {
         const audio = group[gi];
         const lane = gi % 2 === 0 ? audioLane : audioLane - 1;
@@ -496,6 +517,7 @@ export function generateFcpxml(
       }
     }
   }
+  let audioLaneCounter = -(audioLaneEndTimes.length + 1);
 
   // --- Build voiceover assets and assign anchor items to their parent clips ---
   const voiceoverAssetMap = new Map<string, string>();
