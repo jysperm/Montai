@@ -1,6 +1,6 @@
 {
   "name": "montai-cli",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs",
   "type": "module",
   "author": "jysperm <jysperm@gmail.com>",
@@ -27,7 +27,7 @@
     "node": ">=22"
   },
   "bin": {
-    "montai": "./bin/montai.js"
+    "montai": "bin/montai.js"
   },
   "files": [
     "bin",
