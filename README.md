@@ -140,6 +140,8 @@ First import your video files into Final Cut Pro, then use File → Import → X
 
 If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
 
+![Imported to Final Cut Pro](example/fcp-timeline.png)
+
 <details>
 <summary><h3>DaVinci Resolve</h3></summary>
 
