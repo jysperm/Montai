@@ -25,6 +25,12 @@ function padCenter(text: string, width: number): string {
   return ' '.repeat(left) + text + ' '.repeat(right);
 }
 
+function renderClipInner(label: string, width: number): string {
+  if (width <= 0) return '';
+  if (width >= label.length) return padCenter(label, width);
+  return label.slice(0, width);
+}
+
 function renderOverlayLabel(style: string, arrow: string, width: number, rightArrow?: string): string {
   const rArrow = rightArrow ?? arrow;
   if (width < 2) return '';
@@ -371,12 +377,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     const innerWidth = w - prefix.length - suffix.length;
     const label = `v${clips[i].videoId}`;
 
-    let inner: string;
-    if (innerWidth >= label.length + 2) {
-      inner = padCenter(label, innerWidth);
-    } else {
-      inner = ' '.repeat(Math.max(0, innerWidth));
-    }
+    const inner = renderClipInner(label, innerWidth);
     clipTrack += prefix + inner + suffix;
   }
 
