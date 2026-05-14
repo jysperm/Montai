@@ -9,7 +9,7 @@ import { formatArchiveTime } from '../utils/archived-videos.js';
 import type { ProjectConfig } from '../schemas/project.js';
 
 const ARCHIVE_DIR = 'archived';
-const PADDING_SECONDS = 2;
+const DEFAULT_HANDLES_SECONDS = 2;
 
 interface MergedSegment {
   videoId: number;
@@ -123,10 +123,18 @@ function resolveEncoder(opts: EncodeOptions): { codec: string; pixFmt: string; q
 }
 
 export async function archiveCommand(
-  options?: { encode?: string | boolean },
+  options?: { encode?: string | boolean; handles?: string | number },
 ) {
   const config = loadProjectConfig();
   const db = getDb();
+
+  const handles = options?.handles === undefined
+    ? DEFAULT_HANDLES_SECONDS
+    : Number(options.handles);
+  if (!Number.isFinite(handles) || handles < 0) {
+    console.log(chalk.red(`Invalid --handles value: ${options?.handles}`));
+    process.exit(1);
+  }
 
   const { timelines: specs } = loadExpandedTimelines(db, config);
   if (specs.length === 0) return;
@@ -163,12 +171,12 @@ export async function archiveCommand(
       continue;
     }
 
-    // Add padding and clamp to [0, duration]
+    // Add handles and clamp to [0, duration]
     const padded = segments.map(s => ({
-      start: Math.max(0, s.start - PADDING_SECONDS),
+      start: Math.max(0, s.start - handles),
       end: video.durationSeconds
-        ? Math.min(s.end + PADDING_SECONDS, video.durationSeconds)
-        : s.end + PADDING_SECONDS,
+        ? Math.min(s.end + handles, video.durationSeconds)
+        : s.end + handles,
     }));
 
     // Sort by start time

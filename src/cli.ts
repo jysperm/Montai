@@ -115,6 +115,7 @@ program
   .command('archive')
   .description('Archive original video clips referenced by timelines (video files only)')
   .option('--encode [spec]', 'Encode: output | 720p,crf=20,fps=30,8bit (default: passthrough)')
+  .option('--handles <seconds>', 'Seconds of handles to keep before/after each referenced clip (default: 2)', '2')
   .action(archiveCommand);
 
 program.action(() => {
