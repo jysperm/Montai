@@ -209,6 +209,8 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                 <sequence format="r1" duration="1500/50s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Music (no loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
@@ -229,6 +231,8 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                         </asset-clip>
                     </asset-clip>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
@@ -267,6 +271,8 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                         </asset-clip>
                     </asset-clip>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="216599383/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
@@ -333,6 +339,8 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                 <sequence format="r1" duration="1500/50s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Music (no loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
@@ -353,6 +361,8 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                         </asset-clip>
                     </asset-clip>
                     <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
@@ -410,6 +420,8 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                         </spine>
                     </asset-clip>
                     <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+
+                        <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="216599383/60000s" duration="500/50s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>

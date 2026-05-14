@@ -648,7 +648,9 @@ export function generateFcpxml(
     const audioAnchors = clipAudioAnchors.get(i) || [];
     const hasCrop = !!(clip.crop || clip.cropEnd);
     const hasRotation = !!(clip.rotation && clip.rotation % 360 !== 0);
-    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop || hasRotation;
+    const clipVolumeXml = audioVolumeXml(clip.volume, 0, 0, I, fps);
+    const hasClipVolume = !!clipVolumeXml;
+    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop || hasRotation || hasClipVolume;
 
     if (!hasChildren) {
       spine.push(
@@ -715,6 +717,10 @@ export function generateFcpxml(
             spine.push(`${II}</adjust-crop>`);
           }
         }
+      }
+
+      if (clipVolumeXml) {
+        spine.push(clipVolumeXml);
       }
 
       // Font sizes and shadow dimensions scale factor:

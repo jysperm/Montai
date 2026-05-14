@@ -162,6 +162,7 @@ describe('music-test', () => {
   it('FCP snapshot (volume, fades, auto-loop spine)', () => {
     const { timeline } = expand(items, 'music-test');
     const xml = generateFcpxml(timeline, videoMeta, { target: 'fcp' }, audioMeta);
+    expect(xml).toContain('<adjust-volume amount="-6dB"/>');
     expect(xml).toContain('<spine lane="-');
     expect(xml).toContain('Cross Dissolve');
     expect(xml).toMatchSnapshot();
