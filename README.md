@@ -142,6 +142,10 @@ If your source footage is HDR, make sure the library uses Wide Gamut HDR color p
 
 ![Imported to Final Cut Pro](example/fcp-timeline.png)
 
+Known Issues:
+
+- **FCP "The item is not on an edit frame boundary" warning.** Triggered when source footage has embedded timecode and a frame rate different from the sequence (e.g. 59.94fps footage in a 50fps project). Safe to dismiss — titles and audio still land in the correct positions.
+
 <details>
 <summary><h3>DaVinci Resolve</h3></summary>
 
@@ -167,10 +171,6 @@ my-vlog-project/
   montai.yaml          # Project config
   AGENTS.md            # Instructions/knowledge for the agent (optional)
 ```
-
-## Known Issues
-
-- **FCP "The item is not on an edit frame boundary" warning.** Triggered when source footage has embedded timecode and a frame rate different from the sequence (e.g. 59.94fps footage in a 50fps project). Safe to dismiss — titles and audio still land in the correct positions.
 
 ## Output Compatibility
 
