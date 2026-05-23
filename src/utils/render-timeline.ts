@@ -1,6 +1,7 @@
 import chalk from 'chalk';
-import { parse } from 'path';
 import type { TimelineItem, ClipItem, OverlayItem, MusicItem, VoiceoverItem } from '../schemas/timeline-items.js';
+
+export const GENERATED_MUSIC_PROMPT_PREVIEW_LENGTH = 40;
 
 const positionArrows: Record<string, string> = {
   'center': '─',
@@ -29,6 +30,16 @@ function renderClipInner(label: string, width: number): string {
   if (width <= 0) return '';
   if (width >= label.length) return padCenter(label, width);
   return label.slice(0, width);
+}
+
+export function formatGeneratedMusicPrompt(prompt: string): string {
+  const normalized = prompt.trim().replace(/\s+/g, ' ');
+  if (normalized.length <= GENERATED_MUSIC_PROMPT_PREVIEW_LENGTH) return normalized;
+
+  let end = normalized.indexOf(' ', GENERATED_MUSIC_PROMPT_PREVIEW_LENGTH);
+  if (end === -1) return normalized;
+  while (end > 0 && normalized[end - 1] === ' ') end--;
+  return normalized.slice(0, end) + '...';
 }
 
 function renderOverlayLabel(style: string, arrow: string, width: number, rightArrow?: string): string {
@@ -323,7 +334,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     if (endCol <= startCol) endCol = startCol + 1;
     let label: string;
     if (a.musicId != null && musicNames?.has(a.musicId)) {
-      label = parse(musicNames.get(a.musicId)!).name;
+      label = musicNames.get(a.musicId)!;
     } else if (a.musicId != null) {
       label = `a${a.musicId}`;
     } else {

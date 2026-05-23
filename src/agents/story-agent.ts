@@ -1,6 +1,7 @@
 import chalk from 'chalk';
 import ora from 'ora';
 import { spawn, type ChildProcess } from 'child_process';
+import { parse } from 'path';
 import { fileURLToPath } from 'url';
 import { eq, desc, and } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
@@ -16,7 +17,7 @@ import { formatCost } from '../analyzer/utils.js';
 import { logRequest, logStep, logResponse, logToolCall } from '../utils/llm-logging.js';
 import { ApiDebugCapture } from '../utils/api-debug.js';
 import { getStoryTools, type StoryToolsContext } from './story-tools.js';
-import { renderTimeline } from '../utils/render-timeline.js';
+import { formatGeneratedMusicPrompt, renderTimeline } from '../utils/render-timeline.js';
 import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
 import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
@@ -125,8 +126,8 @@ export class StoryAgent {
     return new Map(this.toolsCtx.allMusic.map((m) => [
       m.id,
       m.type === 'generated'
-        ? `gen:${(m.generationPrompt ?? '').slice(0, 20)}`
-        : m.filename,
+        ? formatGeneratedMusicPrompt(m.generationPrompt ?? '')
+        : parse(m.filename).name,
     ]));
   }
 
