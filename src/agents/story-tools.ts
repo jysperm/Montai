@@ -68,15 +68,15 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const updateStorylineTool = {
     name: 'updateStoryline',
     label: 'Update Storyline',
-    description: `Save the current storyline. First call creates the story, subsequent calls update it. All fields must be in ${ctx.languageName}.`,
+    description: `Save the current storyline. First call creates the story, subsequent calls update it. Text fields must be in ${ctx.languageName}.`,
     parameters: Type.Object({
       name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Required on first call to create the story; omit on subsequent calls to keep the existing name' })),
-      title: Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}` }),
-      narrative: Type.String({ description: `Free-form markdown describing the edit plan, in ${ctx.languageName}` }),
+      title: Type.Optional(Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}. Required on first call; omit on subsequent calls to keep the existing title.` })),
+      brief: Type.String({ description: `Free-form markdown for the storyline, capturing user requirements, creative direction, and current edit structure, in ${ctx.languageName}` }),
     }),
     async execute(
       _toolCallId: string,
-      params: { name?: string; title: string; narrative: string },
+      params: { name?: string; title?: string; brief: string },
     ) {
       const name = params.name ?? ctx.currentStoryName;
 
@@ -96,24 +96,36 @@ export function getStoryTools(ctx: StoryToolsContext) {
         return { content: [errorText], details: {}, isError: true };
       }
 
+      if (!ctx.currentStoryId && !params.title) {
+        const errorText: TextContent = {
+          type: 'text' as const,
+          text: 'Error: title is required when creating a new story.',
+        };
+        return { content: [errorText], details: {}, isError: true };
+      }
+
       const now = new Date().toISOString();
+      let savedTitle: string;
 
       if (ctx.currentStoryId) {
+        const currentStory = ctx.db.select().from(stories).where(eq(stories.id, ctx.currentStoryId)).get();
+        savedTitle = params.title ?? currentStory?.title ?? name;
         ctx.db.update(stories)
           .set({
             name,
-            title: params.title,
-            storyline: params.narrative,
+            title: savedTitle,
+            storyline: params.brief,
             updatedAt: now,
           })
           .where(eq(stories.id, ctx.currentStoryId))
           .run();
       } else {
+        savedTitle = params.title!;
         const result = ctx.db.insert(stories)
           .values({
             name,
-            title: params.title,
-            storyline: params.narrative,
+            title: savedTitle,
+            storyline: params.brief,
             createdAt: now,
             updatedAt: now,
           })
@@ -130,7 +142,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Storyline saved: "${params.title}" (${name})`,
+        text: `Storyline saved: "${savedTitle}" (${name})`,
       };
       return { content: [textContent], details: {} };
     },

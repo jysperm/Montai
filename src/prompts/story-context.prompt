@@ -4,6 +4,16 @@ Resuming an existing story edit.
 Creating a new video edit from source footage.
 {{/if}}
 
+{{#if currentStoryName}}
+## Current Story
+
+Name: `{{currentStoryName}}`
+{{#if currentStoryTitle}}
+Title: {{currentStoryTitle}}
+{{/if}}
+
+{{/if}}
+
 {{#if storyline}}
 ## Current Storyline
 

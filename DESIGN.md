@@ -12,7 +12,7 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 - **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
 - **Dual output**: `export` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
 - **Static Remotion project**: The Remotion project lives inside Montai's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
-- **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storyline narratives). Only outputs that are consumed programmatically (e.g. VideoAnalysis, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
+- **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storylines). Only outputs that are consumed programmatically (e.g. VideoAnalysis, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
 
 ### Historical Note
 
@@ -45,7 +45,7 @@ featureFlags:                    # Optional overrides (see Feature Flags)
   music: false
 ```
 
-`language` controls the language used for all internal text: video analyses, project overview, storyline narratives, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
+`language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
 Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
@@ -93,7 +93,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 2, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
-- **stories** — Interactive story sessions (`montai story`), storing both storyline narrative and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
+- **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **story_marks** — TUI-local timeline checkpoints created via `/mark` in the story TUI. Each row stores a `TimelineItem[]` JSON snapshot for a specific story (`storyId` FK). `name` is unique within a story. Storyline is intentionally not captured; restore overwrites the current timeline only.
 - **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
@@ -132,7 +132,7 @@ Supports resume: skips videos that already have a row in `video_analyses` on re-
 Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
 
 Uses an agent loop with tools:
-- `updateStoryline(name, title, narrative)` — Save/update the storyline
+- `updateStoryline(name?, title?, brief)` — Save/update the storyline. `brief` contains the storyline content: user requirements, creative direction, and current edit structure. `name` and `title` are required when creating a story, but omitted on existing stories to preserve the current identifier/title.
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startSeconds, endSeconds, fps?)` — Watch a source video segment. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
 - `previewFrame(clipIndex, timeOffset)` — Render one frame of the CURRENT edited timeline (Remotion, with crop/rotation/overlays/etc applied) and inject it as an image. For verifying a specific moment of the edit

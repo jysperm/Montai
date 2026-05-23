@@ -213,10 +213,10 @@ export function printToolCall(toolName: string, args: Record<string, unknown>) {
     case 'updateStoryline': {
       const title = args.title as string | undefined;
       const storyName = args.name as string | undefined;
-      const narrative = args.narrative as string | undefined;
+      const brief = args.brief as string | undefined;
       console.log(`  ${check} ${label}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
-      if (narrative) {
-        for (const line of narrative.split('\n')) {
+      if (brief) {
+        for (const line of brief.split('\n')) {
           console.log(chalk.dim(`    ${line}`));
         }
       }

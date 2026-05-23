@@ -327,9 +327,14 @@ export class StoryAgent {
   }
 
   private buildContextMessage(videoAnalysisData: unknown[], summaryVideoAnalyses: unknown[], musicAnalysisData: unknown[], summaryMusicAnalyses: unknown[], voiceoverAnalysisData: unknown[], summaryVoiceoverAnalyses: unknown[], generatedMusicData: unknown[], storyline: string | null) {
+    const currentStory = this.toolsCtx.currentStoryId
+      ? this.db.select({ name: stories.name, title: stories.title }).from(stories).where(eq(stories.id, this.toolsCtx.currentStoryId)).get()
+      : null;
     return renderPrompt('story-context', {
       fullVideoAnalyses: (videoAnalysisData as unknown[]).length > 0 ? videoAnalysisData : null,
       summaryVideoAnalyses: (summaryVideoAnalyses as unknown[]).length > 0 ? summaryVideoAnalyses : null,
+      currentStoryName: currentStory?.name ?? this.toolsCtx.currentStoryName,
+      currentStoryTitle: currentStory?.title ?? null,
       storyline,
       timelineItems: this.toolsCtx.currentItems.length > 0 ? JSON.stringify(stripTimelineDefaults(this.toolsCtx.currentItems), null, 2) : null,
       computedTimeline: this.toolsCtx.currentItems.length > 0 ? renderPrompt('computed-timeline', buildComputedTimelineData(this.toolsCtx.currentItems)) : null,
@@ -410,6 +415,8 @@ export class StoryAgent {
 
     const switchContext = renderPrompt('story-switch', {
       name: targetName,
+      currentStoryName: existingStory?.name ?? targetName,
+      currentStoryTitle: existingStory?.title ?? null,
       isUserAction: true,
       isNew: !existingStory,
       storyline: existingStory?.storyline ?? null,

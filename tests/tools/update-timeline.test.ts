@@ -18,6 +18,12 @@ function createTestDb() {
       updated_at TEXT NOT NULL
     )
   `);
+  sqlite.exec(`
+    CREATE TABLE sessions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      current_story_id INTEGER REFERENCES stories(id) ON DELETE CASCADE
+    )
+  `);
   return drizzle(sqlite, { schema });
 }
 
@@ -65,6 +71,40 @@ function seedStory(ctx: StoryToolsContext) {
   ctx.currentStoryId = result.id;
   ctx.currentStoryName = 'test';
 }
+
+describe('updateStoryline tool', () => {
+  it('keeps the existing name and title when omitted', async () => {
+    const db = createTestDb();
+    const ctx = createContext(db);
+    seedStory(ctx);
+    const { tools } = getStoryTools(ctx);
+    const updateStoryline = tools.find((t) => t.name === 'updateStoryline')!;
+
+    await updateStoryline.execute('call-1', {
+      brief: 'updated brief',
+    });
+
+    const row = (ctx.db as any).select().from(schema.stories).get();
+    expect(row.name).toBe('test');
+    expect(row.title).toBe('Test Story');
+    expect(row.storyline).toBe('updated brief');
+  });
+
+  it('requires title when creating a new story', async () => {
+    const db = createTestDb();
+    const ctx = createContext(db);
+    const { tools } = getStoryTools(ctx);
+    const updateStoryline = tools.find((t) => t.name === 'updateStoryline')!;
+
+    const result = await updateStoryline.execute('call-1', {
+      name: 'new-story',
+      brief: 'new brief',
+    });
+
+    expect(result.isError).toBe(true);
+    expect(result.content[0].text).toContain('title is required');
+  });
+});
 
 describe('updateTimeline tool', () => {
   let ctx: StoryToolsContext;
