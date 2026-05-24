@@ -15,7 +15,7 @@ Return a JSON object with this exact structure:
       "endTime": "MM:SS",
       "description": "What happens in this segment",
       "qualityNotes": "Notable technical issues (shaky, dark, overexposed, out of focus, subject obstruction, wrong orientation, etc.), or empty string if none",
-      "speechContent": "Brief transcription of speech, or description of notable ambient sound, or empty string if none"
+      "speechContent": "Speech content or notable ambient sound. If only one or two short lines are spoken, include them directly; if there is more speech, summarize the main topic or meaning in one or two concise sentences. Empty string if none."
     }
   ],
   "highlights": [
