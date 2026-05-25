@@ -124,7 +124,7 @@ DEBUG=montai:* montai story                      # including full message conten
 
 ## Archiving
 
-Montai can be used to curate interesting segments from a large amount of raw footage. After creating stories, you may want to delete the original files to free up space. `montai archive` extracts the video segments referenced by all timelines into the `archived/` directory (video files only).
+Montai can be used to curate interesting segments from a large amount of raw footage. After creating stories, you may want to delete the original files to free up space. `montai archive` extracts the video segments referenced by all current story timelines into the `archived/` directory (video files only). Timeline checkpoints created with `/mark` are not included unless restored into the current story timeline first.
 
 By default, `montai archive` uses passthrough mode to preserve original quality without re-encoding. Use `--encode` to re-encode using project output settings, or `--encode 720p,crf=20,fps=30,8bit` to customize the encoding spec.
 

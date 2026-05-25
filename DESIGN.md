@@ -176,7 +176,7 @@ Generates FCPXML 1.11 format from a Timeline. If name is given, exports that sin
 
 ### 6. Archive (`montai archive`)
 
-Archives all video segments referenced by any timeline, for safekeeping before deleting original source files. The output directory (`archived/`) contains only video files — no database or config. Each clip's time range (plus 2 seconds padding) is extracted from the source video. Overlapping segments from the same video (across all stories and clips) are merged into a single file.
+Archives all video segments referenced by any current story timeline, for safekeeping before deleting original source files. Timeline checkpoints in `story_marks` are intentionally ignored unless restored into a story's current timeline first. The output directory (`archived/`) contains only video files — no database or config. Each clip's time range (plus 2 seconds padding) is extracted from the source video. Overlapping segments from the same video (across all stories and clips) are merged into a single file.
 
 By default uses passthrough (ffmpeg `-c copy`) to preserve original quality without re-encoding. The actual start time is aligned to the nearest prior keyframe via ffprobe, so the archived file may include a few extra frames before the requested range. Supports `--encode [spec]` for encoding: `--encode output` uses project output settings (resolution + fps from `montai.yaml`), or a custom spec like `--encode 720p,crf=20,fps=30,8bit`. 10-bit encoding (`10bit`) auto-detects the best available HEVC encoder (libx265, or hevc_videotoolbox on macOS); 8-bit (default) uses libx264.
 
