@@ -96,13 +96,10 @@ describe('updateStoryline tool', () => {
     const { tools } = getStoryTools(ctx);
     const updateStoryline = tools.find((t) => t.name === 'updateStoryline')!;
 
-    const result = await updateStoryline.execute('call-1', {
+    await expect(updateStoryline.execute('call-1', {
       name: 'new-story',
       brief: 'new brief',
-    });
-
-    expect(result.isError).toBe(true);
-    expect(result.content[0].text).toContain('title is required');
+    })).rejects.toThrow(/title is required/);
   });
 });
 

@@ -81,27 +81,15 @@ export function getStoryTools(ctx: StoryToolsContext) {
       const name = params.name ?? ctx.currentStoryName;
 
       if (!name) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: name is required when creating a new story.',
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error('Error: name is required when creating a new story.');
       }
 
       if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(name)) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${name}"`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Error: name must be kebab-case (lowercase letters, numbers, hyphens). Got: "${name}"`);
       }
 
       if (!ctx.currentStoryId && !params.title) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: title is required when creating a new story.',
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error('Error: title is required when creating a new story.');
       }
 
       const now = new Date().toISOString();
@@ -169,11 +157,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
         try {
           newItems = z.array(TimelineItemSchema).parse(params.items);
         } catch (err) {
-          const errorText: TextContent = {
-            type: 'text' as const,
-            text: `Item validation failed: ${err}`,
-          };
-          return { content: [errorText], details: {}, isError: true };
+          throw new Error(`Item validation failed: ${err}`);
         }
       }
 
@@ -186,19 +170,11 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       // If voiceover validation errors exist, reject the update
       if (errors.length > 0) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Timeline update rejected:\n${errors.map((e) => `- ${e}`).join('\n')}\n\nPlease fix the issues and try again.`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Timeline update rejected:\n${errors.map((e) => `- ${e}`).join('\n')}\n\nPlease fix the issues and try again.`);
       }
 
       if (!ctx.currentStoryId) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: Call updateStoryline first to create a story before updating the timeline.',
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error('Error: Call updateStoryline first to create a story before updating the timeline.');
       }
 
       ctx.currentItems = allItems;
@@ -253,75 +229,53 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
       }
 
       const video = ctx.allVideos.find((v) => v.id === params.videoId);
       if (!video) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: Video ${params.videoId} not found`,
-        };
-        return { content: [errorText], details: {} };
+        throw new Error(`Error: Video ${params.videoId} not found`);
       }
 
       // Gemini returns a 500 INTERNAL (instead of a proper 400) for invalid
       // video ranges. Validate before uploading so the LLM retries with a valid range.
       if (params.startSeconds >= params.endSeconds) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: startSeconds (${params.startSeconds}s) must be less than endSeconds (${params.endSeconds}s).`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Error: startSeconds (${params.startSeconds}s) must be less than endSeconds (${params.endSeconds}s).`);
       }
 
       const duration = video.durationSeconds ?? 0;
       if (duration > 0 && params.startSeconds >= duration) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: startSeconds ${params.startSeconds}s is past the end of video ${video.filename} (duration ${duration}s). Pick a start within the video.`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Error: startSeconds ${params.startSeconds}s is past the end of video ${video.filename} (duration ${duration}s). Pick a start within the video.`);
       }
       const clampedEnd = duration > 0 ? Math.min(params.endSeconds, duration) : params.endSeconds;
       const fps = params.fps ?? 1;
       if (fps < 1) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: fps must be >= 1.',
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error('Error: fps must be >= 1.');
       }
 
+      let transcoded: Awaited<ReturnType<typeof transcodeForUpload>>;
+      let uploaded: Awaited<ReturnType<typeof uploadFileToGemini>>;
       try {
-        const transcoded = await transcodeForUpload(video.id, video.path, fps);
-        const uploaded = await uploadFileToGemini(transcoded.path);
-        const fileContent: FileContent = {
-          type: 'file',
-          uri: uploaded.fileUri,
-          mimeType: 'video/mp4',
-          videoMetadata: {
-            startOffset: `${params.startSeconds}s`,
-            endOffset: `${clampedEnd}s`,
-            ...(params.fps !== undefined ? { fps: params.fps } : {}),
-          },
-        };
-        const textContent: TextContent = {
-          type: 'text' as const,
-          text: `Video segment from ${video.filename} (${params.startSeconds}s-${params.endSeconds}s) is now in context.`,
-        };
-        return { content: [textContent, fileContent], details: {} };
+        transcoded = await transcodeForUpload(video.id, video.path, fps);
+        uploaded = await uploadFileToGemini(transcoded.path);
       } catch (err) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error watching segment: ${err}`,
-        };
-        return { content: [errorText], details: {} };
+        throw new Error(`Error watching segment: ${err}`);
       }
+      const fileContent: FileContent = {
+        type: 'file',
+        uri: uploaded.fileUri,
+        mimeType: 'video/mp4',
+        videoMetadata: {
+          startOffset: `${params.startSeconds}s`,
+          endOffset: `${clampedEnd}s`,
+          ...(params.fps !== undefined ? { fps: params.fps } : {}),
+        },
+      };
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: `Video segment from ${video.filename} (${params.startSeconds}s-${params.endSeconds}s) is now in context.`,
+      };
+      return { content: [textContent, fileContent], details: {} };
     },
   };
 
@@ -339,21 +293,23 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        return { content: [{ type: 'text' as const, text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
       }
 
       const loaded = loadCurrentExpanded();
       if ('error' in loaded) {
-        return { content: [{ type: 'text' as const, text: `Error: ${loaded.error}` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: ${loaded.error}`);
       }
       const spec = loaded.spec;
 
       if (params.clipIndex < 0 || params.clipIndex >= spec.clips.length) {
-        return { content: [{ type: 'text' as const, text: `Error: clipIndex ${params.clipIndex} out of range (timeline has ${spec.clips.length} clips, valid range 0-${spec.clips.length - 1}).` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: clipIndex ${params.clipIndex} out of range (timeline has ${spec.clips.length} clips, valid range 0-${spec.clips.length - 1}).`);
       }
 
+      let buffer: Buffer;
+      let frame: number;
       try {
-        const frame = resolveStartFrame(spec, params.clipIndex, params.timeOffset);
+        frame = resolveStartFrame(spec, params.clipIndex, params.timeOffset);
         // Cross-session disk cache: hash of (spec, frame). Reuses prior renders
         // until the timeline changes shape.
         const hash = stillHash(spec, frame);
@@ -364,20 +320,20 @@ export function getStoryTools(ctx: StoryToolsContext) {
         if (!existsSync(outPath)) {
           await renderStillFrame({ spec, frame, outPath });
         }
-        const buffer = readFileSync(outPath);
-        const image: ImageContent = {
-          type: 'image',
-          data: buffer.toString('base64'),
-          mimeType: 'image/png',
-        };
-        const text: TextContent = {
-          type: 'text',
-          text: `Rendered frame of clip ${params.clipIndex} at timeOffset ${params.timeOffset}s (frame ${frame} of the ${spec.fps}fps composition).`,
-        };
-        return { content: [text, image], details: {} };
+        buffer = readFileSync(outPath);
       } catch (err) {
-        return { content: [{ type: 'text' as const, text: `Render failed: ${err instanceof Error ? err.message : err}` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Render failed: ${err instanceof Error ? err.message : err}`);
       }
+      const image: ImageContent = {
+        type: 'image',
+        data: buffer.toString('base64'),
+        mimeType: 'image/png',
+      };
+      const text: TextContent = {
+        type: 'text',
+        text: `Rendered frame of clip ${params.clipIndex} at timeOffset ${params.timeOffset}s (frame ${frame} of the ${spec.fps}fps composition).`,
+      };
+      return { content: [text, image], details: {} };
     },
   };
 
@@ -396,12 +352,12 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        return { content: [{ type: 'text' as const, text: `Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
       }
 
       const loaded = loadCurrentExpanded();
       if ('error' in loaded) {
-        return { content: [{ type: 'text' as const, text: `Error: ${loaded.error}` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: ${loaded.error}`);
       }
       const spec = loaded.spec;
 
@@ -411,12 +367,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
       const previewFps = params.fps ?? 1;
 
       if (endSeconds <= startSeconds) {
-        return { content: [{ type: 'text' as const, text: `Error: empty range — startSeconds (${startSeconds}) must be < endSeconds (${endSeconds}); timeline is ${totalSeconds.toFixed(2)}s.` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Error: empty range — startSeconds (${startSeconds}) must be < endSeconds (${endSeconds}); timeline is ${totalSeconds.toFixed(2)}s.`);
       }
       if (previewFps < 1) {
-        return { content: [{ type: 'text' as const, text: 'Error: fps must be >= 1.' } satisfies TextContent], details: {}, isError: true };
+        throw new Error('Error: fps must be >= 1.');
       }
 
+      let upload: Awaited<ReturnType<typeof uploadFileToGemini>>;
       try {
         preparePublicDir(spec);
         const hash = previewHash(spec, startSeconds, endSeconds, previewFps);
@@ -424,26 +381,26 @@ export function getStoryTools(ctx: StoryToolsContext) {
         if (!existsSync(outPath)) {
           await renderRange({ spec, startSeconds, endSeconds, fps: previewFps, outPath });
         }
-        const upload = await uploadFileToGemini(outPath);
-        const durationSeconds = endSeconds - startSeconds;
-        const file: FileContent = {
-          type: 'file',
-          uri: upload.fileUri,
-          mimeType: 'video/mp4',
-          videoMetadata: {
-            startOffset: '0s',
-            endOffset: `${durationSeconds.toFixed(2)}s`,
-            fps: previewFps,
-          },
-        };
-        const text: TextContent = {
-          type: 'text',
-          text: `Rendered preview ${startSeconds.toFixed(2)}s–${endSeconds.toFixed(2)}s of the edited timeline (${durationSeconds.toFixed(2)}s @ ${previewFps}fps${upload.cached ? ', cached upload' : ''}).`,
-        };
-        return { content: [text, file], details: {} };
+        upload = await uploadFileToGemini(outPath);
       } catch (err) {
-        return { content: [{ type: 'text' as const, text: `Render failed: ${err instanceof Error ? err.message : err}` } satisfies TextContent], details: {}, isError: true };
+        throw new Error(`Render failed: ${err instanceof Error ? err.message : err}`);
       }
+      const durationSeconds = endSeconds - startSeconds;
+      const file: FileContent = {
+        type: 'file',
+        uri: upload.fileUri,
+        mimeType: 'video/mp4',
+        videoMetadata: {
+          startOffset: '0s',
+          endOffset: `${durationSeconds.toFixed(2)}s`,
+          fps: previewFps,
+        },
+      };
+      const text: TextContent = {
+        type: 'text',
+        text: `Rendered preview ${startSeconds.toFixed(2)}s–${endSeconds.toFixed(2)}s of the edited timeline (${durationSeconds.toFixed(2)}s @ ${previewFps}fps${upload.cached ? ', cached upload' : ''}).`,
+      };
+      return { content: [text, file], details: {} };
     },
   };
 
@@ -550,37 +507,34 @@ export function getStoryTools(ctx: StoryToolsContext) {
       _toolCallId: string,
       params: { prompt: string },
     ) {
+      let result: Awaited<ReturnType<typeof generateMusicTrack>>;
       try {
-        const result = await generateMusicTrack(ctx.db, params.prompt);
-
-        // Update the allMusic context so subsequent getMusicAnalysis / updateTimeline can reference it
-        const existing = ctx.allMusic.find((m) => m.id === result.musicId);
-        if (!existing) {
-          ctx.allMusic.push({
-            id: result.musicId,
-            filename: `${result.path.split('/').pop()}`,
-            path: result.path,
-            md5: '',
-            type: 'generated',
-            generationPrompt: params.prompt,
-            durationSeconds: result.durationSeconds,
-            sampleRate: null,
-            channels: null,
-          });
-        }
-
-        const textContent: TextContent = {
-          type: 'text' as const,
-          text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in music timeline items to reference this track.`,
-        };
-        return { content: [textContent], details: {} };
+        result = await generateMusicTrack(ctx.db, params.prompt);
       } catch (err) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Music generation failed: ${err instanceof Error ? err.message : err}`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Music generation failed: ${err instanceof Error ? err.message : err}`);
       }
+
+      // Update the allMusic context so subsequent getMusicAnalysis / updateTimeline can reference it
+      const existing = ctx.allMusic.find((m) => m.id === result.musicId);
+      if (!existing) {
+        ctx.allMusic.push({
+          id: result.musicId,
+          filename: `${result.path.split('/').pop()}`,
+          path: result.path,
+          md5: '',
+          type: 'generated',
+          generationPrompt: params.prompt,
+          durationSeconds: result.durationSeconds,
+          sampleRate: null,
+          channels: null,
+        });
+      }
+
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in music timeline items to reference this track.`,
+      };
+      return { content: [textContent], details: {} };
     },
   };
 
@@ -655,20 +609,12 @@ export function getStoryTools(ctx: StoryToolsContext) {
       }
 
       if (!params.name) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: 'Error: name is required when new is not set.',
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error('Error: name is required when new is not set.');
       }
 
       const story = ctx.db.select().from(stories).where(eq(stories.name, params.name)).get();
       if (!story) {
-        const errorText: TextContent = {
-          type: 'text' as const,
-          text: `Error: Story "${params.name}" not found. Use listStories to see available stories.`,
-        };
-        return { content: [errorText], details: {}, isError: true };
+        throw new Error(`Error: Story "${params.name}" not found. Use listStories to see available stories.`);
       }
 
       ctx.currentStoryId = story.id;

@@ -205,68 +205,99 @@ export function formatAssistantText(text: string): string {
   return text.trimEnd().replace(/\*\*(.+?)\*\*/g, (_, t: string) => chalk.bold(t));
 }
 
-export function printToolCall(toolName: string, args: Record<string, unknown>) {
-  const check = chalk.green('✓');
-  const label = chalk.green(toolName);
+export function printToolCall(toolName: string, args: Record<string, unknown>, error?: string) {
+  const check = error ? chalk.red('✗') : chalk.green('✓');
+  const label = error ? chalk.red(toolName) : chalk.green(toolName);
 
   switch (toolName) {
     case 'updateStoryline': {
-      const title = args.title as string | undefined;
-      const storyName = args.name as string | undefined;
-      const brief = args.brief as string | undefined;
-      console.log(`  ${check} ${label}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
-      if (brief) {
-        for (const line of brief.split('\n')) {
-          console.log(chalk.dim(`    ${line}`));
+      if (!error) {
+        const title = args.title as string | undefined;
+        const storyName = args.name as string | undefined;
+        const brief = args.brief as string | undefined;
+        console.log(`  ${check} ${label}: ${title ?? ''}  ${chalk.cyan(storyName ?? '')}`);
+        if (brief) {
+          for (const line of brief.split('\n')) {
+            console.log(chalk.dim(`    ${line}`));
+          }
         }
+        console.log('');
+        return;
+      } else {
+        break;
       }
-      console.log('');
-      return;
     }
     case 'watchSegment': {
-      const videoId = args.videoId as number;
-      const startSec = args.startSeconds as number;
-      const endSec = args.endSeconds as number;
-      const dur = formatDuration(endSec - startSec);
-      console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
-      return;
+      if (!error) {
+        const videoId = args.videoId as number;
+        const startSec = args.startSeconds as number;
+        const endSec = args.endSeconds as number;
+        const dur = formatDuration(endSec - startSec);
+        console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
+        return;
+      } else {
+        break;
+      }
     }
     case 'updateTimeline': {
-      const deleteCount = args.deleteCount as number;
-      const newItems = (args.items ?? []) as Array<{ type: string }>;
-      const addedCounts = countItemsByType(newItems);
-      const hasAdded = newItems.length > 0;
-      const hasDeleted = deleteCount !== 0;
+      if (!error) {
+        const deleteCount = args.deleteCount as number;
+        const newItems = (args.items ?? []) as Array<{ type: string }>;
+        const addedCounts = countItemsByType(newItems);
+        const hasAdded = newItems.length > 0;
+        const hasDeleted = deleteCount !== 0;
 
-      let summary: string;
-      if (deleteCount === -1) {
-        summary = `replaced with ${formatItemCounts(addedCounts)}`;
-      } else if (hasAdded && hasDeleted) {
-        summary = `updated ${formatItemCounts(addedCounts)}`;
-      } else if (hasAdded) {
-        summary = `added ${formatItemCounts(addedCounts)}`;
-      } else if (hasDeleted) {
-        summary = `deleted ${deleteCount} item${deleteCount !== 1 ? 's' : ''}`;
+        let summary: string;
+        if (deleteCount === -1) {
+          summary = `replaced with ${formatItemCounts(addedCounts)}`;
+        } else if (hasAdded && hasDeleted) {
+          summary = `updated ${formatItemCounts(addedCounts)}`;
+        } else if (hasAdded) {
+          summary = `added ${formatItemCounts(addedCounts)}`;
+        } else if (hasDeleted) {
+          summary = `deleted ${deleteCount} item${deleteCount !== 1 ? 's' : ''}`;
+        } else {
+          summary = 'no changes';
+        }
+        console.log(`  ${check} ${label}: ${summary}`);
+        return;
       } else {
-        summary = 'no changes';
+        break;
       }
-      console.log(`  ${check} ${label}: ${summary}`);
-      return;
     }
     case 'generateMusic': {
-      const prompt = args.prompt as string;
-      console.log(`  ${check} ${label}: "${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"`)
-      return;
+      const prompt = typeof args.prompt === 'string' ? args.prompt : undefined;
+      const promptDisplay = prompt
+        ? `"${prompt.slice(0, 50)}${prompt.length > 50 ? '...' : ''}"`
+        : undefined;
+      if (!error) {
+        console.log(`  ${check} ${label}${promptDisplay ? `: ${promptDisplay}` : ''}`);
+        return;
+      } else {
+        if (promptDisplay) error = `${promptDisplay}: ${error}`;
+        break;
+      }
     }
     case 'switchStory': {
-      const targetName = args.name as string | undefined;
-      const isNew = args.new as boolean | undefined;
-      console.log(isNew ? `  ${check} ${label}: new story` : `  ${check} ${label}: ${chalk.cyan(targetName ?? '?')}`);
-      return;
+      if (!error) {
+        const targetName = args.name as string | undefined;
+        const isNew = args.new as boolean | undefined;
+        console.log(isNew ? `  ${check} ${label}: new story` : `  ${check} ${label}: ${chalk.cyan(targetName ?? '?')}`);
+        return;
+      } else {
+        break;
+      }
     }
     default:
-      console.log(`  ${check} ${label}${args.videoId ? `: video ${args.videoId}` : args.musicId ? `: music ${args.musicId}` : args.voiceoverId ? `: voiceover ${args.voiceoverId}` : ''}`);
+      if (!error) {
+        console.log(`  ${check} ${label}${args.videoId ? `: video ${args.videoId}` : args.musicId ? `: music ${args.musicId}` : args.voiceoverId ? `: voiceover ${args.voiceoverId}` : ''}`);
+        return;
+      } else {
+        break;
+      }
   }
+
+  console.log(`  ${check} ${label}: ${error}`);
 }
 
 type StoryRow = typeof stories.$inferSelect;

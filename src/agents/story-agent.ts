@@ -200,16 +200,14 @@ export class StoryAgent {
         this.toolArgsMap.delete(event.toolCallId);
         logToolCall(event.toolName, toolArgs, event.result);
 
-        const toolResultIsError = event.isError ||
-          (event.result && typeof event.result === 'object' && 'isError' in event.result && event.result.isError);
-
-        if (toolResultIsError) {
+        if (event.isError) {
           const errorContent = (event.result as { content?: Array<{ text?: string }> })?.content?.[0]?.text;
           const flattened = errorContent?.replace(/\s+/g, ' ').trim();
           const errorSummary = flattened
             ? (flattened.length > 200 ? flattened.slice(0, 200) + '...' : flattened)
             : 'failed';
-          console.log(`  ${chalk.red('✗')} ${chalk.red(event.toolName)}: ${errorSummary}`);
+          this.hadToolOutput = true;
+          printToolCall(event.toolName, toolArgs, errorSummary);
           this.spinner.text = 'Thinking...';
           this.spinner.start();
           break;
@@ -358,6 +356,15 @@ export class StoryAgent {
         }
       }
     }
+    const toolResultsById = new Map<string, { isError: boolean; content: Array<{ type: string; text?: string }> }>();
+    for (const m of this.resumedMessages as Message[]) {
+      if (m.role === 'toolResult') {
+        toolResultsById.set(m.toolCallId, {
+          isError: m.isError,
+          content: (Array.isArray(m.content) ? m.content : []) as Array<{ type: string; text?: string }>,
+        });
+      }
+    }
     let hadReplayToolOutput = false;
     for (let i = replayStart; i < this.resumedMessages.length; i++) {
       const m = this.resumedMessages[i] as Message;
@@ -369,11 +376,20 @@ export class StoryAgent {
           console.log('');
         }
       } else if (m.role === 'assistant') {
-        const content = Array.isArray(m.content) ? m.content as Array<{ type: string; text?: string; name?: string; arguments?: Record<string, unknown> }> : [];
+        const content = Array.isArray(m.content) ? m.content as Array<{ type: string; id?: string; text?: string; name?: string; arguments?: Record<string, unknown> }> : [];
         const toolCalls = content.filter((c) => c.type === 'toolCall');
         for (const tc of toolCalls) {
           const tcArgs = tc.arguments ?? {};
-          printToolCall(tc.name ?? 'tool', tcArgs);
+          const result = tc.id ? toolResultsById.get(tc.id) : undefined;
+          let errorSummary: string | undefined;
+          if (result?.isError) {
+            const errorContent = result.content?.[0]?.text;
+            const flattened = errorContent?.replace(/\s+/g, ' ').trim();
+            errorSummary = flattened
+              ? (flattened.length > 200 ? flattened.slice(0, 200) + '...' : flattened)
+              : 'failed';
+          }
+          printToolCall(tc.name ?? 'tool', tcArgs, errorSummary);
         }
         if (toolCalls.length > 0) hadReplayToolOutput = true;
         const text = content.filter((c) => c.type === 'text').map((c) => c.text ?? '').join('');
