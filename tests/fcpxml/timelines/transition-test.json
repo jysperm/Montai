@@ -13,6 +13,6 @@
   { "type": "overlay", "text": "Slide from-bottom", "startClip": 5, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" },
   { "type": "clip", "videoId": 2, "startTimeSeconds": 10, "endTimeSeconds": 15, "playbackRate": 1, "volume": 1, "transition": { "type": "wipe", "durationSeconds": 1, "direction": "from-left" } },
   { "type": "overlay", "text": "Wipe from-left", "startClip": 6, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" },
-  { "type": "clip", "videoId": 1, "startTimeSeconds": 30, "endTimeSeconds": 40, "playbackRate": 0.5, "volume": 1 },
+  { "type": "clip", "videoId": 1, "startTimeSeconds": 20, "endTimeSeconds": 30, "playbackRate": 0.5, "volume": 1 },
   { "type": "overlay", "text": "Slow-mo 0.5x", "startClip": 7, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" }
 ]

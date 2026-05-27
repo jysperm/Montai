@@ -1,0 +1,51 @@
+import { readdirSync, readFileSync } from 'fs';
+import { dirname, resolve } from 'path';
+import { fileURLToPath } from 'url';
+import { expandTimeline, type TimelineItem } from '../../src/schemas/timeline-items.js';
+import type { ProjectConfig } from '../../src/schemas/project.js';
+import {
+  musicFiles,
+  musicMeta,
+  videos,
+  voiceoverFiles,
+  voiceoverMeta,
+} from '../fixtures/index.js';
+
+export { videoMeta, voiceoverMeta, outputDir as fixturesOutputDir } from '../fixtures/index.js';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+
+export const timelinesDir = resolve(__dirname, 'timelines');
+export const outputDir = resolve(__dirname, 'output');
+
+export function loadTimeline(name: string): TimelineItem[] {
+  const raw = readFileSync(resolve(timelinesDir, `${name}.json`), 'utf-8');
+  return JSON.parse(raw);
+}
+
+export function listTimelineNames(): string[] {
+  return readdirSync(timelinesDir)
+    .filter(f => f.endsWith('.json'))
+    .map(f => f.slice(0, -'.json'.length))
+    .sort();
+}
+
+export const config: ProjectConfig = {
+  assets: { videos: ['.'], music: [], voiceover: [] },
+  language: 'en',
+  output: { resolution: '1080p', fps: 30 },
+  models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3.1-pro-preview' },
+  effects: { languages: ['en'] },
+  featureFlags: {},
+};
+
+export const audioMeta = musicMeta;
+
+export function expand(items: TimelineItem[], name: string) {
+  return expandTimeline(items, config, name, videos, undefined, musicFiles, voiceoverFiles);
+}
+
+export function expandForTimeline(name: string) {
+  const items = loadTimeline(name);
+  return expand(items, name);
+}

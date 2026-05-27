@@ -5,25 +5,24 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="crop-test">
-                <sequence format="r1" duration="1000/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="600/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="No Crop" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="No Crop" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">No Crop</text-style>
@@ -33,9 +32,9 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="250/50s" duration="250/50s" start="216300084/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="1.4286 1.4286" />
-                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="225/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Static Crop" offset="150/30s" duration="135/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
@@ -45,13 +44,13 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="487/50s" duration="26/50s">
+                    <transition offset="292/30s" duration="16/30s">
                         <filter-video ref="r3" name="Cross Dissolve" />
                         <filter-audio ref="r4" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="250/50s" start="217199983/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="150/30s" start="600/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="2.5 2.5" />
-                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="225/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns" offset="600/30s" duration="135/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
@@ -61,13 +60,13 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="737/50s" duration="26/50s">
+                    <transition offset="442/30s" duration="16/30s">
                         <filter-video ref="r3" name="Cross Dissolve" />
                         <filter-audio ref="r4" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="2.5 2.5" />
-                        <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Ken Burns (cropEnd only)</text-style>
@@ -91,25 +90,24 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="crop-test">
-                <sequence format="r1" duration="1000/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="600/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="No Crop" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="No Crop" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">No Crop</text-style>
@@ -119,11 +117,11 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="250/50s" duration="250/50s" start="216300084/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
                         <adjust-crop mode="crop">
                             <crop-rect left="20" top="15" right="20" bottom="15" />
                         </adjust-crop>
-                        <title ref="r2" lane="1" name="Static Crop" offset="216300084/60000s" duration="225/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Static Crop" offset="150/30s" duration="135/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
@@ -133,16 +131,16 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="487/50s" duration="26/50s">
+                    <transition offset="292/30s" duration="16/30s">
                         <filter-video ref="r3" name="Cross Dissolve" />
                         <filter-audio ref="r4" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="250/50s" start="217199983/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="150/30s" start="600/30s" tcFormat="NDF">
                         <adjust-crop mode="pan">
                             <pan-rect left="0" top="0" right="0" bottom="0" />
                             <pan-rect left="35" top="30" right="35" bottom="30" />
                         </adjust-crop>
-                        <title ref="r2" lane="1" name="Ken Burns" offset="217199983/60000s" duration="225/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns" offset="600/30s" duration="135/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
@@ -152,16 +150,16 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="737/50s" duration="26/50s">
+                    <transition offset="442/30s" duration="16/30s">
                         <filter-video ref="r3" name="Cross Dissolve" />
                         <filter-audio ref="r4" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <adjust-crop mode="pan">
                             <pan-rect left="0" top="0" right="0" bottom="0" />
                             <pan-rect left="35" top="30" right="35" bottom="30" />
                         </adjust-crop>
-                        <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Ken Burns (cropEnd only)</text-style>
@@ -185,33 +183,32 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
-        <asset id="audio-asset-1" start="0/1s" duration="5292000/44100s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
-            <media-rep kind="original-media" src="file:///test/music-long.mp3" />
+        <asset id="audio-asset-1" start="0/1s" duration="5760000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/music-long.wav" />
         </asset>
-        <asset id="audio-asset-2" start="0/1s" duration="220500/44100s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
-            <media-rep kind="original-media" src="file:///test/music-short.mp3" />
+        <asset id="audio-asset-2" start="0/1s" duration="240000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/music-short.wav" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="music-test">
-                <sequence format="r1" duration="1500/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="900/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Music (no loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Music (no loop)" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Music (no loop)</text-style>
@@ -220,20 +217,20 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.mp3" offset="215999784/60000s" duration="500/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="300/30s" start="0/30s">
 
                             <adjust-volume amount="-8dB">
                                 <param name="amount" value="-8dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Short music (auto-loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Short music (auto-loop)" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Short music (auto-loop)</text-style>
@@ -242,38 +239,38 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.mp3" offset="215999784/60000s" duration="250/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.wav" offset="0/30s" duration="150/30s" start="0/30s">
 
                             <adjust-volume amount="-10dB">
                                 <param name="amount" value="-10dB">
-                                    <fadeIn type="linear" duration="100/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="60/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
-                        <asset-clip ref="audio-asset-2" lane="-2" name="music-short.mp3" offset="216240024/60000s" duration="250/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-2" lane="-2" name="music-short.wav" offset="120/30s" duration="150/30s" start="0/30s">
 
                             <adjust-volume amount="-10dB">
                                 <param name="amount" value="-10dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
-                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.mp3" offset="216480264/60000s" duration="250/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.wav" offset="240/30s" duration="150/30s" start="0/30s">
 
                             <adjust-volume amount="-10dB">
                                 <param name="amount" value="-10dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Short music (auto-loop cont.)</text-style>
@@ -282,21 +279,21 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="audio-asset-2" lane="-2" name="music-short.mp3" offset="216719503/60000s" duration="250/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-2" lane="-2" name="music-short.wav" offset="360/30s" duration="150/30s" start="0/30s">
 
                             <adjust-volume amount="-10dB">
                                 <param name="amount" value="-10dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
-                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.mp3" offset="216959743/60000s" duration="200/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-2" lane="-1" name="music-short.wav" offset="480/30s" duration="120/30s" start="0/30s">
 
                             <adjust-volume amount="-10dB">
                                 <param name="amount" value="-10dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="100/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="60/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
@@ -315,33 +312,32 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
-        <asset id="audio-asset-1" start="0/1s" duration="5292000/44100s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
-            <media-rep kind="original-media" src="file:///test/music-long.mp3" />
+        <asset id="audio-asset-1" start="0/1s" duration="5760000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/music-long.wav" />
         </asset>
-        <asset id="audio-asset-2" start="0/1s" duration="220500/44100s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
-            <media-rep kind="original-media" src="file:///test/music-short.mp3" />
+        <asset id="audio-asset-2" start="0/1s" duration="240000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/music-short.wav" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="music-test">
-                <sequence format="r1" duration="1500/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="900/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Music (no loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Music (no loop)" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Music (no loop)</text-style>
@@ -350,20 +346,20 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.mp3" offset="215999784/60000s" duration="500/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="300/30s" start="0/30s">
 
                             <adjust-volume amount="-8dB">
                                 <param name="amount" value="-8dB">
-                                    <fadeIn type="linear" duration="50/50s"/>
-                                    <fadeOut type="linear" duration="50/50s"/>
+                                    <fadeIn type="linear" duration="30/30s"/>
+                                    <fadeOut type="linear" duration="30/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Short music (auto-loop)" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Short music (auto-loop)" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Short music (auto-loop)</text-style>
@@ -372,57 +368,57 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <spine lane="-1" offset="215999784/60000s">
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="0/50s" duration="225/50s" start="0/50s">
+                        <spine lane="-1" offset="0/30s">
+                            <asset-clip ref="audio-asset-2" name="music-short.wav" offset="0/30s" duration="135/30s" start="0/30s">
 
                                 <adjust-volume amount="-10dB">
                                     <param name="amount" value="-10dB">
-                                        <fadeIn type="linear" duration="100/50s"/>
+                                        <fadeIn type="linear" duration="60/30s"/>
                                     </param>
                                 </adjust-volume>
                             </asset-clip>
-                            <transition name="Cross Dissolve" offset="200/50s" duration="50/50s">
+                            <transition name="Cross Dissolve" offset="120/30s" duration="30/30s">
                                 <filter-video ref="r3" name="Cross Dissolve" />
                                 <filter-audio ref="r4" name="Audio Cross Fade" />
                             </transition>
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="225/50s" duration="200/50s" start="25/50s">
+                            <asset-clip ref="audio-asset-2" name="music-short.wav" offset="135/30s" duration="120/30s" start="15/30s">
 
                                 <adjust-volume amount="-10dB"/>
                             </asset-clip>
-                            <transition name="Cross Dissolve" offset="400/50s" duration="50/50s">
+                            <transition name="Cross Dissolve" offset="240/30s" duration="30/30s">
                                 <filter-video ref="r3" name="Cross Dissolve" />
                                 <filter-audio ref="r4" name="Audio Cross Fade" />
                             </transition>
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="425/50s" duration="200/50s" start="25/50s">
+                            <asset-clip ref="audio-asset-2" name="music-short.wav" offset="255/30s" duration="120/30s" start="15/30s">
 
                                 <adjust-volume amount="-10dB"/>
                             </asset-clip>
-                            <transition name="Cross Dissolve" offset="600/50s" duration="50/50s">
+                            <transition name="Cross Dissolve" offset="360/30s" duration="30/30s">
                                 <filter-video ref="r3" name="Cross Dissolve" />
                                 <filter-audio ref="r4" name="Audio Cross Fade" />
                             </transition>
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="625/50s" duration="200/50s" start="25/50s">
+                            <asset-clip ref="audio-asset-2" name="music-short.wav" offset="375/30s" duration="120/30s" start="15/30s">
 
                                 <adjust-volume amount="-10dB"/>
                             </asset-clip>
-                            <transition name="Cross Dissolve" offset="800/50s" duration="50/50s">
+                            <transition name="Cross Dissolve" offset="480/30s" duration="30/30s">
                                 <filter-video ref="r3" name="Cross Dissolve" />
                                 <filter-audio ref="r4" name="Audio Cross Fade" />
                             </transition>
-                            <asset-clip ref="audio-asset-2" name="music-short.mp3" offset="825/50s" duration="175/50s" start="25/50s">
+                            <asset-clip ref="audio-asset-2" name="music-short.wav" offset="495/30s" duration="105/30s" start="15/30s">
 
                                 <adjust-volume amount="-10dB">
                                     <param name="amount" value="-10dB">
-                                        <fadeOut type="linear" duration="100/50s"/>
+                                        <fadeOut type="linear" duration="60/30s"/>
                                     </param>
                                 </adjust-volume>
                             </asset-clip>
                         </spine>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
 
                         <adjust-volume amount="-6dB"/>
-                        <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Short music (auto-loop cont.)</text-style>
@@ -446,22 +442,21 @@ exports[`overlay-test > DaVinci snapshot (1x font size) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
         <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="overlay-test">
-                <sequence format="r1" duration="1100/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="660/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Center Title Line 2" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 129"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Center Title
@@ -471,7 +466,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="80" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="2" name="Top Left" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 964"/>
                             <text>
                                 <text-style ref="ts2" alignment="left">Top Left</text-style>
@@ -480,7 +475,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="3" name="Top Right" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 964"/>
                             <text>
                                 <text-style ref="ts3" alignment="right">Top Right</text-style>
@@ -489,7 +484,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="4" name="Bottom Left" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="4" name="Bottom Left" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -964"/>
                             <text>
                                 <text-style ref="ts4" alignment="left">Bottom Left</text-style>
@@ -498,7 +493,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="5" name="Bottom Center" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -964"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">Bottom Center</text-style>
@@ -507,7 +502,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="6" name="Bottom Right" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -964"/>
                             <text>
                                 <text-style ref="ts6" alignment="right">Bottom Right</text-style>
@@ -517,8 +512,8 @@ Line 2</text-style>
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="600/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r3" lane="1" name="Fade Title" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="360/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="360/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts7" alignment="center">Fade Title</text-style>
                             </text>
@@ -526,13 +521,13 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="80" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="2" name="Slide Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101">
                                 <keyframeAnimation>
                                     <keyframe time="0/1s" value="-1740 1330" interp="linear"/>
-                                    <keyframe time="15/50s" value="-1740 964"/>
-                                    <keyframe time="585/50s" value="-1740 964" interp="linear"/>
-                                    <keyframe time="600/50s" value="-1740 1330"/>
+                                    <keyframe time="9/30s" value="-1740 964"/>
+                                    <keyframe time="351/30s" value="-1740 964" interp="linear"/>
+                                    <keyframe time="360/30s" value="-1740 1330"/>
                                 </keyframeAnimation>
                             </param>
                             <text>
@@ -542,7 +537,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r4" lane="3" name="Pop Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 964"/>
                             <text>
                                 <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
@@ -551,7 +546,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r3" lane="4" name="Fade Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -964"/>
                             <text>
                                 <text-style ref="ts10" alignment="left">Fade Subtitle</text-style>
@@ -560,13 +555,13 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="5" name="Slide Caption" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101">
                                 <keyframeAnimation>
                                     <keyframe time="0/1s" value="0 -1330" interp="linear"/>
-                                    <keyframe time="15/50s" value="0 -976"/>
-                                    <keyframe time="585/50s" value="0 -976" interp="linear"/>
-                                    <keyframe time="600/50s" value="0 -1330"/>
+                                    <keyframe time="9/30s" value="0 -976"/>
+                                    <keyframe time="351/30s" value="0 -976" interp="linear"/>
+                                    <keyframe time="360/30s" value="0 -1330"/>
                                 </keyframeAnimation>
                             </param>
                             <text>
@@ -576,7 +571,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
                         </title>
-                        <title ref="r4" lane="6" name="Pop Caption" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r4" lane="6" name="Pop Caption" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -976"/>
                             <text>
                                 <text-style ref="ts12" alignment="right">Pop Caption</text-style>
@@ -600,22 +595,21 @@ exports[`overlay-test > FCP snapshot (positions + animations) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r5" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
         <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="overlay-test">
-                <sequence format="r1" duration="1100/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="660/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Center Title Line 2" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 189"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Center Title
@@ -625,7 +619,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="2" name="Top Left" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 928"/>
                             <text>
                                 <text-style ref="ts2" alignment="left">Top Left</text-style>
@@ -634,7 +628,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="3" name="Top Right" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 928"/>
                             <text>
                                 <text-style ref="ts3" alignment="right">Top Right</text-style>
@@ -643,7 +637,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="4" name="Bottom Left" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="4" name="Bottom Left" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -928"/>
                             <text>
                                 <text-style ref="ts4" alignment="left">Bottom Left</text-style>
@@ -652,7 +646,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="5" name="Bottom Center" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -928"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">Bottom Center</text-style>
@@ -661,7 +655,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="6" name="Bottom Right" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -928"/>
                             <text>
                                 <text-style ref="ts6" alignment="right">Bottom Right</text-style>
@@ -671,8 +665,8 @@ Line 2</text-style>
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="600/50s" start="216599383/60000s" format="r5" tcFormat="NDF">
-                        <title ref="r3" lane="1" name="Fade Title" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="360/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="360/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts7" alignment="center">Fade Title</text-style>
                             </text>
@@ -680,13 +674,13 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="2" name="Slide Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101">
                                 <keyframeAnimation>
                                     <keyframe time="0/1s" value="-1740 1330" interp="linear"/>
-                                    <keyframe time="15/50s" value="-1740 928"/>
-                                    <keyframe time="585/50s" value="-1740 928" interp="linear"/>
-                                    <keyframe time="600/50s" value="-1740 1330"/>
+                                    <keyframe time="9/30s" value="-1740 928"/>
+                                    <keyframe time="351/30s" value="-1740 928" interp="linear"/>
+                                    <keyframe time="360/30s" value="-1740 1330"/>
                                 </keyframeAnimation>
                             </param>
                             <text>
@@ -696,7 +690,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r4" lane="3" name="Pop Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 928"/>
                             <text>
                                 <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
@@ -705,7 +699,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r3" lane="4" name="Fade Subtitle" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -928"/>
                             <text>
                                 <text-style ref="ts10" alignment="left">Fade Subtitle</text-style>
@@ -714,13 +708,13 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r2" lane="5" name="Slide Caption" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101">
                                 <keyframeAnimation>
                                     <keyframe time="0/1s" value="0 -1330" interp="linear"/>
-                                    <keyframe time="15/50s" value="0 -952"/>
-                                    <keyframe time="585/50s" value="0 -952" interp="linear"/>
-                                    <keyframe time="600/50s" value="0 -1330"/>
+                                    <keyframe time="9/30s" value="0 -952"/>
+                                    <keyframe time="351/30s" value="0 -952" interp="linear"/>
+                                    <keyframe time="360/30s" value="0 -1330"/>
                                 </keyframeAnimation>
                             </param>
                             <text>
@@ -730,7 +724,7 @@ Line 2</text-style>
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <title ref="r4" lane="6" name="Pop Caption" offset="216599383/60000s" duration="600/50s" start="0/1s">
+                        <title ref="r4" lane="6" name="Pop Caption" offset="300/30s" duration="360/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -952"/>
                             <text>
                                 <text-style ref="ts12" alignment="right">Pop Caption</text-style>
@@ -754,23 +748,22 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r3" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="rotation-test">
-                <sequence format="r1" duration="1750/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="1050/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="no rotation" offset="215999784/60000s" duration="250/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="no rotation" offset="0/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">no rotation</text-style>
@@ -780,9 +773,9 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="250/50s" duration="250/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="150/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
                         <adjust-transform scale="1.7778 1.7778" rotation="-90" />
-                        <title ref="r2" lane="1" name="90deg" offset="215999784/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="90deg" offset="0/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">90deg</text-style>
@@ -792,9 +785,9 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="500/50s" duration="250/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <adjust-transform scale="1 1" rotation="-180" />
-                        <title ref="r2" lane="1" name="180deg" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="180deg" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">180deg</text-style>
@@ -804,9 +797,9 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <adjust-transform scale="1.7778 1.7778" rotation="-270" />
-                        <title ref="r2" lane="1" name="270deg" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="270deg" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">270deg</text-style>
@@ -816,9 +809,9 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="250/50s" start="217199983/60000s" format="r3" tcFormat="NDF">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="150/30s" start="600/30s" tcFormat="NDF">
                         <adjust-transform scale="1.9642 1.9642" rotation="-45" />
-                        <title ref="r2" lane="1" name="45deg" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="45deg" offset="600/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">45deg</text-style>
@@ -828,9 +821,9 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="1250/50s" duration="250/50s" start="217199983/60000s" format="r3" tcFormat="NDF">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="750/30s" duration="150/30s" start="600/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="2.0031 2.0031" rotation="-90" />
-                        <title ref="r2" lane="1" name="90deg + crop" offset="217199983/60000s" duration="250/50s" start="0/1s">
+                        <title ref="r2" lane="1" name="90deg + crop" offset="600/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts6" alignment="center">90deg + crop</text-style>
@@ -840,8 +833,8 @@ exports[`rotation-test > FCP snapshot (rotation + rotation with crop) 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1500/50s" duration="250/50s" start="217799582/60000s" format="r3" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="rotation: 0 (no-op)" offset="217799582/60000s" duration="250/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="900/30s" duration="150/30s" start="750/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="rotation: 0 (no-op)" offset="750/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts7" alignment="center">rotation: 0 (no-op)</text-style>
@@ -865,27 +858,26 @@ exports[`transition-test > FCP snapshot 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r7" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Slide" uid="FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648" />
         <effect id="r5" name="Wipe" uid="FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8" />
         <effect id="r6" name="Audio Cross Fade" uid="FFAudioTransition" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r7">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r7">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="transition-test">
-                <sequence format="r1" duration="2750/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="1650/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="250/50s" start="215999784/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Hard Cut" offset="215999784/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Hard Cut" offset="0/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Hard Cut</text-style>
@@ -895,12 +887,12 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="225/50s" duration="50/50s">
+                    <transition offset="135/30s" duration="30/30s">
                         <filter-video ref="r3" name="Cross Dissolve" />
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="250/50s" duration="250/50s" start="216300084/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Fade" offset="216300084/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Fade" offset="150/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Fade</text-style>
@@ -910,14 +902,14 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="475/50s" duration="50/50s">
+                    <transition offset="285/30s" duration="30/30s">
                         <filter-video ref="r4" name="Slide">
                             <param name="Direction" key="4" value="2" />
                         </filter-video>
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="250/50s" start="216029814/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-left" offset="216029814/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="150/30s" start="15/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Slide from-left" offset="15/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Slide from-left</text-style>
@@ -927,14 +919,14 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="725/50s" duration="50/50s">
+                    <transition offset="435/30s" duration="30/30s">
                         <filter-video ref="r4" name="Slide">
                             <param name="Direction" key="4" value="0" />
                         </filter-video>
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="750/50s" duration="250/50s" start="216300084/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-right" offset="216300084/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Slide from-right" offset="150/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Slide from-right</text-style>
@@ -944,14 +936,14 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="975/50s" duration="50/50s">
+                    <transition offset="585/30s" duration="30/30s">
                         <filter-video ref="r4" name="Slide">
                             <param name="Direction" key="4" value="3" />
                         </filter-video>
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="250/50s" start="216599383/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-top" offset="216599383/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Slide from-top" offset="300/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">Slide from-top</text-style>
@@ -961,14 +953,14 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="1225/50s" duration="50/50s">
+                    <transition offset="735/30s" duration="30/30s">
                         <filter-video ref="r4" name="Slide">
                             <param name="Direction" key="4" value="1" />
                         </filter-video>
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1250/50s" duration="250/50s" start="216899683/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slide from-bottom" offset="216899683/60000s" duration="200/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="750/30s" duration="150/30s" start="450/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Slide from-bottom" offset="450/30s" duration="120/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts6" alignment="center">Slide from-bottom</text-style>
@@ -978,14 +970,14 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <transition offset="1475/50s" duration="50/50s">
+                    <transition offset="885/30s" duration="30/30s">
                         <filter-video ref="r5" name="Wipe">
                             <param name="Direction" key="13" value="2" />
                         </filter-video>
                         <filter-audio ref="r6" name="Audio Cross Fade" />
                     </transition>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="1500/50s" duration="250/50s" start="216599383/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Wipe from-left" offset="216599383/60000s" duration="250/50s" start="0/1s">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="900/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Wipe from-left" offset="300/30s" duration="150/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts7" alignment="center">Wipe from-left</text-style>
@@ -995,8 +987,8 @@ exports[`transition-test > FCP snapshot 1`] = `
                             </text-style-def>
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1750/50s" duration="1000/50s" start="217799582/60000s" format="r7" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Slow-mo 0.5x" offset="217799582/60000s" duration="1000/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="1050/30s" duration="600/30s" start="600/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Slow-mo 0.5x" offset="600/30s" duration="600/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts8" alignment="center">Slow-mo 0.5x</text-style>
@@ -1020,29 +1012,28 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p50" frameDuration="1/50s" width="1920" height="1080" />
-        <format id="r3" name="FFVideoFormat2160p60" frameDuration="1001/60000s" width="3840" height="2160" colorSpace="9-18-9 (Rec. 2020 HLG)" />
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
-        <asset id="asset-1" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
-            <media-rep kind="original-media" src="file:///test/video1.mp4" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
-        <asset id="asset-2" start="215999784/60000s" duration="3600597/60000s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
-            <media-rep kind="original-media" src="file:///test/video2.mp4" />
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
         </asset>
-        <asset id="audio-asset-1" start="0/1s" duration="5292000/44100s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="44100">
-            <media-rep kind="original-media" src="file:///test/music-long.mp3" />
+        <asset id="audio-asset-1" start="0/1s" duration="5760000/48000s" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/music-long.wav" />
         </asset>
-        <asset id="vo-asset-1" start="0/1s" duration="661500/22050s" hasAudio="1" audioSources="1" audioChannels="1" audioRate="22050">
-            <media-rep kind="original-media" src="file:///test/narration.wav" />
+        <asset id="vo-asset-1" start="0/1s" duration="2016000/48000s" hasAudio="1" audioSources="1" audioChannels="1" audioRate="48000">
+            <media-rep kind="original-media" src="file:///fixtures/output/narration.wav" />
         </asset>
     </resources>
     <library>
         <event name="Montai Export">
             <project name="voiceover-test">
-                <sequence format="r1" duration="1500/50s" tcStart="0/1s" tcFormat="NDF">
+                <sequence format="r1" duration="900/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="0/50s" duration="500/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Voiceover segment 1" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Voiceover segment 1" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Voiceover segment 1</text-style>
@@ -1051,19 +1042,19 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.mp3" offset="215999784/60000s" duration="1500/50s" start="0/50s">
+                        <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="900/30s" start="0/30s">
 
                             <adjust-volume amount="-16dB">
                                 <param name="amount" value="-16dB">
-                                    <fadeIn type="linear" duration="100/50s"/>
-                                    <fadeOut type="linear" duration="100/50s"/>
+                                    <fadeIn type="linear" duration="60/30s"/>
+                                    <fadeOut type="linear" duration="60/30s"/>
                                 </param>
                             </adjust-volume>
                         </asset-clip>
-                        <asset-clip ref="vo-asset-1" lane="-2" name="narration.wav" offset="215999784/60000s" duration="375/50s" start="125/50s" />
+                        <asset-clip ref="vo-asset-1" lane="-2" name="narration.wav" offset="0/30s" duration="225/30s" start="75/30s" />
                     </asset-clip>
-                    <asset-clip ref="asset-2" name="video2.mp4" offset="500/50s" duration="500/50s" start="215999784/60000s" format="r3" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Voiceover segment 2" offset="215999784/60000s" duration="500/50s" start="0/1s">
+                    <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Voiceover segment 2" offset="0/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Voiceover segment 2</text-style>
@@ -1072,10 +1063,10 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                                 <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
                         </title>
-                        <asset-clip ref="vo-asset-1" lane="-3" name="narration.wav" offset="216059844/60000s" duration="350/50s" start="750/50s" />
+                        <asset-clip ref="vo-asset-1" lane="-3" name="narration.wav" offset="30/30s" duration="210/30s" start="450/30s" />
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="video1.mp4" offset="1000/50s" duration="500/50s" start="216599383/60000s" format="r3" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Music only (no voiceover)" offset="216599383/60000s" duration="500/50s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Music only (no voiceover)" offset="300/30s" duration="300/30s" start="0/1s">
                             <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Music only (no voiceover)</text-style>

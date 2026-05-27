@@ -1,5 +1,8 @@
 .envrc
 tests/provider/lyria-output.wav
+tests/fixtures/output/
+tests/fcpxml/output/
+tests/fcpxml/.preview-public/
 google-cloud-vertex-key.json
 *.json.key
 .DS_Store
