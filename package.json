@@ -48,7 +48,6 @@
     "@remotion/cli": "4.0.434",
     "@remotion/media": "4.0.434",
     "@remotion/transitions": "4.0.434",
-    "@types/debug": "^4.1.13",
     "better-sqlite3": "^11.0.0",
     "chalk": "^5.4.0",
     "commander": "^13.0.0",
@@ -70,8 +69,9 @@
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.0",
+    "@types/debug": "^4.1.13",
     "@types/node": "^22.0.0",
-    "@types/react": "^19.2.14",
+    "@types/react": "^18.0.0",
     "@types/update-notifier": "^6.0.8",
     "typescript": "^5.7.0",
     "vitest": "^4.0.18"
