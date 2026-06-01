@@ -1,5 +1,7 @@
 # Montai
 
+[![npm version](https://img.shields.io/npm/v/montai-cli.svg)](https://www.npmjs.com/package/montai-cli)
+
 AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs.
 
 ## Install
