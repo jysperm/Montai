@@ -182,6 +182,10 @@ By default uses passthrough (ffmpeg `-c copy`) to preserve original quality with
 
 Output filenames encode the source video name and precise time range: `<videoBase>-<start>s-<end>s.<ext>` (e.g., `DJI_0001-8.2s-27.5s.mp4`).
 
+### 7. Clean (`montai clean`)
+
+Removes regenerable cache files from the project directory — currently just the `.montai/` directory (transcoded videos, public dir, logs, preview/still/bundle caches). Since the cache is always safe to regenerate, it deletes without confirmation and prints the freed size on completion. User data (`montai.db`) and outputs (`output/`, `fcpxml/`, `archived/`, `generated-music/`) are intentionally left untouched. The cache locations are kept in a list (`CACHE_DIRS`) so more can be added later.
+
 ### `--from-archived` flag (render, preview, export)
 
 The `--from-archived` flag on `render`, `preview`, and `export` commands remaps timeline clip references to use files from `archived/`, enabling playback and export after deleting original source files. The remapping is filename-based: archived filenames encode the original video name and source time range, which is used to compute the time offset within the archived file. For `export`, the archived files are additionally probed via ffprobe to obtain accurate format metadata (resolution, fps, color space, etc.).

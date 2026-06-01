@@ -9,6 +9,7 @@ import { previewCommand } from './commands/preview.js';
 import { exportCommand } from './commands/export.js';
 import { archiveCommand } from './commands/archive.js';
 import { projectCommand } from './commands/project.js';
+import { cleanCommand } from './commands/clean.js';
 
 function printFullHelp(program: Command) {
   console.log(`${chalk.bold('montai')} — AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs\n`);
@@ -117,6 +118,11 @@ program
   .option('--encode [spec]', 'Encode: output | 720p,crf=20,fps=30,8bit (default: passthrough)')
   .option('--handles <seconds>', 'Seconds of handles to keep before/after each referenced clip (default: 2)', '2')
   .action(archiveCommand);
+
+program
+  .command('clean')
+  .description('Remove generated cache files (.montai/)')
+  .action(cleanCommand);
 
 program.action(() => {
   printFullHelp(program);
