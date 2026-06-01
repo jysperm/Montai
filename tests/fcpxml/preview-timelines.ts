@@ -2,19 +2,16 @@ import { existsSync, mkdirSync, linkSync, unlinkSync, writeFileSync } from 'fs';
 import { basename, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { spawnSync } from 'child_process';
-import {
-  expandForTimeline,
-  listTimelineNames,
-} from './utils.js';
+import { expandForTimeline, listTimelineNames, parseTimelineSpec } from './utils.js';
 
 const requested = process.argv.slice(2);
-const names = requested.length > 0 ? requested : listTimelineNames();
-const timelines = names.map((name) => {
-  const { timeline, errors } = expandForTimeline(name);
+const specs = (requested.length > 0 ? requested : listTimelineNames()).map(parseTimelineSpec);
+const timelines = specs.map(({ name, resolution, outputName }) => {
+  const { timeline, errors } = expandForTimeline(name, resolution);
   if (errors.length > 0) {
     throw new Error(`${name} errors:\n${errors.map((e) => `- ${e}`).join('\n')}`);
   }
-  return timeline;
+  return { ...timeline, name: outputName, title: outputName };
 });
 
 const publicDir = resolve('tests/fcpxml/.preview-public');

@@ -22,6 +22,7 @@ import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
 import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
+import { resolveResolution, sequenceShape } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 
 type StoryRow = typeof stories.$inferSelect;
@@ -141,6 +142,11 @@ export class StoryAgent {
           overlayLanguages: this.config.effects.languages,
           agentInstructions: this.agentInstructions ?? null,
           features: this.features,
+          ...(() => {
+            const { width, height } = resolveResolution(this.config.output.resolution);
+            const shape = sequenceShape(width, height);
+            return { outputShape: shape, isLandscape: shape === 'landscape' };
+          })(),
         }),
         model,
       },

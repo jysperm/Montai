@@ -6,7 +6,8 @@ import { getDb } from '../db/index.js';
 import { videos } from '../db/schema.js';
 import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
 import { formatArchiveTime } from '../utils/archived-videos.js';
-import type { ProjectConfig } from '../schemas/project.js';
+import type { ProjectConfig, ResolutionPreset } from '../schemas/project.js';
+import { resolutionPresets } from '../schemas/project.js';
 
 const ARCHIVE_DIR = 'archived';
 const DEFAULT_HANDLES_SECONDS = 2;
@@ -34,7 +35,7 @@ interface EncodeOptions {
  *   "output"          — use project output settings (resolution + fps, crf=20)
  *
  * Spec format: comma-separated params, e.g. "720p,crf=22,fps=30,10bit"
- *   Resolution: 720p, 1080p, 1440p, 4k
+ *   Resolution: any output preset, e.g. 720p, 1080v, 1080s, 4k
  *   CRF:        crf=<n>
  *   FPS:        fps=<n>
  *   Bit depth:  8bit, 10bit
@@ -50,8 +51,9 @@ function parseEncodeSpec(spec: string | true, config: ProjectConfig): EncodeOpti
 
   for (const part of spec.split(',')) {
     const trimmed = part.trim();
-    if (/^\d+p$/i.test(trimmed) || trimmed.toLowerCase() === '4k') {
-      opts.resolution = trimmed.toLowerCase();
+    const maybeResolution = trimmed.toLowerCase();
+    if (maybeResolution in resolutionPresets) {
+      opts.resolution = maybeResolution;
     } else if (/^crf=\d+$/.test(trimmed)) {
       opts.crf = parseInt(trimmed.slice(4), 10);
     } else if (/^fps=\d+$/.test(trimmed)) {
@@ -66,13 +68,10 @@ function parseEncodeSpec(spec: string | true, config: ProjectConfig): EncodeOpti
 }
 
 function parseResolutionHeight(resolution: string): number {
-  const map: Record<string, number> = {
-    '720p': 720,
-    '1080p': 1080,
-    '1440p': 1440,
-    '4k': 2160,
-  };
-  return map[resolution] ?? (parseInt(resolution, 10) || 1080);
+  if (resolution in resolutionPresets) {
+    return resolutionPresets[resolution as ResolutionPreset].height;
+  }
+  return parseInt(resolution, 10) || 1080;
 }
 
 let cachedEncoders: string | null = null;

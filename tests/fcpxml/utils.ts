@@ -2,14 +2,8 @@ import { readdirSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { expandTimeline, type TimelineItem } from '../../src/schemas/timeline-items.js';
-import type { ProjectConfig } from '../../src/schemas/project.js';
-import {
-  musicFiles,
-  musicMeta,
-  videos,
-  voiceoverFiles,
-  voiceoverMeta,
-} from '../fixtures/index.js';
+import { resolutionPresets, type ProjectConfig } from '../../src/schemas/project.js';
+import { musicFiles, musicMeta, videos, voiceoverFiles, voiceoverMeta } from '../fixtures/index.js';
 
 export { videoMeta, voiceoverMeta, outputDir as fixturesOutputDir } from '../fixtures/index.js';
 
@@ -41,11 +35,41 @@ export const config: ProjectConfig = {
 
 export const audioMeta = musicMeta;
 
+export interface TimelineSpec {
+  name: string;
+  resolution?: ProjectConfig['output']['resolution'];
+  outputName: string;
+}
+
+export function parseTimelineSpec(spec: string): TimelineSpec {
+  const [name, resolution] = spec.split('@');
+  if (!resolution) return { name, outputName: name };
+  if (!(resolution in resolutionPresets)) {
+    throw new Error(`Unknown resolution "${resolution}" in "${spec}"`);
+  }
+  return {
+    name,
+    resolution: resolution as ProjectConfig['output']['resolution'],
+    outputName: `${name}-${resolution}`,
+  };
+}
+
 export function expand(items: TimelineItem[], name: string) {
   return expandTimeline(items, config, name, videos, undefined, musicFiles, voiceoverFiles);
 }
 
-export function expandForTimeline(name: string) {
+export function expandForTimeline(
+  name: string,
+  resolution: ProjectConfig['output']['resolution'] = config.output.resolution,
+) {
   const items = loadTimeline(name);
-  return expand(items, name);
+  return expandTimeline(
+    items,
+    { ...config, output: { ...config.output, resolution } },
+    name,
+    videos,
+    undefined,
+    musicFiles,
+    voiceoverFiles,
+  );
 }

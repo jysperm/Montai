@@ -1,12 +1,41 @@
 import { basename } from 'path';
 import type { ExpandedTimeline, ExpandedClip, ExpandedOverlay } from '../schemas/timeline.js';
 
-// Essential Title template constants (3840×2160 canvas, origin at center)
-const TMPL_HALF_W = 1920;
-const TMPL_HALF_H = 1080;
-const TMPL_MARGIN = 80;  // 40px at 1080p × 2
+// Essential Title template canvas. Template renders at 3840×2160 and FCP
+// uniformly scales it to fit the sequence (contain). All Position param values
+// are in template pixels; we compute screen-space first then divide by the
+// template-to-sequence scale to derive the param value.
+const TMPL_W = 3840;
+const TMPL_H = 2160;
 const POS_KEY = '9999/10085/10086/1/100/101'; // Position param key
 const LINE_HEIGHT = 1.5;  // FCP's default line spacing + font metrics
+
+// Per-sequence layout numbers for Essential Title positioning. NOTE: FCP-side
+// behavior for portrait/square sequences relies on the template scaling
+// uniformly to fit (assumed; verify visually if drift appears).
+interface TitleLayout {
+  tmplScale: number;    // template pixel → screen pixel multiplier
+  halfWTmpl: number;    // half sequence width, in template pixels
+  halfHTmpl: number;    // half sequence height, in template pixels
+  marginTmpl: number;   // 40px screen-space margin, in template pixels
+  fontScale: number;    // multiplier applied to base font sizes (FCP only)
+}
+
+function buildTitleLayout(width: number, height: number, target: 'fcp' | 'davinci'): TitleLayout {
+  const shortEdge = Math.min(width, height);
+  const tmplScale = Math.min(width / TMPL_W, height / TMPL_H);
+  // Match Remotion's short-edge font scaling on screen: target screen size =
+  // baseFont × shortEdge/1080. Template font scale = that ÷ tmplScale.
+  // For 1080p horizontal this reduces to 2× (the legacy TMPL_SCALE constant).
+  const fontScale = target === 'fcp' ? shortEdge / (1080 * tmplScale) : 1;
+  return {
+    tmplScale,
+    halfWTmpl: (width / 2) / tmplScale,
+    halfHTmpl: (height / 2) / tmplScale,
+    marginTmpl: (40 * shortEdge / 1080) / tmplScale,
+    fontScale,
+  };
+}
 
 export interface VideoFormatInfo {
   width: number;
@@ -65,9 +94,9 @@ export function generateFcpxml(
   const SLIDE_UID = 'FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648';
   const WIPE_UID = 'FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8';
   const AUDIO_CROSSFADE_UID = 'FFAudioTransition';
-  const TMPL_SCALE = 2;    // 2160 / 1080
 
   const { fps, width, height } = spec;
+  const titleLayout = buildTitleLayout(width, height, target);
   let tsCounter = 0;
   const nextTs = () => `ts${++tsCounter}`;
 
@@ -650,8 +679,10 @@ export function generateFcpxml(
     const hasRotation = !!(clip.rotation && clip.rotation % 360 !== 0);
     const clipVolumeXml = audioVolumeXml(clip.volume, 0, 0, I, fps);
     const hasClipVolume = !!clipVolumeXml;
-    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop || hasRotation || hasClipVolume;
-
+    // <adjust-conform> default is "fit" (contain). Emit only when overriding to cover.
+    // DaVinci ignores this element; users must set project Image Scaling manually there.
+    const conformXml = clip.fit === 'cover' ? `${II}<adjust-conform type="fill" />` : null;
+    const hasChildren = overlays.length > 0 || audioAnchors.length > 0 || hasCrop || hasRotation || hasClipVolume || !!conformXml;
     if (!hasChildren) {
       spine.push(
         `${I}<asset-clip ref="${assetId}" name="${escapeXml(clipFilename)}" offset="${toRational(seqOffset, fps)}" duration="${toRational(clipDuration, fps)}" start="${clipStart}"${formatAttr} tcFormat="NDF" />`
@@ -664,9 +695,13 @@ export function generateFcpxml(
       // Crop/transform: intrinsic params must appear before anchor items (titles, audio) per DTD
       // DTD ordering: adjust-crop → adjust-conform → adjust-transform
       if (hasRotation) {
-        // Rotation forces the adjust-transform path (adjust-crop has no rotation support).
-        // Semantics: rotation applied first, then crop. In FCP's pipeline this composes as
-        // scale=(cropScale × coverScale), rotation=θ, position=(cropScale · cropOffset).
+        // Rotation forces an adjust-transform for the rotation itself.
+        // Semantics: rotation fixes source orientation before fit/conform; crop values refer
+        // to the rotated frame. FCP imports adjust-conform before adjust-transform, so rotated
+        // clips need a compensating scale to match Montai's rotate-before-fit semantics.
+        // For static crop + 90° multiples on FCP, use native adjust-crop with edge values
+        // remapped back to the pre-rotation source axes so crop clips inside the conformed
+        // content box instead of the full sequence frame.
         //
         // LIMITATION: rotation + cropEnd (Ken Burns) is not supported in FCPXML export.
         // FCP's pan-mode adjust-crop (needed for Ken Burns) and adjust-transform (needed
@@ -677,17 +712,35 @@ export function generateFcpxml(
         // using cropEnd as the composition target (typically the intended final framing).
         // Remotion render/preview does animate the Ken Burns with rotation, so the two
         // outputs will differ on this specific combination.
-        const coverScale = rotationCoverScale(clip.rotation!, width, height);
         // FCP rotation is counter-clockwise for positive degrees; CSS/Remotion is clockwise.
         // Negate so FCPXML output matches the Remotion render visually.
         const rotDeg = -clip.rotation!;
+        const fitScale = rotationFitScale(clip, width, height);
         const effectiveCrop = clip.cropEnd ?? clip.crop;
-        if (effectiveCrop) {
+        const fcpCrop = effectiveCrop && target === 'fcp'
+          ? cropForFcpPreRotation(effectiveCrop, clip.rotation!)
+          : null;
+        if (fcpCrop) {
+          spine.push(`${II}<adjust-crop mode="crop">`);
+          spine.push(`${II}    <crop-rect left="${fcpCrop.left}" top="${fcpCrop.top}" right="${fcpCrop.right}" bottom="${fcpCrop.bottom}" />`);
+          spine.push(`${II}</adjust-crop>`);
+          if (conformXml) spine.push(conformXml);
+          if (isEffectivelyOne(fitScale)) {
+            spine.push(`${II}<adjust-transform rotation="${round4(rotDeg)}" />`);
+          } else {
+            spine.push(`${II}<adjust-transform scale="${round4(fitScale)} ${round4(fitScale)}" rotation="${round4(rotDeg)}" />`);
+          }
+        } else if (effectiveCrop) {
+          if (conformXml) spine.push(conformXml);
           const t = cropToFcpTransform(effectiveCrop, width, height);
-          const s = t.scale * coverScale;
+          const s = t.scale * fitScale;
           spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(s)} ${round4(s)}" rotation="${round4(rotDeg)}" />`);
+        } else if (isEffectivelyOne(fitScale)) {
+          if (conformXml) spine.push(conformXml);
+          spine.push(`${II}<adjust-transform rotation="${round4(rotDeg)}" />`);
         } else {
-          spine.push(`${II}<adjust-transform scale="${round4(coverScale)} ${round4(coverScale)}" rotation="${round4(rotDeg)}" />`);
+          if (conformXml) spine.push(conformXml);
+          spine.push(`${II}<adjust-transform scale="${round4(fitScale)} ${round4(fitScale)}" rotation="${round4(rotDeg)}" />`);
         }
       } else if (hasCrop) {
         if (clip.cropEnd) {
@@ -695,6 +748,7 @@ export function generateFcpxml(
             // DaVinci ignores adjust-crop mode="pan". Fall back to static adjust-transform
             // using the end state (cropEnd) as that's typically the intended composition.
             const t = cropToFcpTransform(clip.cropEnd, width, height);
+            if (conformXml) spine.push(conformXml);
             spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(t.scale)} ${round4(t.scale)}" />`);
           } else {
             // FCP: Ken Burns via pan mode with two pan-rect elements (start → end)
@@ -703,20 +757,25 @@ export function generateFcpxml(
             spine.push(`${II}    <pan-rect left="${cropStart.left}" top="${cropStart.top}" right="${cropStart.right}" bottom="${cropStart.bottom}" />`);
             spine.push(`${II}    <pan-rect left="${clip.cropEnd.left}" top="${clip.cropEnd.top}" right="${clip.cropEnd.right}" bottom="${clip.cropEnd.bottom}" />`);
             spine.push(`${II}</adjust-crop>`);
+            if (conformXml) spine.push(conformXml);
           }
         } else if (clip.crop) {
           if (target === 'davinci') {
             // DaVinci: adjust-crop mode="crop" shows black bars instead of filling.
             // Use adjust-transform (scale + position) to achieve the same visual result.
             const t = cropToFcpTransform(clip.crop, width, height);
+            if (conformXml) spine.push(conformXml);
             spine.push(`${II}<adjust-transform position="${round4(t.posX)} ${round4(t.posY)}" scale="${round4(t.scale)} ${round4(t.scale)}" />`);
           } else {
             // FCP: native crop support
             spine.push(`${II}<adjust-crop mode="crop">`);
             spine.push(`${II}    <crop-rect left="${clip.crop.left}" top="${clip.crop.top}" right="${clip.crop.right}" bottom="${clip.crop.bottom}" />`);
             spine.push(`${II}</adjust-crop>`);
+            if (conformXml) spine.push(conformXml);
           }
         }
+      } else if (conformXml) {
+        spine.push(conformXml);
       }
 
       if (clipVolumeXml) {
@@ -724,9 +783,9 @@ export function generateFcpxml(
       }
 
       // Font sizes and shadow dimensions scale factor:
-      // FCP: 2× (Essential Title template renders at 3840×2160 and scales to project)
-      // DaVinci: 1× (reads text-style fontSize directly, no template scaling)
-      const scale = target === 'fcp' ? TMPL_SCALE : 1;
+      // FCP: derived from sequence shape so screen font matches Remotion's short-edge scaling.
+      // DaVinci: 1× (reads text-style fontSize directly, no template scaling).
+      const scale = titleLayout.fontScale;
       const shadowOffsetPx = Math.round(2 * scale);
       const shadowBlurPx = Math.round(8 * scale);
 
@@ -763,7 +822,7 @@ export function generateFcpxml(
         } else {
           effectRef = titleEffectId!;
         }
-        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, effectRef, overlay.position, oi + 1, overlay.animation, overlayDurationSeconds, fps));
+        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, effectRef, overlay.position, oi + 1, overlay.animation, overlayDurationSeconds, fps, titleLayout));
       }
 
       // Audio anchor items attached to this clip
@@ -830,16 +889,17 @@ function makeTitleXml(
   animation?: ExpandedOverlay['animation'],
   durationSeconds: number = 0,
   fps: number = 50,
+  layout?: TitleLayout,
 ): string {
   const alignment = position === 'center' || position === 'bottom-center'
     ? 'center' : position.endsWith('-left') ? 'left' : 'right';
   const boldAttr = bold ? ' bold="1"' : '';
   const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
   const lineCount = text.split('\n').length;
-  const basePos = fcpTitlePositionValues(position, fontSize, lineCount);
+  const basePos = fcpTitlePositionValues(position, fontSize, lineCount, layout);
 
-  const slideXml = makeSlideAnimationXml(animation, position, basePos ?? { posX: 0, posY: 0 }, durationSeconds, fps, `${indent}    `);
-  const positionParams = slideXml ? '' : fcpTitleParams(position, `${indent}    `, fontSize, lineCount);
+  const slideXml = makeSlideAnimationXml(animation, position, basePos ?? { posX: 0, posY: 0 }, durationSeconds, fps, `${indent}    `, layout);
+  const positionParams = slideXml ? '' : fcpTitleParams(position, `${indent}    `, fontSize, lineCount, layout);
 
   const lines = [
     `${indent}<title ref="${effectRef}" lane="${lane}" name="${fcpName(text)}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
@@ -858,8 +918,13 @@ function makeTitleXml(
 }
 
 function fcpTitlePositionValues(
-  position: string, fontSizeTmpl: number, lineCount: number,
+  position: string, fontSizeTmpl: number, lineCount: number, layout?: TitleLayout,
 ): { posX: number; posY: number } | null {
+  // Fall back to the legacy 1080p-landscape numbers when no layout supplied
+  // (keeps non-FCP code paths working).
+  const halfW = layout?.halfWTmpl ?? 1920;
+  const halfH = layout?.halfHTmpl ?? 1080;
+  const margin = layout?.marginTmpl ?? 80;
   const TMPL_DEFAULT_Y = 69;
   if (position === 'center') {
     if (lineCount <= 1) return null;
@@ -867,11 +932,11 @@ function fcpTitlePositionValues(
     return { posX: 0, posY: centerAdjust };
   }
   const TYPICAL_TEXT_HALF_W = 100;
-  const xLeft = -TMPL_HALF_W + TMPL_MARGIN + TYPICAL_TEXT_HALF_W;
-  const xRight = TMPL_HALF_W - TMPL_MARGIN - TYPICAL_TEXT_HALF_W;
+  const xLeft = -halfW + margin + TYPICAL_TEXT_HALF_W;
+  const xRight = halfW - margin - TYPICAL_TEXT_HALF_W;
   const halfTextHeight = Math.round(lineCount * fontSizeTmpl * LINE_HEIGHT / 2);
-  const yBottom = -TMPL_HALF_H + TMPL_MARGIN + halfTextHeight;
-  const yTop = TMPL_HALF_H - TMPL_MARGIN - halfTextHeight;
+  const yBottom = -halfH + margin + halfTextHeight;
+  const yTop = halfH - margin - halfTextHeight;
   let posX = 0, posY = 0;
   switch (position) {
     case 'top-left':      posX = xLeft;  posY = yTop;    break;
@@ -891,6 +956,7 @@ function makeSlideAnimationXml(
   durationSeconds: number,
   fps: number,
   indent: string,
+  layout?: TitleLayout,
 ): string {
   if (!animation || animation.type !== 'slide' || durationSeconds <= 0) return '';
   const animDur = Math.min(animation.durationSeconds, durationSeconds / 3);
@@ -899,7 +965,8 @@ function makeSlideAnimationXml(
   const endStartRat = toRational(durationSeconds - animDur, fps);
   const durationRat = toRational(durationSeconds, fps);
   const I = indent;
-  const distToEdge = TMPL_HALF_H - Math.abs(basePos.posY);
+  const halfH = layout?.halfHTmpl ?? 1080;
+  const distToEdge = halfH - Math.abs(basePos.posY);
   const SLIDE_DISTANCE = position === 'center' ? 300 : Math.max(300, distToEdge + 250);
   const isTop = position.startsWith('top');
   const slideY = isTop ? basePos.posY + SLIDE_DISTANCE : basePos.posY - SLIDE_DISTANCE;
@@ -1032,8 +1099,8 @@ function escapeXml(str: string): string {
     .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1): string {
-  const pos = fcpTitlePositionValues(position, fontSizeTmpl, lineCount);
+function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1, layout?: TitleLayout): string {
+  const pos = fcpTitlePositionValues(position, fontSizeTmpl, lineCount, layout);
   if (!pos) return '';
   return `\n${indent}<param name="Position" key="${POS_KEY}" value="${pos.posX} ${pos.posY}"/>`;
 }
@@ -1054,36 +1121,82 @@ function round4(n: number): string {
   return Number(n.toFixed(4)).toString();
 }
 
-// Minimum uniform scale so that a W×H box rotated by `degrees` fully covers
-// the original W×H axis-aligned frame (no black corners). Computed against
-// sequence dimensions — consistent with FCP's adjust-transform, which applies
-// after spatial conform, but the resulting crop extent assumes source aspect
-// matches sequence aspect. Mismatched-aspect sources combined with rotation
-// are not well-defined (see MontaiVideo.tsx for the Remotion-side note).
-function rotationCoverScale(degrees: number, width: number, height: number): number {
+function isEffectivelyOne(n: number): boolean {
+  return Math.abs(n - 1) < 1e-6;
+}
+
+function conformedSize(
+  sourceWidth: number,
+  sourceHeight: number,
+  seqWidth: number,
+  seqHeight: number,
+  fit: 'contain' | 'cover',
+): { width: number; height: number } {
+  const scale = fit === 'cover'
+    ? Math.max(seqWidth / sourceWidth, seqHeight / sourceHeight)
+    : Math.min(seqWidth / sourceWidth, seqHeight / sourceHeight);
+  return { width: sourceWidth * scale, height: sourceHeight * scale };
+}
+
+function rotatedDimensions(width: number, height: number, degrees: number): { width: number; height: number } {
   const theta = (degrees * Math.PI) / 180;
   const absCos = Math.abs(Math.cos(theta));
   const absSin = Math.abs(Math.sin(theta));
-  const sx = absCos + (absSin * height) / width;
-  const sy = (absSin * width) / height + absCos;
-  return Math.max(sx, sy);
+  return {
+    width: width * absCos + height * absSin,
+    height: width * absSin + height * absCos,
+  };
+}
+
+function rotationFitScale(clip: ExpandedClip, seqWidth: number, seqHeight: number): number {
+  const sourceWidth = clip.sourceWidth ?? seqWidth;
+  const sourceHeight = clip.sourceHeight ?? seqHeight;
+  const fit = clip.fit === 'cover' ? 'cover' : 'contain';
+  const base = conformedSize(sourceWidth, sourceHeight, seqWidth, seqHeight, fit);
+  const baseAfterRotation = rotatedDimensions(base.width, base.height, clip.rotation ?? 0);
+  const rotatedSource = rotatedDimensions(sourceWidth, sourceHeight, clip.rotation ?? 0);
+  const desired = conformedSize(rotatedSource.width, rotatedSource.height, seqWidth, seqHeight, fit);
+  const scale = desired.width / baseAfterRotation.width;
+  return Number.isFinite(scale) && scale > 0 ? scale : 1;
+}
+
+function cropForFcpPreRotation(
+  crop: { left: number; top: number; right: number; bottom: number },
+  rotation: number,
+): { left: number; top: number; right: number; bottom: number } | null {
+  const normalized = ((rotation % 360) + 360) % 360;
+  const rightAngle = [0, 90, 180, 270].find((angle) => Math.abs(normalized - angle) < 1e-6);
+  if (rightAngle === undefined) return null;
+  switch (rightAngle) {
+    case 0:
+      return crop;
+    case 90:
+      return { left: crop.top, top: crop.right, right: crop.bottom, bottom: crop.left };
+    case 180:
+      return { left: crop.right, top: crop.bottom, right: crop.left, bottom: crop.top };
+    case 270:
+      return { left: crop.bottom, top: crop.left, right: crop.top, bottom: crop.right };
+    default:
+      return null;
+  }
 }
 
 /**
- * Convert crop values (% of frame height) to equivalent adjust-transform params.
- * Used for DaVinci which doesn't scale crop results to fill the frame.
+ * Convert crop values (% of post-rotation source content per edge) to equivalent adjust-transform
+ * params for the DaVinci fallback and FCP's arbitrary-angle rotation fallback. Assumes
+ * the post-conform content fills the sequence frame — accurate for matched aspect or
+ * cover with source aspect ≈ sequence aspect, an approximation otherwise.
  */
 function cropToFcpTransform(
   crop: { left: number; top: number; right: number; bottom: number },
   seqWidth: number,
   seqHeight: number,
 ): { scale: number; posX: number; posY: number } {
-  const aspectRatio = seqWidth / seqHeight;
-  const visibleWidthFrac = 1 - (crop.left + crop.right) / (100 * aspectRatio);
+  const visibleWidthFrac = 1 - (crop.left + crop.right) / 100;
   const visibleHeightFrac = 1 - (crop.top + crop.bottom) / 100;
   const s = Math.max(1 / Math.max(visibleWidthFrac, 0.01), 1 / Math.max(visibleHeightFrac, 0.01));
-  // Position: center the visible region. FCP/DaVinci coordinates: Y-up, origin at center.
-  const posX = -s * (crop.left - crop.right) * seqHeight / 200;
-  const posY = -s * (crop.bottom - crop.top) * seqHeight / 200;
+  // Center the visible region. FCP coordinates: Y-up, origin at canvas center.
+  const posX = -s * (crop.left - crop.right) / 200 * seqWidth;
+  const posY = -s * (crop.bottom - crop.top) / 200 * seqHeight;
   return { scale: s, posX, posY };
 }

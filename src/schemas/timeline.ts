@@ -17,10 +17,15 @@ export const ExpandedClipSchema = z.object({
   clipId: z.string(),
   videoId: z.number(),
   sourceFile: z.string(),
+  sourceWidth: z.number().optional(),
+  sourceHeight: z.number().optional(),
   startTimeSeconds: z.number(),
   endTimeSeconds: z.number(),
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
+  // Spatial conform: how the source fits the sequence frame.
+  // Auto-decided by sequence shape in expandTimeline (landscape → contain, vertical/square → cover).
+  fit: z.enum(['contain', 'cover']).default('cover'),
   transition: TransitionSchema.optional().catch(undefined),
   rotation: z.number().refine(Number.isFinite).optional().catch(undefined),
   crop: CropSchema.optional().catch(undefined),

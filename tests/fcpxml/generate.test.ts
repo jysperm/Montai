@@ -11,17 +11,25 @@
 
 import { describe, it, expect } from 'vitest';
 import { generateFcpxml } from '../../src/fcpxml/generate.js';
-import {
-  audioMeta,
-  expand,
-  fixturesOutputDir,
-  loadTimeline,
-  videoMeta,
-  voiceoverMeta,
-} from './utils.js';
+import { audioMeta, expand, expandForTimeline, fixturesOutputDir, loadTimeline, videoMeta, voiceoverMeta } from './utils.js';
 
 function generateTestFcpxml(...args: Parameters<typeof generateFcpxml>): string {
   return generateFcpxml(...args).replaceAll(fixturesOutputDir, '/fixtures/output');
+}
+
+function assetClipBlocks(xml: string): string[] {
+  const blocks: string[] = [];
+  for (const match of xml.matchAll(/<asset-clip\b[^>]*>/g)) {
+    const start = match.index ?? 0;
+    const tag = match[0];
+    if (tag.endsWith('/>')) {
+      blocks.push(tag);
+      continue;
+    }
+    const end = xml.indexOf('</asset-clip>', start);
+    blocks.push(xml.slice(start, end + '</asset-clip>'.length));
+  }
+  return blocks;
 }
 
 // --- Tests ---
@@ -79,22 +87,55 @@ describe('crop-test', () => {
   });
 });
 
-describe('rotation-test', () => {
-  const items = loadTimeline('rotation-test');
-
-  it('FCP snapshot (rotation + rotation with crop)', () => {
-    const { timeline } = expand(items, 'rotation-test');
+describe('spatial-conform-test', () => {
+  it('landscape output contains portrait-oriented clips without fill', () => {
+    const { timeline } = expandForTimeline('spatial-test', '1080p');
     const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
-    // Rotation forces adjust-transform path even on FCP (adjust-crop has no rotation).
-    // DaVinci output is identical for rotation — no target-specific handling.
-    expect(xml).toContain('rotation="-90"');
-    expect(xml).toContain('rotation="-180"');
-    expect(xml).toContain('rotation="-270"');
-    expect(xml).toContain('rotation="-45"');
-    // rotation=0 is treated as "no rotation" and emits no adjust-transform.
-    expect(xml).not.toContain('rotation="0"');
-    expect(xml).not.toContain('rotation="-0"');
-    expect(xml).toMatchSnapshot();
+    const clips = assetClipBlocks(xml);
+
+    expect(clips).toHaveLength(7);
+    expect(clips.every(clip => !clip.includes('adjust-conform'))).toBe(true);
+    expect(clips[1]).toContain('<adjust-transform scale="0.5091 0.5091" rotation="-45" />');
+    expect(clips[3]).toContain('<adjust-transform scale="0.5625 0.5625" rotation="-90" />');
+    expect(clips[4]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[4]).toContain('<adjust-transform scale="0.5625 0.5625" rotation="-90" />');
+    expect(clips[5]).toContain('<adjust-transform scale="1.7778 1.7778" rotation="-90" />');
+    expect(clips[6]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[6]).toContain('<adjust-transform scale="1.7778 1.7778" rotation="-90" />');
+  });
+
+  it('vertical output fill-conforms landscape-oriented clips, including rotated sources', () => {
+    const { timeline } = expandForTimeline('spatial-test', '1080v');
+    const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
+    const clips = assetClipBlocks(xml);
+
+    expect(clips).toHaveLength(7);
+    expect(clips.every(clip => clip.includes('<adjust-conform type="fill" />'))).toBe(true);
+    expect(clips[1]).toContain('<adjust-transform scale="0.5091 0.5091" rotation="-45" />');
+    expect(clips[3]).toContain('<adjust-transform scale="0.5625 0.5625" rotation="-90" />');
+    expect(clips[4]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[4]).toContain('<adjust-transform scale="0.5625 0.5625" rotation="-90" />');
+    expect(clips[5]).toContain('<adjust-transform scale="1.7778 1.7778" rotation="-90" />');
+    expect(clips[6]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[6]).toContain('<adjust-transform scale="1.7778 1.7778" rotation="-90" />');
+  });
+
+  it('square output fill-conforms both source orientations without extra rotation scale', () => {
+    const { timeline } = expandForTimeline('spatial-test', '1080s');
+    const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
+    const clips = assetClipBlocks(xml);
+
+    expect(clips).toHaveLength(7);
+    expect(clips.every(clip => clip.includes('<adjust-conform type="fill" />'))).toBe(true);
+    expect(clips[1]).toContain('<adjust-transform scale="0.5091 0.5091" rotation="-45" />');
+    expect(clips[3]).toContain('<adjust-transform rotation="-90" />');
+    expect(clips[4]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[4]).toContain('<adjust-transform rotation="-90" />');
+    expect(clips[5]).toContain('<adjust-transform rotation="-90" />');
+    expect(clips[6]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
+    expect(clips[6]).toContain('<adjust-transform rotation="-90" />');
+    expect(clips[3]).not.toContain('scale=');
+    expect(clips[5]).not.toContain('scale=');
   });
 });
 

@@ -51,7 +51,7 @@ Positioned sequentially — array order among clips determines playback order.
     direction?: "from-left" | "from-right" | "from-top" | "from-bottom"  // used by slide and wipe
   }
   rotation?: number                   // degrees, positive = clockwise; use 90/180/270 to fix camera orientation. Applied before crop
-  crop?: { left: number, top: number, right: number, bottom: number }     // static crop, percentages of frame height (all 0 = full frame)
+  crop?: { left: number, top: number, right: number, bottom: number }     // static crop, % of post-rotation source content per edge (top:10 = hide top 10% of the visually upright frame). All 0 = full frame
   cropEnd?: { left: number, top: number, right: number, bottom: number }  // if provided, animates from crop → cropEnd (Ken Burns effect)
 }
 ```
@@ -151,7 +151,12 @@ Example — playing recording seconds 5.2–13.0, starting at clip 2:
 - Overlay animation: You can add animation to overlays to make text appear and disappear smoothly. Use `pop` sparingly for emphasis. Omit `animation` when overlays change in quick succession.
 - Crop: Use `crop` to remove distracting elements at frame edges, highlight a subject, or tighten the composition. Most clips don't need cropping.
 - Ken Burns: Use `crop` + `cropEnd` to add visual motion to static or low-movement footage. Use sparingly — most clips with natural camera movement don't need it.
-- Rotation: Use `rotation` only to fix footage captured in the wrong orientation (e.g. phone held sideways, gimbal flipped, upside-down dash cam, or the holding direction changing partway through a shot — split the clip and rotate only the affected part). Use 90/180/270; don't use for creative effect. Rotated content is scaled to fill the output, which crops the edges, so it's not suitable for making portrait footage fit a landscape project. When combined with `crop`, rotation is applied first, so crop values refer to the rotated frame.
+- Rotation: Use `rotation` only to fix footage captured in the wrong orientation (e.g. phone held sideways, gimbal flipped, upside-down dash cam, or the holding direction changing partway through a shot — split the clip and rotate only the affected part). Use 90/180/270; don't use for creative effect. When combined with `crop`, rotation is applied first, so crop values refer to the rotated frame.
+{{#if isLandscape}}
+- Aspect mismatch: This project outputs landscape. Sources whose orientation differs are pillarboxed (black bars on the sides), keeping the source intact.
+{{else}}
+- Aspect mismatch: This project outputs {{outputShape}}. Sources whose aspect differs are zoom-filled centered, cropping the off-aspect edges. If the subject sits off-center after zoom-fill, use asymmetric `crop` to shift the visible window (e.g. `crop: { right: 15 }` shifts content right by hiding 15% on the right).
+{{/if}}
 - Style: Prefer a direct, straightforward presentation of the subject matter. Don't over-edit — let the footage and the dialog within it carry the story naturally.
 - Audio: Avoid clips that contain irrelevant dialog (e.g. off-topic conversations). When trimming clips, be careful not to cut into incomplete sentences from the main subjects (background chatter from bystanders is acceptable).
 - Ambient sound: Decide by section whether to preserve or suppress the original audio, keeping the approach consistent across consecutive clips to avoid frequent switching between ambient sound and music. Preserve when clips contain dialog to keep, or ambient sound tightly tied to the visuals (e.g. market bustle, waves, street music) — keep clip volume at 1 and lower or omit background music so the ambient audio comes through. Suppress when the background audio is meaningless or clips with different ambient sounds are cut together quickly — lower clip volume (or mute) and let background music carry the audio track.

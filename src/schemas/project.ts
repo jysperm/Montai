@@ -1,10 +1,20 @@
 import { z } from 'zod';
 
-const resolutionPresets = {
-  '720p': { width: 1280, height: 720 },
+export const resolutionPresets = {
+  // Landscape 16:9
+  '720p':  { width: 1280, height: 720 },
   '1080p': { width: 1920, height: 1080 },
   '1440p': { width: 2560, height: 1440 },
-  '4k': { width: 3840, height: 2160 },
+  '2160p': { width: 3840, height: 2160 },
+  '4k':    { width: 3840, height: 2160 },
+  // Vertical 9:16
+  '720v':  { width: 720,  height: 1280 },
+  '1080v': { width: 1080, height: 1920 },
+  '1440v': { width: 1440, height: 2560 },
+  // Square 1:1
+  '720s':  { width: 720,  height: 720 },
+  '1080s': { width: 1080, height: 1080 },
+  '1440s': { width: 1440, height: 1440 },
 } as const;
 
 export type ResolutionPreset = keyof typeof resolutionPresets;
@@ -13,8 +23,18 @@ export function resolveResolution(preset: ResolutionPreset) {
   return resolutionPresets[preset];
 }
 
+const RESOLUTION_PRESET_NAMES = Object.keys(resolutionPresets) as [ResolutionPreset, ...ResolutionPreset[]];
+
+export type SequenceShape = 'landscape' | 'vertical' | 'square';
+
+export function sequenceShape(width: number, height: number): SequenceShape {
+  if (width > height) return 'landscape';
+  if (height > width) return 'vertical';
+  return 'square';
+}
+
 export const OutputSchema = z.object({
-  resolution: z.enum(['720p', '1080p', '1440p', '4k']).default('1080p'),
+  resolution: z.enum(RESOLUTION_PRESET_NAMES).default('1080p'),
   fps: z.number().default(50),
 });
 

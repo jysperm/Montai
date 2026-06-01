@@ -33,7 +33,7 @@ assets:
     - ./voiceover/                # Voiceover recordings for narration-driven editing
 language: zh                     # Language for LLM-generated text (zh | en)
 output:
-  resolution: 1080p             # 720p | 1080p | 1440p | 4k
+  resolution: 1080p             # landscape 720p|1080p|1440p|2160p|4k; vertical 720v|1080v|1440v; square 720s|1080s|1440s
   fps: 50
 models:
   analysis: gemini-3-flash-preview       # Per-video analysis
@@ -206,7 +206,7 @@ ClipItem {
   volume: number               // default 1
   transition?: Transition      // optional; defines the transition FROM the previous clip INTO this clip
   rotation?: number            // degrees clockwise; applied before crop. Any angle accepted, but 90/180/270 are the typical cases (camera orientation fixes)
-  crop?: Crop                  // static crop (left/top/right/bottom as % of frame height)
+  crop?: Crop                  // static crop, % of post-rotation source content per edge
   cropEnd?: Crop               // if set, Ken Burns animation from crop → cropEnd
 }
 
@@ -270,10 +270,13 @@ ExpandedClip {
   clipId: string
   videoId: number
   sourceFile: string
+  sourceWidth?: number
+  sourceHeight?: number
   startTimeSeconds: number
   endTimeSeconds: number
   playbackRate: number
   volume: number
+  fit: 'contain' | 'cover'     // spatial conform, derived from sequence shape
   transition?: {
     type: 'fade' | 'slide' | 'wipe'
     direction?: 'from-left' | 'from-right' | 'from-top' | 'from-bottom'
@@ -326,7 +329,7 @@ Montai includes a static Remotion project at `src/remotion/project/` (inside Mon
 - **Studio mode**: All stories appear in the Studio sidebar for switching, video files served via `--public-dir=<path>`
 - **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and a `timelines.json` index
 - **Dependencies**: Remotion, React, and transition packages are Montai's own dependencies — no separate install needed
-- **Aspect mismatch**: Video elements use `object-fit: contain` so clips whose aspect differs from the sequence are pillarboxed/letterboxed (preserving source aspect) rather than non-uniformly stretched. This matches FCP/Resolve's default spatial conform behavior for mismatched `format` assets.
+- **Spatial conform**: Each clip is wrapped in layers — outer sequence box (black, hides overflow), middle conformed rectangle (size derived from post-rotation source dims + fit mode), crop layer in rotated-frame coordinates, and the original source box rotated around its center. Fit defaults from sequence shape: landscape → `contain` (pillarbox a cross-oriented source), vertical/square → `cover` (zoom-fill a cross-oriented source). Rotation is a source-orientation fix and is applied before fit; crop is expressed in post-rotation source-space percentages.
 
 ## FCPXML Output
 
@@ -338,15 +341,17 @@ Text overlays use three Essential Titles Motion templates based on animation typ
 
 Overlay animations: fade and pop use FCP's built-in Essential Fade / Essential Scale templates, which handle the animation internally. Slide is implemented manually via Position param `keyframeAnimation` (the Essential Titles family has no slide template). The slide distance is computed dynamically to ensure text fully exits the frame.
 
-Title positioning uses Essential Title's Motion template params. The template has a fixed 3840×2160 canvas with paragraph margins (left=-1600, right=1600, top=562, bottom=-700). Positioning is achieved by shifting the title object's Position param (`key="9999/10085/10086/1/100/101"`); horizontal alignment uses the standard `<text-style alignment>` attribute, vertical positioning is computed from font size. This works in FCP; DaVinci ignores Motion template params so titles render at center there.
+Title positioning uses Essential Title's Motion template params. The template renders on a 3840×2160 canvas that FCP uniformly scales to fit the sequence; Position param values are in template pixels. For each sequence we derive `tmplScale = min(seqW/3840, seqH/2160)` then express margins/edges/font sizes in screen pixels and divide by `tmplScale` to get the param value. This makes positioning behave consistently across landscape, vertical, and square outputs. DaVinci ignores Motion template params, so titles render at center there.
 
-The `--fcp`/`--davinci` flag currently controls font size scaling: FCP uses 2× scale (Essential Title template canvas is 3840×2160), DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, overlay animations, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
+Font size scaling: FCP uses `shortEdge / (1080 × tmplScale)` so screen font size matches Remotion's short-edge scaling (this reduces to 2× for 1080p landscape — the legacy fixed value). DaVinci uses 1× (reads text-style fontSize directly). Other FCP-specific features (title positioning via Motion template params, overlay animations, slide/wipe transitions) are always included in the output — DaVinci silently ignores them without errors. Audio clips with volume and positioning import correctly into DaVinci, but fadeIn/fadeOut are ignored.
 
-Crop/Ken Burns uses different strategies per target:
+Spatial conform is emitted as `<adjust-conform type="fill">` per clip when the project's default fit is cover (vertical/square sequences); omitted (default `fit` = contain) for landscape. DaVinci ignores `<adjust-conform>` — users must set project Image Scaling manually to match.
+
+Crop/Ken Burns uses different strategies per target. Crop values are interpreted as % of the post-rotation source frame per edge (top:10 hides the top 10% of the visually upright frame). Visually, crop/zoom happens inside the conformed content box, so contain-mode clips are cropped within their pillarboxed/letterboxed content area rather than against the full sequence frame.
 - **FCP**: `adjust-crop mode="crop"` for static crop, `mode="pan"` with two `pan-rect` elements for Ken Burns. Native support with full UI.
 - **DaVinci**: Both static crop and Ken Burns use `adjust-transform` (scale + position). DaVinci's `adjust-crop mode="crop"` shows black bars instead of scaling to fill, and `mode="pan"` (Ken Burns) is completely ignored. For Ken Burns, the end state (`cropEnd`) is applied as a static transform — no animation, but preserves the intended final composition.
 
-Rotation is expressed on `adjust-transform` (the `rotation` attribute, in degrees). Rotation is counter-clockwise in FCP's convention but clockwise in CSS/Remotion, so the FCPXML output negates the value to match the render. A cover scale is multiplied in to eliminate the black corners that appear when a rotated frame is smaller than its axis-aligned container. When a clip has both rotation and crop, the combined transform uses `scale = cropScale × coverScale` and crop's `position`, which is mathematically equivalent to rotate-then-crop. Rotation forces the `adjust-transform` path even on FCP (so native `adjust-crop` is not used); Ken Burns (`cropEnd`) together with rotation falls back to the static `cropEnd` state.
+Rotation is expressed on `adjust-transform` (the `rotation` attribute, in degrees). Rotation is counter-clockwise in FCP's convention but clockwise in CSS/Remotion, so the FCPXML output negates the value to match the render. FCP imports `<adjust-conform>` before `<adjust-transform>`, but Montai's semantics are rotation before fit; for rotated clips, the exporter computes a uniform compensating transform scale so FCP's conform-then-rotate pipeline matches the rotate-then-fit result. This scale can be smaller or larger than 1 depending on source/output orientation, and is separate from the old black-corner cover scale. Static crop with 90°-multiple rotation uses FCP's native `adjust-crop`, with crop edges remapped from the rotated visual frame back to the source axes before rotation; arbitrary-angle rotation with crop falls back to a static `adjust-transform` approximation. Ken Burns (`cropEnd`) together with rotation falls back to the static `cropEnd` state.
 
 Audio auto-loop crossfade in FCPXML uses different strategies per target:
 - **FCP**: Loop segments are grouped into a secondary storyline (`<spine>`) with Cross Dissolve transitions between clips. Each clip is shrunk by half the crossfade duration to provide "handles" (extra source media for the transition to borrow). The last clip is extended to compensate for handle shrinkage.

@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { z } from 'zod';
 import type { ProjectConfig } from './project.js';
-import { resolveResolution } from './project.js';
+import { resolveResolution, sequenceShape } from './project.js';
 import { TransitionSchema, CropSchema, type ExpandedTimeline } from './timeline.js';
 
 export const ClipItemSchema = z.object({
@@ -224,7 +224,7 @@ export function expandTimeline(
   items: TimelineItem[],
   config: ProjectConfig,
   storyName: string,
-  videos: { id: number; path: string }[],
+  videos: { id: number; path: string; width?: number | null; height?: number | null }[],
   storyTitle?: string,
   musicFiles?: { id: number; path: string; durationSeconds?: number | null }[],
   voiceoverFiles?: { id: number; path: string; durationSeconds?: number | null }[],
@@ -321,6 +321,12 @@ export function expandTimeline(
     currentTime += effectiveDuration;
   }
 
+  // Spatial conform default: landscape sequences pillarbox cross-oriented sources
+  // (contain); vertical / square sequences zoom-fill (cover) to match short-form
+  // platform norms.
+  const seqShape = sequenceShape(res.width, res.height);
+  const defaultFit: 'contain' | 'cover' = seqShape === 'landscape' ? 'contain' : 'cover';
+
   // Build clips array
   const timelineClips = clipItems.map((clip, index) => {
     const video = videos.find((v) => v.id === clip.videoId);
@@ -328,10 +334,13 @@ export function expandTimeline(
       clipId: `clip-${String(index + 1).padStart(3, '0')}`,
       videoId: clip.videoId,
       sourceFile: video?.path ?? '',
+      sourceWidth: video?.width ?? undefined,
+      sourceHeight: video?.height ?? undefined,
       startTimeSeconds: clip.startTimeSeconds,
       endTimeSeconds: clip.endTimeSeconds,
       playbackRate: clip.playbackRate,
       volume: clip.volume,
+      fit: defaultFit,
       transition: clip.transition,
       rotation: clip.rotation,
       crop: clip.crop,

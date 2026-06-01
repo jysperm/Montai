@@ -17,10 +17,13 @@ interface EditClip {
   clipId: string;
   videoId: number;
   sourceFile: string;
+  sourceWidth?: number;
+  sourceHeight?: number;
   startTimeSeconds: number;
   endTimeSeconds: number;
   playbackRate: number;
   volume: number;
+  fit?: 'contain' | 'cover';
   transition: { type: string; durationSeconds: number; direction?: string };
   rotation?: number;
   crop?: CropValues;
@@ -194,46 +197,66 @@ function getTransition(type: string, direction?: string): TransitionPresentation
   }
 }
 
-// Minimum uniform scale so that a W×H box rotated by `degrees` fully covers
-// the original W×H axis-aligned container (no black corners).
-function rotationCoverScale(degrees: number, width: number, height: number) {
+function rotatedDimensions(width: number, height: number, degrees: number) {
   const theta = (degrees * Math.PI) / 180;
   const absCos = Math.abs(Math.cos(theta));
   const absSin = Math.abs(Math.sin(theta));
-  const sx = absCos + (absSin * height) / width;
-  const sy = (absSin * width) / height + absCos;
-  return Math.max(sx, sy);
+  return {
+    width: width * absCos + height * absSin,
+    height: width * absSin + height * absCos,
+  };
 }
 
-// NOTE ON ASPECT MISMATCH: Both `cropToTransform` and `rotationCoverScale`
-// compute their math against the sequence (container) dimensions, and the CSS
-// transform is applied to the full Video element box (which is 100%×100% of
-// the container). When the source clip's aspect differs from the sequence,
-// `objectFit: 'contain'` pillarboxes/letterboxes the content *inside* the
-// element box — so these transforms operate on "element box + black bars",
-// not on the visible content rectangle. This diverges from FCP/Resolve,
-// which apply crop/transform to the post-conform content. Crop and rotation
-// are therefore only well-defined when source aspect ≈ sequence aspect
-// (the main intended use case: "horizontal footage shot sideways").
-function cropToTransform(crop: CropValues, width: number, height: number) {
-  // Crop values are percentages of original frame height.
-  // visible fraction: e.g. left=10, right=10 on a 16:9 (1920×1080) frame
-  // means 10% of height (108px) trimmed from each side.
-  const aspectRatio = width / height;
-  const visibleWidth = 1 - (crop.left + crop.right) / (100 * aspectRatio);
+// Crop is expressed as % of the post-rotation source frame per edge: top:10
+// hides the top 10% of the visually upright frame.
+function cropToTransform(crop: CropValues) {
+  const visibleWidth = 1 - (crop.left + crop.right) / 100;
   const visibleHeight = 1 - (crop.top + crop.bottom) / 100;
-
-  const scaleX = 1 / Math.max(visibleWidth, 0.01);
-  const scaleY = 1 / Math.max(visibleHeight, 0.01);
-  const scale = Math.max(scaleX, scaleY);
-
-  // Translate to center the visible region (% of element size).
-  // CSS `scale(S) translate(X%, Y%)` applies translate first, then scale,
-  // so translate is independent of scale factor.
-  const translateX = -(crop.left - crop.right) / (2 * aspectRatio);
+  const scale = Math.max(1 / Math.max(visibleWidth, 0.01), 1 / Math.max(visibleHeight, 0.01));
+  const translateX = -(crop.left - crop.right) / 2;
   const translateY = -(crop.top - crop.bottom) / 2;
-
   return { scale, translateX, translateY };
+}
+
+// Compute the conformed source rectangle (centered in the sequence frame)
+// for a given fit mode. When source dimensions are unknown, fall back to the
+// sequence box (matches the pre-portrait-support behavior).
+function conformedRect(
+  sourceWidth: number | undefined,
+  sourceHeight: number | undefined,
+  seqWidth: number,
+  seqHeight: number,
+  fit: 'contain' | 'cover',
+) {
+  if (!sourceWidth || !sourceHeight) {
+    return { width: seqWidth, height: seqHeight };
+  }
+  const sourceAspect = sourceWidth / sourceHeight;
+  const seqAspect = seqWidth / seqHeight;
+  const fillByWidth = fit === 'contain' ? sourceAspect > seqAspect : sourceAspect < seqAspect;
+  if (fillByWidth) {
+    return { width: seqWidth, height: seqWidth / sourceAspect };
+  }
+  return { width: seqHeight * sourceAspect, height: seqHeight };
+}
+
+function sourceBoxInRotatedRect(
+  sourceWidth: number,
+  sourceHeight: number,
+  rectWidth: number,
+  rectHeight: number,
+  rotation: number,
+) {
+  const rotated = rotatedDimensions(sourceWidth, sourceHeight, rotation);
+  const scale = Math.min(rectWidth / rotated.width, rectHeight / rotated.height);
+  const width = sourceWidth * scale;
+  const height = sourceHeight * scale;
+  return {
+    width,
+    height,
+    left: (rectWidth - width) / 2,
+    top: (rectHeight - height) / 2,
+  };
 }
 
 function getSourcePath(sourceFile: string): string {
@@ -278,6 +301,21 @@ function ClipVideo({
     [clip.volume, incomingTransitionFrames, outgoingTransitionFrames, durationFrames],
   );
 
+  const fit = clip.fit ?? 'cover';
+  const rotation = clip.rotation ?? 0;
+  const knownSourceSize = !!(clip.sourceWidth && clip.sourceHeight);
+  const sourceWidth = clip.sourceWidth ?? width;
+  const sourceHeight = clip.sourceHeight ?? height;
+  const rotatedSize = rotatedDimensions(sourceWidth, sourceHeight, rotation);
+  const rect = conformedRect(
+    knownSourceSize ? rotatedSize.width : undefined,
+    knownSourceSize ? rotatedSize.height : undefined,
+    width,
+    height,
+    fit,
+  );
+  const sourceBox = sourceBoxInRotatedRect(sourceWidth, sourceHeight, rect.width, rect.height, rotation);
+
   // Compute crop transform (static or Ken Burns animated)
   let cropTransform: { scale: number; translateX: number; translateY: number } | null = null;
   if (hasCrop) {
@@ -285,59 +323,76 @@ function ClipVideo({
     const cropStart = clip.crop ?? defaultCrop;
 
     if (clip.cropEnd) {
-      // Ken Burns: interpolate between start and end crop values
       const currentCrop = {
         left: interpolate(frame, [0, durationFrames], [cropStart.left, clip.cropEnd.left], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
         top: interpolate(frame, [0, durationFrames], [cropStart.top, clip.cropEnd.top], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
         right: interpolate(frame, [0, durationFrames], [cropStart.right, clip.cropEnd.right], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
         bottom: interpolate(frame, [0, durationFrames], [cropStart.bottom, clip.cropEnd.bottom], { extrapolateLeft: 'clamp', extrapolateRight: 'clamp' }),
       };
-      cropTransform = cropToTransform(currentCrop, width, height);
+      cropTransform = cropToTransform(currentCrop);
     } else {
-      cropTransform = cropToTransform(cropStart, width, height);
+      cropTransform = cropToTransform(cropStart);
     }
   }
 
-  // Compose transform string. CSS applies transforms right-to-left, so the order
-  // below means: rotate first, then scale-to-cover (eliminates black corners after
-  // rotation), then crop translate, then crop scale.
-  const parts: string[] = [];
+  const cropParts: string[] = [];
   if (cropTransform) {
-    parts.push(`scale(${cropTransform.scale})`);
-    parts.push(`translate(${cropTransform.translateX}%, ${cropTransform.translateY}%)`);
+    cropParts.push(`scale(${cropTransform.scale})`);
+    cropParts.push(`translate(${cropTransform.translateX}%, ${cropTransform.translateY}%)`);
   }
-  if (hasRotation) {
-    parts.push(`scale(${rotationCoverScale(clip.rotation!, width, height)})`);
-    parts.push(`rotate(${clip.rotation}deg)`);
-  }
-  const transformStr = parts.join(' ');
+  const cropTransformStr = cropParts.join(' ');
 
-  const video = (
-    <Video
-      src={getSourcePath(clip.sourceFile)}
-      trimBefore={Math.round(clip.startTimeSeconds * fps)}
-      volume={hasTransitions ? volumeCallback : clip.volume}
-      playbackRate={clip.playbackRate}
-      // objectFit: 'contain' matches FCP/Resolve's default spatial conform —
-      // preserve the source aspect and pillarbox/letterbox when it doesn't
-      // match the sequence. Without this, the browser defaults to 'fill'
-      // which non-uniformly stretches portrait content into a landscape frame.
-      style={transformStr
-        ? { width: '100%', height: '100%', objectFit: 'contain', transform: transformStr }
-        : { width: '100%', height: '100%', objectFit: 'contain' }
-      }
-    />
-  );
-
-  if (transformStr) {
-    return (
-      <div style={{ width: '100%', height: '100%', overflow: 'hidden' }}>
-        {video}
+  // Three layers:
+  //   outer — sequence box, hides cover overflow, paints letterbox background
+  //   middle — conformed rectangle after source rotation + fit
+  //   crop layer — crop in the rotated-frame coordinate space
+  //   source box — original source dimensions, rotated around its center
+  return (
+    <div style={{ width: '100%', height: '100%', overflow: 'hidden', backgroundColor: 'black', position: 'relative' }}>
+      <div
+        style={{
+          position: 'absolute',
+          width: rect.width,
+          height: rect.height,
+          left: (width - rect.width) / 2,
+          top: (height - rect.height) / 2,
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            width: rect.width,
+            height: rect.height,
+            transform: cropTransformStr || undefined,
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              width: sourceBox.width,
+              height: sourceBox.height,
+              left: sourceBox.left,
+              top: sourceBox.top,
+              transform: hasRotation ? `rotate(${clip.rotation}deg)` : undefined,
+            }}
+          >
+            <Video
+              src={getSourcePath(clip.sourceFile)}
+              trimBefore={Math.round(clip.startTimeSeconds * fps)}
+              volume={hasTransitions ? volumeCallback : clip.volume}
+              playbackRate={clip.playbackRate}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: knownSourceSize ? 'fill' : fit,
+              }}
+            />
+          </div>
+        </div>
       </div>
-    );
-  }
-
-  return video;
+    </div>
+  );
 }
 
 export function calculateTotalFrames(spec: TimelineProps): number {
@@ -399,7 +454,9 @@ function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number })
 
 export const MontaiVideo: React.FC<TimelineProps> = (props) => {
   const { fps, width, height, clips, textOverlays, audioTracks, voiceoverTracks } = props;
-  const scale = height / 1080;
+  // Scale overlays by the short edge so font / margins stay proportional
+  // across landscape, portrait, and square outputs.
+  const scale = Math.min(width, height) / 1080;
 
   return (
     <AbsoluteFill style={{ backgroundColor: 'black' }}>

@@ -43,11 +43,3 @@ $(FIXTURES_DIR)/portrait-misoriented.mp4: $(FIXTURES_ENTRY) $(TEST_MEDIA_AUDIO) 
 
 $(FIXTURES_DIR)/landscape-misoriented.mp4: $(FIXTURES_ENTRY) $(TEST_MEDIA_AUDIO) | $(FIXTURES_DIR)
 	cd $(ROOT) && $(TEST_MEDIA_RENDER) landscape-misoriented $@ $(TEST_MEDIA_RENDER_FLAGS)
-
-.PHONY: fcpxml
-fcpxml: $(TEST_MEDIA_FILES) $(TEST_MUSIC_FILES) $(TEST_VOICEOVER_FILES)
-	cd $(ROOT) && npm exec -- tsx tests/fcpxml/export-fcpxml.ts
-
-.PHONY: preview
-preview: $(TEST_MEDIA_FILES) $(TEST_MUSIC_FILES) $(TEST_VOICEOVER_FILES)
-	cd $(ROOT) && npm exec -- tsx tests/fcpxml/preview-timelines.ts
