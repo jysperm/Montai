@@ -60,10 +60,15 @@ export const FeatureFlagsSchema = z.object({
   transcodeFps: z.number().min(1).optional(),
 }).default({});
 
+const PathListSchema = (schema: z.ZodType<string[]>) => z.preprocess(
+  (value) => typeof value === 'string' ? [value] : value,
+  schema,
+);
+
 export const AssetsSchema = z.object({
-  videos: z.array(z.string()).min(1),
-  music: z.array(z.string()).default([]),
-  voiceover: z.array(z.string()).default([]),
+  videos: PathListSchema(z.array(z.string()).min(1)),
+  music: PathListSchema(z.array(z.string()).default([])),
+  voiceover: PathListSchema(z.array(z.string()).default([])),
 });
 
 export const ProjectConfigSchema = z.preprocess(

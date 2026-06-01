@@ -24,13 +24,9 @@ Users create a `montai.yaml` in their project directory:
 
 ```yaml
 assets:
-  videos:
-    - .                           # Current directory: scan for all video files
-    - ~/footage/extra-clip.mp4    # Individual file also supported
-  music:
-    - ./musics/                   # Directory of background music files
-  voiceover:
-    - ./voiceover/                # Voiceover recordings for narration-driven editing
+  videos: .                       # String or array; directories and files supported
+  music: ./musics/                # Optional background music files
+  voiceover: ./voiceover/         # Optional narration recordings
 language: zh                     # Language for LLM-generated text (zh | en)
 output:
   resolution: 1080p             # landscape 720p|1080p|1440p|2160p|4k; vertical 720v|1080v|1440v; square 720s|1080s|1440s
@@ -47,7 +43,7 @@ featureFlags:                    # Optional overrides (see Feature Flags)
 
 `language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
 
-Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
+`assets.videos`, `assets.music`, and `assets.voiceover` accept either a single string path or an array of string paths. Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
 For backward compatibility, a top-level `videos` key (without `assets` wrapper) is still accepted and automatically mapped to `assets.videos`.
 
