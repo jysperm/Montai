@@ -49,6 +49,8 @@ For backward compatibility, a top-level `videos` key (without `assets` wrapper) 
 
 All generated files (`montai.db`, `.montai/`, `output/`, `fcpxml/`) are located relative to the directory containing `montai.yaml` (the project directory).
 
+Secrets and account-level environment variables are not stored in `montai.yaml`. On CLI startup, Montai loads dotenv-compatible variables from `~/.config/montai/env` and only fills keys that are missing from the current runtime environment. Shell-provided environment variables therefore remain the highest-priority source.
+
 ## Feature Flags
 
 A `FeatureFlags` object (variable name `features` in code, type `FeatureFlags` in `src/feature-flags.ts`) gates optional capabilities across the LLM prompt and tool surface. Each flag resolves to a boolean at runtime: a computed default based on project context, optionally overridden by the `featureFlags` section in `montai.yaml`. The same resolved `features` object is passed into both the prompt templates (Handlebars `{{#if features.X}}`) and the tool list assembly.

@@ -28,7 +28,13 @@ Prerequisites:
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 - [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
-Recommended to use [direnv](https://direnv.net/) to manage environment variables.
+Montai also loads global environment variables from `~/.config/montai/env` using dotenv syntax. Runtime environment variables take priority over this file.
+
+```dotenv
+GEMINI_API_KEY=...
+GOOGLE_CLOUD_PROJECT=...
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
+```
 
 ## Interactive Story Editing
 
