@@ -1,41 +1,7 @@
 import { basename } from 'path';
-import type { ExpandedTimeline, ExpandedClip, ExpandedOverlay } from '../schemas/timeline.js';
-
-// Essential Title template canvas. Template renders at 3840×2160 and FCP
-// uniformly scales it to fit the sequence (contain). All Position param values
-// are in template pixels; we compute screen-space first then divide by the
-// template-to-sequence scale to derive the param value.
-const TMPL_W = 3840;
-const TMPL_H = 2160;
-const POS_KEY = '9999/10085/10086/1/100/101'; // Position param key
-const LINE_HEIGHT = 1.5;  // FCP's default line spacing + font metrics
-
-// Per-sequence layout numbers for Essential Title positioning. NOTE: FCP-side
-// behavior for portrait/square sequences relies on the template scaling
-// uniformly to fit (assumed; verify visually if drift appears).
-interface TitleLayout {
-  tmplScale: number;    // template pixel → screen pixel multiplier
-  halfWTmpl: number;    // half sequence width, in template pixels
-  halfHTmpl: number;    // half sequence height, in template pixels
-  marginTmpl: number;   // 40px screen-space margin, in template pixels
-  fontScale: number;    // multiplier applied to base font sizes (FCP only)
-}
-
-function buildTitleLayout(width: number, height: number, target: 'fcp' | 'davinci'): TitleLayout {
-  const shortEdge = Math.min(width, height);
-  const tmplScale = Math.min(width / TMPL_W, height / TMPL_H);
-  // Match Remotion's short-edge font scaling on screen: target screen size =
-  // baseFont × shortEdge/1080. Template font scale = that ÷ tmplScale.
-  // For 1080p horizontal this reduces to 2× (the legacy TMPL_SCALE constant).
-  const fontScale = target === 'fcp' ? shortEdge / (1080 * tmplScale) : 1;
-  return {
-    tmplScale,
-    halfWTmpl: (width / 2) / tmplScale,
-    halfHTmpl: (height / 2) / tmplScale,
-    marginTmpl: (40 * shortEdge / 1080) / tmplScale,
-    fontScale,
-  };
-}
+import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
+import { escapeXml, fcpName, framesToRational, round4, toRational } from './utils.js';
+import { buildTitleLayout, makeTitleXml, titleEffectLines, titleEffectRef, titleEffectsNeeded } from './overlays.js';
 
 export interface VideoFormatInfo {
   width: number;
@@ -86,10 +52,7 @@ export function generateFcpxml(
   // text-style fontSize directly).
   const target = options?.target ?? 'fcp';
 
-  // FCP built-in effect UIDs
-  const TITLE_EFFECT_UID = '.../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti';
-  const TITLE_FADE_UID = '.../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti';
-  const TITLE_SCALE_UID = '.../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti';
+  // FCP built-in effect UIDs (title template UIDs live in overlays.ts)
   const CROSS_DISSOLVE_UID = 'FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265';
   const SLIDE_UID = 'FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648';
   const WIPE_UID = 'FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8';
@@ -111,13 +74,11 @@ export function generateFcpxml(
 
   // Dynamic resource ID allocation: r1 = sequence format, then effects, then per-source formats
   let nextResourceId = 2;
-  // Determine which title effect templates are needed based on overlay animation types
-  const needsBasicTitle = spec.textOverlays.some(o => !o.animation || o.animation.type === 'slide');
-  const needsFadeTitle = spec.textOverlays.some(o => o.animation?.type === 'fade');
-  const needsScaleTitle = spec.textOverlays.some(o => o.animation?.type === 'pop');
-  const titleEffectId = needsBasicTitle ? `r${nextResourceId++}` : null;
-  const titleFadeId = needsFadeTitle ? `r${nextResourceId++}` : null;
-  const titleScaleId = needsScaleTitle ? `r${nextResourceId++}` : null;
+  // Allocate a resource id per title template the overlays require (see overlays.ts)
+  const titleNeeds = titleEffectsNeeded(spec.textOverlays);
+  const titleEffectId = titleNeeds.essential ? `r${nextResourceId++}` : null;
+  const titleFadeId = titleNeeds.fade ? `r${nextResourceId++}` : null;
+  const titleScaleId = titleNeeds.scale ? `r${nextResourceId++}` : null;
   // Determine which transition effects are used.
   // DaVinci only reliably imports Cross Dissolve, so map all transitions to fade.
   const usedTransitionTypes = new Set<string>();
@@ -782,17 +743,8 @@ export function generateFcpxml(
         spine.push(clipVolumeXml);
       }
 
-      // Font sizes and shadow dimensions scale factor:
-      // FCP: derived from sequence shape so screen font matches Remotion's short-edge scaling.
-      // DaVinci: 1× (reads text-style fontSize directly, no template scaling).
-      const scale = titleLayout.fontScale;
-      const shadowOffsetPx = Math.round(2 * scale);
-      const shadowBlurPx = Math.round(8 * scale);
-
       for (let oi = 0; oi < overlays.length; oi++) {
         const overlay = overlays[oi];
-        const fontSize = overlay.style === 'title' ? Math.round(80 * scale) : overlay.style === 'subtitle' ? Math.round(48 * scale) : Math.round(32 * scale);
-        const isBold = overlay.style === 'title';
         const overlaySeqStart = o2s(overlay.startTimeSeconds);
         const overlaySeqEnd = o2sEnd(overlay.endTimeSeconds);
         const deltaInClip = overlaySeqStart - clipSeqStarts[i];
@@ -812,17 +764,13 @@ export function generateFcpxml(
 
         const overlayDurationSeconds = overlaySeqEnd - overlaySeqStart;
         const titleDuration = toRational(overlayDurationSeconds, fps);
-        // Select effect template: fade→Essential Fade, pop→Essential Scale, else Basic Title
-        // DaVinci: position ignored, titles render at center
-        let effectRef: string;
-        if (overlay.animation?.type === 'fade') {
-          effectRef = titleFadeId!;
-        } else if (overlay.animation?.type === 'pop') {
-          effectRef = titleScaleId!;
-        } else {
-          effectRef = titleEffectId!;
-        }
-        spine.push(makeTitleXml(overlay.text, nextTs(), fontSize, isBold, shadowOffsetPx, shadowBlurPx, titleOffset, titleDuration, II, effectRef, overlay.position, oi + 1, overlay.animation, overlayDurationSeconds, fps, titleLayout));
+        // KNOWN ISSUE (pop/slide/static long corner text in narrow frames): the
+        // narrow-frame floor+scale path renders text oversized then shrinks it,
+        // so long left/right-aligned text overflows the frame and is clipped
+        // before the down-scale. Affects all templates. Tracked in
+        // drafts/fcp-overlay-narrow-frame-clipping.md.
+        const effectRef = titleEffectRef(overlay, { essentialId: titleEffectId, fadeId: titleFadeId, scaleId: titleScaleId });
+        spine.push(makeTitleXml(overlay.text, nextTs(), titleOffset, titleDuration, II, effectRef, overlay.position, overlay.style, titleLayout, oi + 1, overlay.animation, overlayDurationSeconds, fps));
       }
 
       // Audio anchor items attached to this clip
@@ -837,9 +785,7 @@ export function generateFcpxml(
 
   const sequenceColorSpaceAttr = detectedHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
   const effectLines: string[] = [];
-  if (titleEffectId) effectLines.push(`        <effect id="${titleEffectId}" name="Basic Title" uid="${TITLE_EFFECT_UID}" />`);
-  if (titleFadeId) effectLines.push(`        <effect id="${titleFadeId}" name="Essential Fade" uid="${TITLE_FADE_UID}" />`);
-  if (titleScaleId) effectLines.push(`        <effect id="${titleScaleId}" name="Essential Scale" uid="${TITLE_SCALE_UID}" />`);
+  effectLines.push(...titleEffectLines({ essentialId: titleEffectId, fadeId: titleFadeId, scaleId: titleScaleId }));
   if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
   if (slideId) effectLines.push(`        <effect id="${slideId}" name="Slide" uid="${SLIDE_UID}" />`);
   if (wipeId) effectLines.push(`        <effect id="${wipeId}" name="Wipe" uid="${WIPE_UID}" />`);
@@ -872,115 +818,6 @@ ${spine.join('\n')}
 `;
 }
 
-
-function makeTitleXml(
-  text: string,
-  tsId: string,
-  fontSize: number,
-  bold: boolean,
-  shadowOffset: number,
-  shadowBlur: number,
-  offset: string,
-  duration: string,
-  indent: string,
-  effectRef: string,
-  position: string,
-  lane: number = 1,
-  animation?: ExpandedOverlay['animation'],
-  durationSeconds: number = 0,
-  fps: number = 50,
-  layout?: TitleLayout,
-): string {
-  const alignment = position === 'center' || position === 'bottom-center'
-    ? 'center' : position.endsWith('-left') ? 'left' : 'right';
-  const boldAttr = bold ? ' bold="1"' : '';
-  const shadowAttrs = ` shadowColor="0 0 0 0.8" shadowOffset="${shadowOffset} ${shadowOffset}" shadowBlurRadius="${shadowBlur}"`;
-  const lineCount = text.split('\n').length;
-  const basePos = fcpTitlePositionValues(position, fontSize, lineCount, layout);
-
-  const slideXml = makeSlideAnimationXml(animation, position, basePos ?? { posX: 0, posY: 0 }, durationSeconds, fps, `${indent}    `, layout);
-  const positionParams = slideXml ? '' : fcpTitleParams(position, `${indent}    `, fontSize, lineCount, layout);
-
-  const lines = [
-    `${indent}<title ref="${effectRef}" lane="${lane}" name="${fcpName(text)}" offset="${offset}" duration="${duration}" start="0/1s">${positionParams}`,
-  ];
-  if (slideXml) lines.push(slideXml);
-  lines.push(
-    `${indent}    <text>`,
-    `${indent}        <text-style ref="${tsId}" alignment="${alignment}">${escapeXml(text)}</text-style>`,
-    `${indent}    </text>`,
-    `${indent}    <text-style-def id="${tsId}">`,
-    `${indent}        <text-style font="Helvetica Neue" fontSize="${fontSize}" fontFace="Regular" fontColor="1 1 1 1"${boldAttr} alignment="${alignment}"${shadowAttrs} />`,
-    `${indent}    </text-style-def>`,
-    `${indent}</title>`,
-  );
-  return lines.join('\n');
-}
-
-function fcpTitlePositionValues(
-  position: string, fontSizeTmpl: number, lineCount: number, layout?: TitleLayout,
-): { posX: number; posY: number } | null {
-  // Fall back to the legacy 1080p-landscape numbers when no layout supplied
-  // (keeps non-FCP code paths working).
-  const halfW = layout?.halfWTmpl ?? 1920;
-  const halfH = layout?.halfHTmpl ?? 1080;
-  const margin = layout?.marginTmpl ?? 80;
-  const TMPL_DEFAULT_Y = 69;
-  if (position === 'center') {
-    if (lineCount <= 1) return null;
-    const centerAdjust = TMPL_DEFAULT_Y + Math.round((lineCount - 1) * fontSizeTmpl * LINE_HEIGHT / 2);
-    return { posX: 0, posY: centerAdjust };
-  }
-  const TYPICAL_TEXT_HALF_W = 100;
-  const xLeft = -halfW + margin + TYPICAL_TEXT_HALF_W;
-  const xRight = halfW - margin - TYPICAL_TEXT_HALF_W;
-  const halfTextHeight = Math.round(lineCount * fontSizeTmpl * LINE_HEIGHT / 2);
-  const yBottom = -halfH + margin + halfTextHeight;
-  const yTop = halfH - margin - halfTextHeight;
-  let posX = 0, posY = 0;
-  switch (position) {
-    case 'top-left':      posX = xLeft;  posY = yTop;    break;
-    case 'top-right':     posX = xRight; posY = yTop;    break;
-    case 'bottom-left':   posX = xLeft;  posY = yBottom; break;
-    case 'bottom-center': posX = 0;      posY = yBottom; break;
-    case 'bottom-right':  posX = xRight; posY = yBottom; break;
-    default: return null;
-  }
-  return { posX, posY };
-}
-
-function makeSlideAnimationXml(
-  animation: ExpandedOverlay['animation'],
-  position: string,
-  basePos: { posX: number; posY: number },
-  durationSeconds: number,
-  fps: number,
-  indent: string,
-  layout?: TitleLayout,
-): string {
-  if (!animation || animation.type !== 'slide' || durationSeconds <= 0) return '';
-  const animDur = Math.min(animation.durationSeconds, durationSeconds / 3);
-  if (animDur < 0.01) return '';
-  const animDurRat = toRational(animDur, fps);
-  const endStartRat = toRational(durationSeconds - animDur, fps);
-  const durationRat = toRational(durationSeconds, fps);
-  const I = indent;
-  const halfH = layout?.halfHTmpl ?? 1080;
-  const distToEdge = halfH - Math.abs(basePos.posY);
-  const SLIDE_DISTANCE = position === 'center' ? 300 : Math.max(300, distToEdge + 250);
-  const isTop = position.startsWith('top');
-  const slideY = isTop ? basePos.posY + SLIDE_DISTANCE : basePos.posY - SLIDE_DISTANCE;
-  return [
-    `${I}<param name="Position" key="${POS_KEY}">`,
-    `${I}    <keyframeAnimation>`,
-    `${I}        <keyframe time="0/1s" value="${basePos.posX} ${slideY}" interp="linear"/>`,
-    `${I}        <keyframe time="${animDurRat}" value="${basePos.posX} ${basePos.posY}"/>`,
-    `${I}        <keyframe time="${endStartRat}" value="${basePos.posX} ${basePos.posY}" interp="linear"/>`,
-    `${I}        <keyframe time="${durationRat}" value="${basePos.posX} ${slideY}"/>`,
-    `${I}    </keyframeAnimation>`,
-    `${I}</param>`,
-  ].join('\n');
-}
 
 function audioParentOffset(
   startTimeSeconds: number,
@@ -1092,33 +929,6 @@ function fcpDirectionValue(direction?: string): string {
     case 'from-top': return '3';
     default: return '0';
   }
-}
-
-function escapeXml(str: string): string {
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;').replace(/'/g, '&apos;');
-}
-
-function fcpTitleParams(position: string, indent: string, fontSizeTmpl: number, lineCount: number = 1, layout?: TitleLayout): string {
-  const pos = fcpTitlePositionValues(position, fontSizeTmpl, lineCount, layout);
-  if (!pos) return '';
-  return `\n${indent}<param name="Position" key="${POS_KEY}" value="${pos.posX} ${pos.posY}"/>`;
-}
-
-function toRational(seconds: number, fps: number): string {
-  return `${Math.round(seconds * fps)}/${fps}s`;
-}
-
-function framesToRational(frames: number, fpsNum: number, fpsDen: number): string {
-  return `${frames * fpsDen}/${fpsNum}s`;
-}
-
-function fcpName(str: string): string {
-  return escapeXml(str.replace(/\//g, '-').replace(/[\r\n]+/g, ' '));
-}
-
-function round4(n: number): string {
-  return Number(n.toFixed(4)).toString();
 }
 
 function isEffectivelyOne(n: number): boolean {

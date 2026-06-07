@@ -12,6 +12,12 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 export const timelinesDir = resolve(__dirname, 'timelines');
 export const outputDir = resolve(__dirname, 'output');
 
+// A timeline's identity is its full filename stem. An optional second extension
+// declares output intent: `name.matrix.json` is exported at every resolution
+// (resolution-dependent conform tests), `name.<preset>.json` is pinned to that
+// resolution (e.g. a vertical-footage overlay test). The marker is part of the
+// name for loading; the Makefile reads it to build specs and parseTimelineSpec
+// strips it from the output filename.
 export function loadTimeline(name: string): TimelineItem[] {
   const raw = readFileSync(resolve(timelinesDir, `${name}.json`), 'utf-8');
   return JSON.parse(raw);
@@ -43,14 +49,17 @@ export interface TimelineSpec {
 
 export function parseTimelineSpec(spec: string): TimelineSpec {
   const [name, resolution] = spec.split('@');
-  if (!resolution) return { name, outputName: name };
+  // `name` is the full stem (may carry an intent token, e.g. `spatial-test.matrix`);
+  // the output name drops the token (`spatial-test`) so files stay clean.
+  const base = name.split('.')[0];
+  if (!resolution) return { name, outputName: base };
   if (!(resolution in resolutionPresets)) {
     throw new Error(`Unknown resolution "${resolution}" in "${spec}"`);
   }
   return {
     name,
     resolution: resolution as ProjectConfig['output']['resolution'],
-    outputName: `${name}-${resolution}`,
+    outputName: `${base}-${resolution}`,
   };
 }
 

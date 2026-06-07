@@ -44,19 +44,30 @@ describe('transition-test', () => {
 });
 
 describe('overlay-test', () => {
-  const items = loadTimeline('overlay-test');
+  // Overlay Position params are derived from the sequence shape (see
+  // fcpTitlePositionValues / buildTitleLayout), so each output shape is its own
+  // pinned timeline: 1080p uses landscape footage, 1080v/1080s portrait footage.
+  const cases = [
+    { name: 'overlay-test.1080p', resolution: '1080p', width: 1920, height: 1080 },
+    { name: 'overlay-test.1080v', resolution: '1080v', width: 1080, height: 1920 },
+    { name: 'overlay-test.1080s', resolution: '1080s', width: 1080, height: 1080 },
+  ] as const;
 
-  it('FCP snapshot (positions + animations)', () => {
-    const { timeline } = expand(items, 'overlay-test');
-    const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
-    expect(xml).toContain('Essential Fade');
-    expect(xml).toContain('keyframeAnimation');
-    expect(xml).toContain('Essential Scale');
-    expect(xml).toMatchSnapshot();
-  });
+  for (const { name, resolution, width, height } of cases) {
+    it(`FCP snapshot (positions + animations, ${resolution})`, () => {
+      const { timeline } = expandForTimeline(name, resolution);
+      expect(timeline.width).toBe(width);
+      expect(timeline.height).toBe(height);
+      const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
+      expect(xml).toContain('Essential Fade');
+      expect(xml).toContain('keyframeAnimation');
+      expect(xml).toContain('Essential Scale');
+      expect(xml).toMatchSnapshot();
+    });
+  }
 
   it('DaVinci snapshot (1x font size)', () => {
-    const { timeline } = expand(items, 'overlay-test');
+    const { timeline } = expandForTimeline('overlay-test.1080p', '1080p');
     const fcpXml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
     const davinciXml = generateTestFcpxml(timeline, videoMeta, { target: 'davinci' });
     expect(fcpXml).toContain('fontSize="160"');
@@ -89,7 +100,7 @@ describe('crop-test', () => {
 
 describe('spatial-conform-test', () => {
   it('landscape output contains portrait-oriented clips without fill', () => {
-    const { timeline } = expandForTimeline('spatial-test', '1080p');
+    const { timeline } = expandForTimeline('spatial-test.matrix', '1080p');
     const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
     const clips = assetClipBlocks(xml);
 
@@ -105,7 +116,7 @@ describe('spatial-conform-test', () => {
   });
 
   it('vertical output fill-conforms landscape-oriented clips, including rotated sources', () => {
-    const { timeline } = expandForTimeline('spatial-test', '1080v');
+    const { timeline } = expandForTimeline('spatial-test.matrix', '1080v');
     const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
     const clips = assetClipBlocks(xml);
 
@@ -121,7 +132,7 @@ describe('spatial-conform-test', () => {
   });
 
   it('square output fill-conforms both source orientations without extra rotation scale', () => {
-    const { timeline } = expandForTimeline('spatial-test', '1080s');
+    const { timeline } = expandForTimeline('spatial-test.matrix', '1080s');
     const xml = generateTestFcpxml(timeline, videoMeta, { target: 'fcp' });
     const clips = assetClipBlocks(xml);
 
@@ -134,8 +145,10 @@ describe('spatial-conform-test', () => {
     expect(clips[5]).toContain('<adjust-transform rotation="-90" />');
     expect(clips[6]).toContain('<crop-rect left="10" top="0" right="0" bottom="10" />');
     expect(clips[6]).toContain('<adjust-transform rotation="-90" />');
-    expect(clips[3]).not.toContain('scale=');
-    expect(clips[5]).not.toContain('scale=');
+    // The clip transform itself carries no rotation-fit scale (only rotation).
+    // (Title overlays may carry their own transform scale, so match the clip form.)
+    expect(clips[3]).not.toMatch(/adjust-transform scale="[^"]*" rotation/);
+    expect(clips[5]).not.toMatch(/adjust-transform scale="[^"]*" rotation/);
   });
 });
 

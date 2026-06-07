@@ -6,7 +6,7 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -23,25 +23,25 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                     <spine>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="No Crop" offset="300/30s" duration="150/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">No Crop</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="1.6667 1.6667" />
                         <title ref="r2" lane="1" name="Static Crop" offset="150/30s" duration="135/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="292/30s" duration="16/30s">
@@ -51,13 +51,13 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="150/30s" start="600/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="3.3333 3.3333" />
                         <title ref="r2" lane="1" name="Ken Burns" offset="600/30s" duration="135/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="442/30s" duration="16/30s">
@@ -67,13 +67,13 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <adjust-transform position="0 0" scale="3.3333 3.3333" />
                         <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="300/30s" duration="150/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Ken Burns (cropEnd only)</text-style>
                             </text>
                             <text-style-def id="ts4">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -91,7 +91,7 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -108,13 +108,13 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                     <spine>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="No Crop" offset="300/30s" duration="150/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">No Crop</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
@@ -122,13 +122,13 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             <crop-rect left="20" top="15" right="20" bottom="15" />
                         </adjust-crop>
                         <title ref="r2" lane="1" name="Static Crop" offset="150/30s" duration="135/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Static Crop</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="292/30s" duration="16/30s">
@@ -141,13 +141,13 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             <pan-rect left="35" top="30" right="35" bottom="30" />
                         </adjust-crop>
                         <title ref="r2" lane="1" name="Ken Burns" offset="600/30s" duration="135/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Ken Burns</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="442/30s" duration="16/30s">
@@ -160,13 +160,13 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
                             <pan-rect left="35" top="30" right="35" bottom="30" />
                         </adjust-crop>
                         <title ref="r2" lane="1" name="Ken Burns (cropEnd only)" offset="300/30s" duration="150/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Ken Burns (cropEnd only)</text-style>
                             </text>
                             <text-style-def id="ts4">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -184,7 +184,7 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -209,13 +209,13 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Music (no loop)" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Music (no loop)</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="300/30s" start="0/30s">
 
@@ -231,13 +231,13 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop)" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Short music (auto-loop)</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="audio-asset-2" lane="-1" name="music-short.wav" offset="0/30s" duration="150/30s" start="0/30s">
 
@@ -271,13 +271,13 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -976"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Short music (auto-loop cont.)</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="audio-asset-2" lane="-2" name="music-short.wav" offset="360/30s" duration="150/30s" start="0/30s">
 
@@ -313,7 +313,7 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -338,13 +338,13 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Music (no loop)" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Music (no loop)</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="300/30s" start="0/30s">
 
@@ -360,13 +360,13 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop)" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Short music (auto-loop)</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <spine lane="-1" offset="0/30s">
                             <asset-clip ref="audio-asset-2" name="music-short.wav" offset="0/30s" duration="135/30s" start="0/30s">
@@ -419,13 +419,13 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 
                         <adjust-volume amount="-6dB"/>
                         <title ref="r2" lane="1" name="Short music (auto-loop cont.)" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Short music (auto-loop cont.)</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -443,7 +443,7 @@ exports[`overlay-test > DaVinci snapshot (1x font size) 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
         <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -452,12 +452,11 @@ exports[`overlay-test > DaVinci snapshot (1x font size) 1`] = `
     </resources>
     <library>
         <event name="Montai Export">
-            <project name="overlay-test">
-                <sequence format="r1" duration="660/30s" tcStart="0/1s" tcFormat="NDF">
+            <project name="overlay-test.1080p">
+                <sequence format="r1" duration="300/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 129"/>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts1" alignment="center">Center Title
 Line 2</text-style>
@@ -465,120 +464,127 @@ Line 2</text-style>
                             <text-style-def id="ts1">
                                 <text-style font="Helvetica Neue" fontSize="80" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
+                            <adjust-transform position="0 5.7778" />
                         </title>
-                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 964"/>
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts2" alignment="left">Top Left</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 45.5407" />
                         </title>
-                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 964"/>
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts3" alignment="right">Top Right</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 45.5407" />
                         </title>
-                        <title ref="r2" lane="4" name="Bottom Left" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -964"/>
+                        <title ref="r2" lane="4" name="Bottom Left Line 2" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
-                                <text-style ref="ts4" alignment="left">Bottom Left</text-style>
+                                <text-style ref="ts4" alignment="left">Bottom Left
+Line 2</text-style>
                             </text>
                             <text-style-def id="ts4">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
                         </title>
-                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -964"/>
+                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts5" alignment="center">Bottom Center</text-style>
                             </text>
                             <text-style-def id="ts5">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
-                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -964"/>
+                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts6" alignment="right">Bottom Right</text-style>
                             </text>
                             <text-style-def id="ts6">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 -40.963" />
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="360/30s" start="300/30s" tcFormat="NDF">
-                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="360/30s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts7" alignment="center">Fade Title</text-style>
                             </text>
                             <text-style-def id="ts7">
                                 <text-style font="Helvetica Neue" fontSize="80" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
                             </text-style-def>
+                            <adjust-transform position="0 1.3333" />
                         </title>
-                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101">
-                                <keyframeAnimation>
-                                    <keyframe time="0/1s" value="-1740 1330" interp="linear"/>
-                                    <keyframe time="9/30s" value="-1740 964"/>
-                                    <keyframe time="351/30s" value="-1740 964" interp="linear"/>
-                                    <keyframe time="360/30s" value="-1740 1330"/>
-                                </keyframeAnimation>
-                            </param>
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts8" alignment="left">Slide Subtitle</text-style>
                             </text>
                             <text-style-def id="ts8">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform>
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="-85.1852 55.6667" interp="linear"/>
+                                        <keyframe time="9/30s" value="-85.1852 45.5407"/>
+                                        <keyframe time="141/30s" value="-85.1852 45.5407" interp="linear"/>
+                                        <keyframe time="150/30s" value="-85.1852 55.6667"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
                         </title>
-                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 964"/>
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
                             </text>
                             <text-style-def id="ts9">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 45.5407" />
                         </title>
-                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -964"/>
+                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts10" alignment="left">Fade Subtitle</text-style>
                             </text>
                             <text-style-def id="ts10">
-                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 -40.963" />
                         </title>
-                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101">
-                                <keyframeAnimation>
-                                    <keyframe time="0/1s" value="0 -1330" interp="linear"/>
-                                    <keyframe time="9/30s" value="0 -976"/>
-                                    <keyframe time="351/30s" value="0 -976" interp="linear"/>
-                                    <keyframe time="360/30s" value="0 -1330"/>
-                                </keyframeAnimation>
-                            </param>
+                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts11" alignment="center">Slide Caption</text-style>
                             </text>
                             <text-style-def id="ts11">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="3" />
                             </text-style-def>
+                            <adjust-transform>
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="0 -54.7778" interp="linear"/>
+                                        <keyframe time="9/30s" value="0 -40.963"/>
+                                        <keyframe time="141/30s" value="0 -40.963" interp="linear"/>
+                                        <keyframe time="150/30s" value="0 -54.7778"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
                         </title>
-                        <title ref="r4" lane="6" name="Pop Caption" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -976"/>
+                        <title ref="r4" lane="6" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
-                                <text-style ref="ts12" alignment="right">Pop Caption</text-style>
+                                <text-style ref="ts12" alignment="right">Pop Subtitle</text-style>
                             </text>
                             <text-style-def id="ts12">
-                                <text-style font="Helvetica Neue" fontSize="32" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="8" />
+                                <text-style font="Helvetica Neue" fontSize="48" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="1 1" shadowBlurRadius="5" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -590,13 +596,13 @@ Line 2</text-style>
 "
 `;
 
-exports[`overlay-test > FCP snapshot (positions + animations) 1`] = `
+exports[`overlay-test > FCP snapshot (positions + animations, 1080p) 1`] = `
 "<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
         <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
@@ -605,12 +611,11 @@ exports[`overlay-test > FCP snapshot (positions + animations) 1`] = `
     </resources>
     <library>
         <event name="Montai Export">
-            <project name="overlay-test">
-                <sequence format="r1" duration="660/30s" tcStart="0/1s" tcFormat="NDF">
+            <project name="overlay-test.1080p">
+                <sequence format="r1" duration="300/30s" tcStart="0/1s" tcFormat="NDF">
                     <spine>
-                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
-                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 189"/>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts1" alignment="center">Center Title
 Line 2</text-style>
@@ -618,120 +623,450 @@ Line 2</text-style>
                             <text-style-def id="ts1">
                                 <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
+                            <adjust-transform position="0 5.7778" />
                         </title>
-                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 928"/>
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts2" alignment="left">Top Left</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 45.5407" />
                         </title>
-                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 928"/>
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts3" alignment="right">Top Right</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 45.5407" />
                         </title>
-                        <title ref="r2" lane="4" name="Bottom Left" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -928"/>
+                        <title ref="r2" lane="4" name="Bottom Left Line 2" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
-                                <text-style ref="ts4" alignment="left">Bottom Left</text-style>
+                                <text-style ref="ts4" alignment="left">Bottom Left
+Line 2</text-style>
                             </text>
                             <text-style-def id="ts4">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
                         </title>
-                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -928"/>
+                        <title ref="r2" lane="5" name="Bottom Center" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts5" alignment="center">Bottom Center</text-style>
                             </text>
                             <text-style-def id="ts5">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
-                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -928"/>
+                        <title ref="r2" lane="6" name="Bottom Right" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts6" alignment="right">Bottom Right</text-style>
                             </text>
                             <text-style-def id="ts6">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 -40.963" />
                         </title>
                     </asset-clip>
-                    <asset-clip ref="asset-1" name="landscape.mp4" offset="300/30s" duration="360/30s" start="300/30s" tcFormat="NDF">
-                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="360/30s" start="0/1s">
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts7" alignment="center">Fade Title</text-style>
                             </text>
                             <text-style-def id="ts7">
                                 <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
                             </text-style-def>
+                            <adjust-transform position="0 1.3333" />
                         </title>
-                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101">
-                                <keyframeAnimation>
-                                    <keyframe time="0/1s" value="-1740 1330" interp="linear"/>
-                                    <keyframe time="9/30s" value="-1740 928"/>
-                                    <keyframe time="351/30s" value="-1740 928" interp="linear"/>
-                                    <keyframe time="360/30s" value="-1740 1330"/>
-                                </keyframeAnimation>
-                            </param>
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts8" alignment="left">Slide Subtitle</text-style>
                             </text>
                             <text-style-def id="ts8">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform>
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="-85.1852 55.6667" interp="linear"/>
+                                        <keyframe time="9/30s" value="-85.1852 45.5407"/>
+                                        <keyframe time="141/30s" value="-85.1852 45.5407" interp="linear"/>
+                                        <keyframe time="150/30s" value="-85.1852 55.6667"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
                         </title>
-                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 928"/>
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
                             </text>
                             <text-style-def id="ts9">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 45.5407" />
                         </title>
-                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="-1740 -928"/>
+                        <title ref="r3" lane="4" name="Fade Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts10" alignment="left">Fade Subtitle</text-style>
                             </text>
                             <text-style-def id="ts10">
-                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="-85.1852 -40.963" />
                         </title>
-                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101">
-                                <keyframeAnimation>
-                                    <keyframe time="0/1s" value="0 -1330" interp="linear"/>
-                                    <keyframe time="9/30s" value="0 -952"/>
-                                    <keyframe time="351/30s" value="0 -952" interp="linear"/>
-                                    <keyframe time="360/30s" value="0 -1330"/>
-                                </keyframeAnimation>
-                            </param>
+                        <title ref="r2" lane="5" name="Slide Caption" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
                                 <text-style ref="ts11" alignment="center">Slide Caption</text-style>
                             </text>
                             <text-style-def id="ts11">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform>
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="0 -54.7778" interp="linear"/>
+                                        <keyframe time="9/30s" value="0 -40.963"/>
+                                        <keyframe time="141/30s" value="0 -40.963" interp="linear"/>
+                                        <keyframe time="150/30s" value="0 -54.7778"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
                         </title>
-                        <title ref="r4" lane="6" name="Pop Caption" offset="300/30s" duration="360/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="1740 -952"/>
+                        <title ref="r4" lane="6" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
                             <text>
-                                <text-style ref="ts12" alignment="right">Pop Caption</text-style>
+                                <text-style ref="ts12" alignment="right">Pop Subtitle</text-style>
                             </text>
                             <text-style-def id="ts12">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
                             </text-style-def>
+                            <adjust-transform position="85.1852 -40.963" />
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`overlay-test > FCP snapshot (positions + animations, 1080s) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r5" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
+        <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r5">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="overlay-test.1080s">
+                <sequence format="r1" duration="300/30s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="portrait.mp4" offset="0/30s" duration="150/30s" start="300/30s" format="r5" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts1" alignment="center">Center Title
+Line 2</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="0 4.4444" scale="0.86 0.86" />
+                        </title>
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts2" alignment="left">Top Left</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 43.7185" scale="0.516 0.516" />
+                        </title>
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="right">Top Right</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="46.2963 43.7185" scale="0.516 0.516" />
+                        </title>
+                        <title ref="r2" lane="4" name="B-Left Line 2" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts4" alignment="left">B-Left
+Line 2</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                        <title ref="r2" lane="5" name="Bottom" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts5" alignment="center">Bottom</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="0 -43.7185" scale="0.516 0.516" />
+                        </title>
+                        <title ref="r2" lane="6" name="B-Right" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts6" alignment="right">B-Right</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="46.2963 -43.7185" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="portrait.mp4" offset="150/30s" duration="150/30s" start="300/30s" format="r5" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts7" alignment="center">Fade Title</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                            <adjust-transform position="0 0" />
+                        </title>
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts8" alignment="left">Slide Subtitle</text-style>
+                            </text>
+                            <text-style-def id="ts8">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform scale="0.516 0.516">
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="-46.2963 55.6667" interp="linear"/>
+                                        <keyframe time="9/30s" value="-46.2963 43.7185"/>
+                                        <keyframe time="141/30s" value="-46.2963 43.7185" interp="linear"/>
+                                        <keyframe time="150/30s" value="-46.2963 55.6667"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
+                        </title>
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
+                            </text>
+                            <text-style-def id="ts9">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="46.2963 43.7185" scale="0.516 0.516" />
+                        </title>
+                        <title ref="r3" lane="4" name="Fade BL" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts10" alignment="left">Fade BL</text-style>
+                            </text>
+                            <text-style-def id="ts10">
+                                <text-style font="Helvetica Neue" fontSize="160" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -43.7185" scale="0.6 0.6" />
+                        </title>
+                        <title ref="r2" lane="5" name="Slide BC" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts11" alignment="center">Slide BC</text-style>
+                            </text>
+                            <text-style-def id="ts11">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform scale="0.344 0.344">
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="0 -54.7778" interp="linear"/>
+                                        <keyframe time="9/30s" value="0 -44.9037"/>
+                                        <keyframe time="141/30s" value="0 -44.9037" interp="linear"/>
+                                        <keyframe time="150/30s" value="0 -54.7778"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
+                        </title>
+                        <title ref="r4" lane="6" name="Pop BR" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts12" alignment="right">Pop BR</text-style>
+                            </text>
+                            <text-style-def id="ts12">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="46.2963 -43.7185" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`overlay-test > FCP snapshot (positions + animations, 1080v) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r3" name="Essential Fade" uid=".../Titles.localized/Essential Titles.localized/Essential Fade.localized/Essential Fade.moti" />
+        <effect id="r4" name="Essential Scale" uid=".../Titles.localized/Essential Titles.localized/Essential Scale.localized/Essential Scale.moti" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="overlay-test.1080v">
+                <sequence format="r1" duration="300/30s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="portrait.mp4" offset="0/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="Center Title Line 2" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts1" alignment="center">Center Title
+Line 2</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="0 2.5" scale="0.74 0.74" />
+                        </title>
+                        <title ref="r2" lane="2" name="Top Left" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts2" alignment="left">Top Left</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 46.2167" scale="0.444 0.444" />
+                        </title>
+                        <title ref="r2" lane="3" name="Top Right" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="right">Top Right</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="26.0417 46.2167" scale="0.444 0.444" />
+                        </title>
+                        <title ref="r2" lane="4" name="B-Left Line 2" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts4" alignment="left">B-Left
+Line 2</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                        <title ref="r2" lane="5" name="Bottom" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts5" alignment="center">Bottom</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="0 -46.2167" scale="0.444 0.444" />
+                        </title>
+                        <title ref="r2" lane="6" name="B-Right" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts6" alignment="right">B-Right</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="26.0417 -46.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="portrait.mp4" offset="150/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r3" lane="1" name="Fade Title" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts7" alignment="center">Fade Title</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="90" fontFace="Regular" fontColor="1 1 1 1" bold="1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="9" />
+                            </text-style-def>
+                            <adjust-transform position="0 0" />
+                        </title>
+                        <title ref="r2" lane="2" name="Slide Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts8" alignment="left">Slide Subtitle</text-style>
+                            </text>
+                            <text-style-def id="ts8">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform scale="0.444 0.444">
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="-26.0417 54.5" interp="linear"/>
+                                        <keyframe time="9/30s" value="-26.0417 46.2167"/>
+                                        <keyframe time="141/30s" value="-26.0417 46.2167" interp="linear"/>
+                                        <keyframe time="150/30s" value="-26.0417 54.5"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
+                        </title>
+                        <title ref="r4" lane="3" name="Pop Subtitle" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts9" alignment="right">Pop Subtitle</text-style>
+                            </text>
+                            <text-style-def id="ts9">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="26.0417 46.2167" scale="0.444 0.444" />
+                        </title>
+                        <title ref="r3" lane="4" name="Fade BL" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts10" alignment="left">Fade BL</text-style>
+                            </text>
+                            <text-style-def id="ts10">
+                                <text-style font="Helvetica Neue" fontSize="90" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="9" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -46.2167" scale="0.6 0.6" />
+                        </title>
+                        <title ref="r2" lane="5" name="Slide BC" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts11" alignment="center">Slide BC</text-style>
+                            </text>
+                            <text-style-def id="ts11">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform scale="0.296 0.296">
+                                <param name="position">
+                                    <keyframeAnimation>
+                                        <keyframe time="0/1s" value="0 -54" interp="linear"/>
+                                        <keyframe time="9/30s" value="0 -46.8833"/>
+                                        <keyframe time="141/30s" value="0 -46.8833" interp="linear"/>
+                                        <keyframe time="150/30s" value="0 -54"/>
+                                    </keyframeAnimation>
+                                </param>
+                            </adjust-transform>
+                        </title>
+                        <title ref="r4" lane="6" name="Pop BR" offset="300/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts12" alignment="right">Pop BR</text-style>
+                            </text>
+                            <text-style-def id="ts12">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="right" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="26.0417 -46.2167" scale="0.444 0.444" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -749,7 +1084,7 @@ exports[`transition-test > FCP snapshot 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Slide" uid="FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648" />
         <effect id="r5" name="Wipe" uid="FxPlug:857E2FBA-98DB-411B-A88C-CE6ABC1F65D8" />
@@ -768,13 +1103,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     <spine>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Hard Cut" offset="0/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Hard Cut</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="135/30s" duration="30/30s">
@@ -783,13 +1118,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Fade" offset="150/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Fade</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="285/30s" duration="30/30s">
@@ -800,13 +1135,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="150/30s" start="15/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Slide from-left" offset="15/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Slide from-left</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="435/30s" duration="30/30s">
@@ -817,13 +1152,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Slide from-right" offset="150/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts4" alignment="center">Slide from-right</text-style>
                             </text>
                             <text-style-def id="ts4">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="585/30s" duration="30/30s">
@@ -834,13 +1169,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Slide from-top" offset="300/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts5" alignment="center">Slide from-top</text-style>
                             </text>
                             <text-style-def id="ts5">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="735/30s" duration="30/30s">
@@ -851,13 +1186,13 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="750/30s" duration="150/30s" start="450/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Slide from-bottom" offset="450/30s" duration="120/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts6" alignment="center">Slide from-bottom</text-style>
                             </text>
                             <text-style-def id="ts6">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <transition offset="885/30s" duration="30/30s">
@@ -868,24 +1203,24 @@ exports[`transition-test > FCP snapshot 1`] = `
                     </transition>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="900/30s" duration="150/30s" start="300/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Wipe from-left" offset="300/30s" duration="150/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts7" alignment="center">Wipe from-left</text-style>
                             </text>
                             <text-style-def id="ts7">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="1050/30s" duration="600/30s" start="600/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Slow-mo 0.5x" offset="600/30s" duration="600/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts8" alignment="center">Slow-mo 0.5x</text-style>
                             </text>
                             <text-style-def id="ts8">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
@@ -903,7 +1238,7 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
 <fcpxml version="1.11">
     <resources>
         <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <effect id="r2" name="Basic Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
         </asset>
@@ -924,13 +1259,13 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                     <spine>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Voiceover segment 1" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts1" alignment="center">Voiceover segment 1</text-style>
                             </text>
                             <text-style-def id="ts1">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="audio-asset-1" lane="-1" name="music-long.wav" offset="0/30s" duration="900/30s" start="0/30s">
 
@@ -945,25 +1280,25 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
                     </asset-clip>
                     <asset-clip ref="asset-2" name="portrait-misoriented.mp4" offset="300/30s" duration="300/30s" start="0/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Voiceover segment 2" offset="0/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts2" alignment="center">Voiceover segment 2</text-style>
                             </text>
                             <text-style-def id="ts2">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                         <asset-clip ref="vo-asset-1" lane="-3" name="narration.wav" offset="30/30s" duration="210/30s" start="450/30s" />
                     </asset-clip>
                     <asset-clip ref="asset-1" name="landscape.mp4" offset="600/30s" duration="300/30s" start="300/30s" tcFormat="NDF">
                         <title ref="r2" lane="1" name="Music only (no voiceover)" offset="300/30s" duration="300/30s" start="0/1s">
-                            <param name="Position" key="9999/10085/10086/1/100/101" value="0 -952"/>
                             <text>
                                 <text-style ref="ts3" alignment="center">Music only (no voiceover)</text-style>
                             </text>
                             <text-style-def id="ts3">
-                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="4 4" shadowBlurRadius="16" />
+                                <text-style font="Helvetica Neue" fontSize="64" fontFace="Regular" fontColor="1 1 1 1" alignment="center" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
                             </text-style-def>
+                            <adjust-transform position="0 -40.963" />
                         </title>
                     </asset-clip>
                     </spine>
