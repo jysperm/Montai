@@ -28,6 +28,24 @@ import type { FeatureFlags } from '../feature-flags.js';
 type StoryRow = typeof stories.$inferSelect;
 
 const AUTO_BACKUP_MARK_NAME = 'last-overwritten';
+const INTRO_EXISTING_STORY_INSTRUCTION = 'Briefly introduce the current storyline and timeline state, then wait for my direction.';
+const INTRO_NEW_STORY_INSTRUCTION = 'Briefly introduce what these source videos contain and wait for my direction before proceeding.';
+
+function getUserMessageText(message: Message): string | null {
+  if (message.role !== 'user') return null;
+  if (typeof message.content === 'string') return message.content;
+
+  const text = message.content
+    .filter((item) => item.type === 'text')
+    .map((item) => item.text)
+    .join('');
+
+  return text || null;
+}
+
+function isStoryIntroInstruction(text: string | null): boolean {
+  return text === INTRO_EXISTING_STORY_INSTRUCTION || text === INTRO_NEW_STORY_INSTRUCTION;
+}
 
 export interface StoryAgentOptions {
   db: MontaiDb;
@@ -357,7 +375,14 @@ export class StoryAgent {
       replayStart = 1;
       if (replayStart < this.resumedMessages.length) {
         const next = this.resumedMessages[replayStart] as Message;
-        if (next.role === 'user' && typeof next.content === 'string' && next.content.startsWith('Direction from the user: ')) {
+        const text = getUserMessageText(next);
+        if (text?.startsWith('Direction from the user: ')) {
+          replayStart++;
+        }
+      }
+      if (replayStart < this.resumedMessages.length) {
+        const next = this.resumedMessages[replayStart] as Message;
+        if (isStoryIntroInstruction(getUserMessageText(next))) {
           replayStart++;
         }
       }
@@ -376,7 +401,7 @@ export class StoryAgent {
       const m = this.resumedMessages[i] as Message;
       if (m.role === 'user') {
         hadReplayToolOutput = false;
-        const text = typeof m.content === 'string' ? m.content : null;
+        const text = getUserMessageText(m);
         if (text) {
           console.log(formatUserInput(text));
           console.log('');
@@ -873,8 +898,8 @@ export class StoryAgent {
         this.spinner.start();
       }
       const introInstruction = contextData.storyline
-        ? 'Briefly introduce the current storyline and timeline state, then wait for my direction.'
-        : 'Briefly introduce what these source videos contain and wait for my direction before proceeding.';
+        ? INTRO_EXISTING_STORY_INSTRUCTION
+        : INTRO_NEW_STORY_INSTRUCTION;
       await this.runAgent(introInstruction);
     }
     this.agent.state.tools = this.allTools;

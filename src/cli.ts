@@ -124,7 +124,7 @@ program
 
 program
   .command('clean')
-  .description('Remove generated cache files (.montai/)')
+  .description('Remove generated cache files (.montai)')
   .action(cleanCommand);
 
 program.action(() => {
