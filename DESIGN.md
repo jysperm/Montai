@@ -32,8 +32,8 @@ output:
   resolution: 1080p             # landscape 720p|1080p|1440p|2160p|4k; vertical 720v|1080v|1440v; square 720s|1080s|1440s
   fps: 50
 models:
-  analysis: gemini-3-flash-preview       # Per-video analysis
-  editing: gemini-3.1-pro-preview         # Story agent loop
+  analysis: gemini-3.5-flash             # Per-video analysis
+  editing: gemini-3.5-flash              # Story agent loop
   musicGeneration: lyria-002            # Optional: enables AI music generation
 effects:
   languages: [zh, en]           # Subtitle / caption languages
@@ -365,7 +365,7 @@ Audio lane assignment in FCPXML reuses lanes for non-overlapping music groups an
 
 ## Gemini Integration
 
-Uses Gemini 3 preview models (gemini-3-flash-preview, gemini-3.1-pro-preview) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
+Uses Gemini 3 models (default `gemini-3.5-flash`) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support and local model registry updates when needed).
 
 - **pi-ai**: Unified LLM abstraction, patched to support `FileContent` type for Gemini File API references (`fileData` + `videoMetadata`)
 - **pi-agent-core**: Agent loop orchestration for the `story` command, with tool execution and automatic conversation management
@@ -390,8 +390,8 @@ Configurable per-stage via `models` in `montai.yaml`.
 
 | Stage | Video Input | Default | Supported Models |
 |-------|------------|---------|-----------------|
-| analysis | Yes | gemini-3-flash-preview | gemini-3-flash-preview, gemini-3.1-pro-preview |
-| editing | Yes | gemini-3.1-pro-preview | gemini-3-flash-preview, gemini-3.1-pro-preview |
+| analysis | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
+| editing | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
 | musicGeneration | No | N/A | lyria-002 |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.

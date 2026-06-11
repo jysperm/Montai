@@ -39,8 +39,8 @@ export const OutputSchema = z.object({
 });
 
 export const ModelsSchema = z.object({
-  analysis: z.string().default('gemini-3-flash-preview'),
-  editing: z.string().default('gemini-3.1-pro-preview'),
+  analysis: z.string().default('gemini-3.5-flash'),
+  editing: z.string().default('gemini-3.5-flash'),
   musicGeneration: z.enum(['lyria-002']).optional(),
 });
 

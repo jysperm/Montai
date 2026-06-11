@@ -1,7 +1,8 @@
-import { readFileSync, statSync, readdirSync, existsSync } from 'fs';
+import { readFileSync, statSync, readdirSync, existsSync, writeFileSync } from 'fs';
 import { resolve, extname, basename, join } from 'path';
 import { homedir } from 'os';
 import { parse as parseYaml } from 'yaml';
+import * as readline from 'readline';
 import { ProjectConfigSchema, type ProjectConfig } from '../schemas/project.js';
 import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
@@ -13,6 +14,20 @@ import type { ExpandedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg']);
+
+export const DEFAULT_PROJECT_CONFIG_YAML = `assets:
+  videos:
+    - .
+language: en
+output:
+  resolution: 1080p
+  fps: 50
+models:
+  analysis: gemini-3.5-flash
+  editing: gemini-3.5-flash
+effects:
+  languages: [zh, en]
+`;
 
 export function readProjectFile(filename: string): string | null {
   const filepath = resolve(filename);
@@ -37,6 +52,25 @@ export function loadProjectConfig(configPath = 'montai.yaml'): ProjectConfig {
   const raw = readFileSync(resolvedPath, 'utf-8');
   const parsed = parseYaml(raw);
   return ProjectConfigSchema.parse(parsed);
+}
+
+export async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
+  const resolvedPath = resolve(configPath);
+  if (existsSync(resolvedPath)) return;
+
+  console.log(chalk.yellow(`Config file not found: ${resolvedPath}`));
+  console.log(chalk.dim(`Will create with default content:\n${DEFAULT_PROJECT_CONFIG_YAML}`));
+
+  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+  await new Promise<void>((res) => {
+    rl.question(chalk.blue('Press Enter to create, or Ctrl-C to cancel... '), () => {
+      rl.close();
+      res();
+    });
+  });
+
+  writeFileSync(resolvedPath, DEFAULT_PROJECT_CONFIG_YAML, 'utf-8');
+  console.log(chalk.green(`Created ${resolvedPath}`));
 }
 
 export function resolveVideoFiles(config: ProjectConfig): string[] {
@@ -202,4 +236,3 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   });
   return { timelines, correctionCount, errors: allErrors };
 }
-

@@ -34,7 +34,7 @@ export const config: ProjectConfig = {
   assets: { videos: ['.'], music: [], voiceover: [] },
   language: 'en',
   output: { resolution: '1080p', fps: 30 },
-  models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3.1-pro-preview' },
+  models: { analysis: 'gemini-3.5-flash', editing: 'gemini-3.5-flash' },
   effects: { languages: ['en'] },
   featureFlags: {},
 };

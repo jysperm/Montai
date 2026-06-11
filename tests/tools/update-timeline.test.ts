@@ -34,7 +34,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
       assets: { videos: ['.'], music: [], voiceover: [] },
       language: 'en' as const,
       output: { resolution: '1080p' as const, fps: 50 },
-      models: { analysis: 'gemini-3-flash-preview', editing: 'gemini-3.1-pro-preview' },
+      models: { analysis: 'gemini-3.5-flash', editing: 'gemini-3.5-flash' },
       effects: { languages: ['en'] },
       featureFlags: {},
     },

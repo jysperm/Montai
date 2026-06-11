@@ -35,7 +35,7 @@ describe.skip('video FileContent in agent context', () => {
   it('model can describe video content returned by a tool', async () => {
     const fileUri = await uploadVideo(VIDEO_PATH);
 
-    const model = getModel('google', 'gemini-3-flash-preview');
+    const model = getModel('google', 'gemini-3.5-flash');
 
     const watchTool = {
       name: 'watch_video',
@@ -122,7 +122,7 @@ describe.skip('video FileContent in agent context', () => {
 
     expect(toolCalled).toBe(true);
     // The model should produce some text response after watching the video.
-    // Gemini 3 Flash Preview can be terse; we just verify the tool was called
+    // Gemini Flash can be terse; we just verify the tool was called
     // and the model produced a non-empty response referencing video content.
     expect(assistantText.length).toBeGreaterThan(0);
   }, 300_000);

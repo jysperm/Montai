@@ -1,46 +1,12 @@
 import chalk from 'chalk';
 import * as readline from 'readline';
 import { initDb } from '../db/index.js';
-import { loadProjectConfig } from '../utils/project.js';
-import { existsSync, writeFileSync } from 'fs';
-import { resolve } from 'path';
+import { ensureProjectConfig, loadProjectConfig } from '../utils/project.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { syncAndAnalyzeVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
 import { syncAndAnalyzeMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
 import { syncAndAnalyzeVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
 import { formatCost } from '../analyzer/utils.js';
-
-async function ensureProjectConfig(configPath = 'montai.yaml'): Promise<void> {
-  const resolvedPath = resolve(configPath);
-  if (existsSync(resolvedPath)) return;
-
-  const defaultConfig = `assets:
-  videos:
-    - .
-language: en
-output:
-  resolution: 1080p
-  fps: 50
-models:
-  analysis: gemini-3-flash-preview
-  editing: gemini-3.1-pro-preview
-effects:
-  languages: [zh, en]
-`;
-  console.log(chalk.yellow(`Config file not found: ${resolvedPath}`));
-  console.log(chalk.dim(`Will create with default content:\n${defaultConfig}`));
-
-  const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
-  await new Promise<void>((res) => {
-    rl.question(chalk.blue('Press Enter to create, or Ctrl-C to cancel... '), () => {
-      rl.close();
-      res();
-    });
-  });
-
-  writeFileSync(resolvedPath, defaultConfig, 'utf-8');
-  console.log(chalk.green(`Created ${resolvedPath}`));
-}
 
 export async function analyzeCommand(options: { reRun?: string | boolean; force?: boolean; show?: string; list?: boolean }) {
   await ensureProjectConfig();

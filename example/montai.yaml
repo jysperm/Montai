@@ -6,8 +6,8 @@ output:
   resolution: 1080p
   fps: 50
 models:
-  analysis: gemini-3-flash-preview
-  editing: gemini-3-flash-preview
+  analysis: gemini-3.5-flash
+  editing: gemini-3.5-flash
   musicGeneration: lyria-002
 effects:
   languages: [en]
