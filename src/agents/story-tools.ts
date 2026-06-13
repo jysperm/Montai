@@ -71,7 +71,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     description: `Save the current storyline. First call creates the story, subsequent calls update it. Text fields must be in ${ctx.languageName}.`,
     parameters: Type.Object({
       name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Required on first call to create the story; omit on subsequent calls to keep the existing name' })),
-      title: Type.Optional(Type.String({ description: `Human-readable title for the video, in ${ctx.languageName}. Required on first call; omit on subsequent calls to keep the existing title.` })),
+      title: Type.Optional(Type.String({ description: `Neutral story label that names the main subject and activity, in ${ctx.languageName}. Required on first call; omit on subsequent calls to keep the existing title.` })),
       brief: Type.String({ description: `Free-form markdown for the storyline, capturing user requirements, creative direction, and current edit structure, in ${ctx.languageName}` }),
     }),
     async execute(
