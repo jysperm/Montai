@@ -20,6 +20,19 @@ export function formatTimestamp(seconds: number): string {
   return `${m}:${s.toString().padStart(2, '0')}`;
 }
 
+function isFiniteNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value);
+}
+
+function formatFpsSuffix(fps: unknown): string {
+  return isFiniteNumber(fps) && fps > 1 ? `, ${fps} fps` : '';
+}
+
+function formatPreviewOffset(offset: unknown): string {
+  if (!isFiniteNumber(offset)) return '+?';
+  return offset >= 0 ? `+${offset}s` : `${offset}s`;
+}
+
 export function formatUserInput(text: string, isSlash = false): string {
   const cols = process.stdout.columns || 80;
   const prompt = isSlash ? chalk.cyan('/ ') : chalk.green('> ');
@@ -233,7 +246,7 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
         const startSec = args.startSeconds as number;
         const endSec = args.endSeconds as number;
         const dur = formatDuration(endSec - startSec);
-        console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur})`);
+        console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur}${formatFpsSuffix(args.fps)})`);
         return;
       } else {
         break;
@@ -260,6 +273,28 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
           summary = 'no changes';
         }
         console.log(`  ${check} ${label}: ${summary}`);
+        return;
+      } else {
+        break;
+      }
+    }
+    case 'previewFrame': {
+      if (!error) {
+        const clipIndex = args.clipIndex as number | undefined;
+        console.log(`  ${check} ${label}: clip ${clipIndex ?? '?'}${formatPreviewOffset(args.timeOffset)}`);
+        return;
+      } else {
+        break;
+      }
+    }
+    case 'previewFinalVideo': {
+      if (!error) {
+        const startSec = isFiniteNumber(args.startSeconds) ? args.startSeconds : 0;
+        const endSec = args.endSeconds;
+        const range = isFiniteNumber(endSec)
+          ? `${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${formatDuration(endSec - startSec)}`
+          : `${formatTimestamp(startSec)} - end`;
+        console.log(`  ${check} ${label}: ${range}${formatFpsSuffix(args.fps)}`);
         return;
       } else {
         break;
