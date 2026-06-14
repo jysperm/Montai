@@ -765,10 +765,10 @@ export function generateFcpxml(
         const overlayDurationSeconds = overlaySeqEnd - overlaySeqStart;
         const titleDuration = toRational(overlayDurationSeconds, fps);
         // KNOWN ISSUE (pop/slide/static long corner text in narrow frames): the
-        // narrow-frame floor+scale path renders text oversized then shrinks it,
-        // so long left/right-aligned text overflows the frame and is clipped
-        // before the down-scale. Affects all templates. Tracked in
-        // drafts/fcp-overlay-narrow-frame-clipping.md.
+        // narrow-frame scale path renders text at the template's default size
+        // then shrinks it with <adjust-transform scale>, so long left/right-
+        // aligned text overflows the frame and is clipped before the down-scale.
+        // Affects all templates. Tracked in drafts/fcp-overlay-narrow-frame-clipping.md.
         const effectRef = titleEffectRef(overlay, { essentialId: titleEffectId, fadeId: titleFadeId, scaleId: titleScaleId });
         spine.push(makeTitleXml(overlay.text, nextTs(), titleOffset, titleDuration, II, effectRef, overlay.position, overlay.style, titleLayout, oi + 1, overlay.animation, overlayDurationSeconds, fps));
       }

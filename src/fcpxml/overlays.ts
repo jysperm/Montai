@@ -18,9 +18,10 @@ const TITLE_MARGIN_PX = 40;          // edge margin at 1080 short edge
 // short edge, ×s) from the frame margin to the text's outer edge; `baseline` is
 // a fontPx-fraction upward shift for centered titles. Values are calibrated
 // against FCP imports to preserve the single-line subtitle positions while
-// letting other styles edge-align. They differ per aspect because FCP's font
-// floor / line-spacing behavior differs between the landscape (fontSize) path
-// and the narrow-frame (scale) path.
+// letting other styles edge-align. They differ per aspect because the landscape
+// (fontSize) path and the narrow-frame (scale) path place text differently:
+// under conform (narrow frames) FCP ignores the generated fontSize/position and
+// the title is instead sized by raster scale, so the edge geometry differs.
 // captionFixCoeff realigns a bottom caption's edge to the bottom subtitle edge.
 // The line-height edge model leaves a per-font-size residual and bottomGap is tuned
 // to the subtitle, so the smaller caption lands off by coeff×(subtitlePx−captionPx)×s;
@@ -31,14 +32,16 @@ const TITLE_ANCHOR = {
   square:    { topGap: -0.96, bottomGap: -0.96, baseline: 0, captionFixCoeff: -0.2 },
 } as const;
 
-// FCP clamps an Essential Title's font to a minimum on-screen size in narrow
-// (vertical/square) frames, so fontSize alone can't reach the target there.
-// Instead we render at a fixed floor-regime fontSize and shrink the whole title
-// with <adjust-transform scale>. The scale mapping the clamped render to the
-// title target was measured in FCP; it's resolution-independent (the floor
-// scales with the frame) but differs by aspect. Subtitle/caption scale down
-// proportionally from the title scale.
-const TITLE_FLOOR_FONTSIZE = 60;
+// In narrow (vertical/square) frames the Essential Title's 1920×1080 canvas is
+// conformed into the sequence; under that conform FCP ignores the generated
+// text-style fontSize entirely and renders at the template's default size, so
+// fontSize can't set size there. Instead we render at a fixed base fontSize and
+// shrink the whole title with <adjust-transform scale>, which scales the
+// rendered raster and is unaffected by the conform. The scale mapping the
+// rendered size to the title target was measured in FCP; it's
+// resolution-independent (the conform scales with the frame) but differs by
+// aspect. Subtitle/caption scale down proportionally from the title scale.
+const TITLE_SCALE_BASE_FONTSIZE = 60;
 const TITLE_SCALE_VERTICAL = 0.74;   // 9:16
 const TITLE_SCALE_SQUARE = 0.86;     // 1:1
 
@@ -58,8 +61,9 @@ export interface TitleLayout {
 
 export function buildTitleLayout(width: number, height: number, target: 'fcp' | 'davinci'): TitleLayout {
   const shortEdge = Math.min(width, height);
-  // Landscape (and DaVinci, which has no clamp) size titles via fontSize; FCP
-  // vertical/square hit the font floor, so use the adjust-transform scale path.
+  // Landscape (and DaVinci, which ignores the template) size titles via fontSize;
+  // FCP conforms the title canvas in vertical/square and ignores the generated
+  // fontSize there, so use the adjust-transform scale path.
   const scaleMode = target === 'fcp' && width <= height;
   const aspectScale = width < height ? TITLE_SCALE_VERTICAL : TITLE_SCALE_SQUARE;
   // Font-sizing mode: FCP renders fontSize at value × height/2160, so fontScale =
@@ -84,7 +88,7 @@ function titleTransformPos(
   const halfW = W / 2, halfH = H / 2;
 
   // Both quantities derive from the on-screen (visual) font size, so they're the
-  // same across the floor and fontSize render paths and across styles: lineStep
+  // same across the scale and fontSize render paths and across styles: lineStep
   // is the multi-line center-to-center spacing; halfLine converts a line center
   // to its outer visual edge (used for edge-aligning different styles).
   const lineStep = LINE_HEIGHT * fontPx;
@@ -136,25 +140,28 @@ export function makeTitleXml(
 ): string {
   const lineCount = text.split('\n').length;
 
-  // Narrow-frame sizing (scaleMode): both Essential Title and Essential Fade clamp
-  // small fonts to a per-template on-screen minimum, so subtitle/caption can't be
-  // reached by fontSize alone — we render large and shrink with an
-  // <adjust-transform scale> (the subtitle/caption scale down from the title).
-  // The two templates have DIFFERENT floors, so they need different bases:
-  //  - Essential Title (static/slide/pop): floor is high → render at TITLE_FLOOR_FONTSIZE
+  // Narrow-frame sizing (scaleMode): in vertical/square sequences the Essential
+  // Titles' 1920×1080 canvas is conformed into the frame, and under that conform
+  // FCP ignores the generated text-style fontSize, rendering every title at the
+  // template's default size. So we can't size via fontSize here — we render at a
+  // fixed base fontSize and shrink the whole title with <adjust-transform scale>
+  // (subtitle/caption scale down from the title). The two templates have
+  // DIFFERENT default sizes under conform (a side effect of their differing
+  // animation-rig rest states), so they need different bases:
+  //  - Essential Title (static/slide/pop): render at TITLE_SCALE_BASE_FONTSIZE
   //    and shrink by the measured aspectScale (× style ratio).
-  //  - Essential Fade: floor sits ~at the title size → render at the title's own
-  //    fontSize (which clears the floor cleanly) and shrink by the pure style
-  //    ratio. The fade title is unchanged (ratio 1); fade subtitle/caption, which
-  //    previously rendered too big via the plain fontSize path, now hit target.
-  // Landscape (no clamp) sizes everything directly via fontSize.
+  //  - Essential Fade: its default sits ~at the title size → render at the
+  //    title's own fontSize and shrink by the pure style ratio. The fade title is
+  //    unchanged (ratio 1); fade subtitle/caption, which would otherwise render
+  //    too big, hit target.
+  // Landscape (canvas matches the frame, no conform) sizes directly via fontSize.
   const isFade = animation?.type === 'fade';
-  const useFloor = layout.scaleMode && !isFade;
+  const useScaleBase = layout.scaleMode && !isFade;
   const useFadeScale = layout.scaleMode && isFade;
   const { tx, ty, alignment } = titleTransformPos(position, style, lineCount, layout);
   let fontSize: number, titleScale: number;
-  if (useFloor) {
-    fontSize = TITLE_FLOOR_FONTSIZE;
+  if (useScaleBase) {
+    fontSize = TITLE_SCALE_BASE_FONTSIZE;
     titleScale = layout.aspectScale * TITLE_FONT_PX[style] / TITLE_FONT_PX.title;
   } else if (useFadeScale) {
     fontSize = Math.round(TITLE_FONT_PX.title * layout.fontScale);
