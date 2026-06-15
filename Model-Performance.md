@@ -4,7 +4,7 @@
 
 ### Gemini 3 Flash (`gemini-3.5-flash`)
 
-- **Misreads `MM:SS` timestamps as concatenated decimal seconds** When `video-analysis` segments render as `MM:SS` and the model converts them to integer seconds for `watchSegment(startSeconds, endSeconds)`, it sometimes strips the colon instead of computing `MM*60+SS`. `00:XX` happens to give the right number, so the bug is silent until the minute digit is non-zero — e.g. `01:28` becomes `128` instead of `88`.
+- **Misreads `MM:SS` timestamps as concatenated decimal seconds** When `video-analysis` segments render as `MM:SS` and the model converts them to integer seconds, it sometimes strips the colon instead of computing `MM*60+SS`. `00:XX` happens to give the right number, so the bug is silent until the minute digit is non-zero — e.g. `01:28` becomes `128` instead of `88`. Mitigation: source-file timestamps exposed to the story agent now use `MM:SS` fields (`watchSegment.startTime`/`endTime`, timeline `startTime`/`endTime`) and are parsed by tools internally; timeline offsets and durations remain seconds.
 
 #### `gemini-3-flash-preview`
 

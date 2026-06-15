@@ -3,12 +3,55 @@ import { z } from 'zod';
 import type { ProjectConfig } from './project.js';
 import { resolveResolution, sequenceShape } from './project.js';
 import { TransitionSchema, CropSchema, type ExpandedTimeline } from './timeline.js';
+import { TIMESTAMP_PATTERN, parseTimestamp, secondsToTimestamp } from '../utils/time.js';
 
-export const ClipItemSchema = z.object({
+const TimestampSchema = z.string().regex(TIMESTAMP_PATTERN, 'must be MM:SS or MM:SS.s');
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function legacySecondsToTimestamp(value: unknown): string | undefined {
+  return typeof value === 'number' && Number.isFinite(value)
+    ? secondsToTimestamp(value)
+    : undefined;
+}
+
+function normalizeLegacyTimelineItem(value: unknown): unknown {
+  if (!isRecord(value)) return value;
+  const next = { ...value };
+  if (next.type === 'clip') {
+    next.startTime ??= legacySecondsToTimestamp(next.startTimeSeconds);
+    next.endTime ??= legacySecondsToTimestamp(next.endTimeSeconds);
+    delete next.startTimeSeconds;
+    delete next.endTimeSeconds;
+  } else if (next.type === 'music') {
+    next.startTime ??= legacySecondsToTimestamp(next.audioStartSeconds);
+    delete next.audioStartSeconds;
+  } else if (next.type === 'voiceover') {
+    next.startTime ??= legacySecondsToTimestamp(next.audioStartSeconds);
+    next.endTime ??= legacySecondsToTimestamp(next.audioEndSeconds);
+    delete next.audioStartSeconds;
+    delete next.audioEndSeconds;
+  }
+  return next;
+}
+
+function schemaDefaults(schema: z.ZodObject): Record<string, unknown> {
+  const defaults: Record<string, unknown> = {};
+  for (const [key, fieldSchema] of Object.entries(schema.shape)) {
+    if (key === 'type') continue;
+    const def = (fieldSchema as z.ZodType)._zod?.def as { type?: string; defaultValue?: unknown } | undefined;
+    if (def?.type === 'default') defaults[key] = def.defaultValue;
+  }
+  return defaults;
+}
+
+const ClipItemObjectSchema = z.object({
   type: z.literal('clip'),
   videoId: z.number(),
-  startTimeSeconds: z.number(),
-  endTimeSeconds: z.number(),
+  startTime: TimestampSchema,
+  endTime: TimestampSchema,
   playbackRate: z.number().default(1),
   volume: z.number().default(1),
   transition: TransitionSchema.optional().catch(undefined),
@@ -17,6 +60,8 @@ export const ClipItemSchema = z.object({
   crop: CropSchema.optional().catch(undefined),
   cropEnd: CropSchema.optional().catch(undefined),
 });
+
+export const ClipItemSchema = z.preprocess(normalizeLegacyTimelineItem, ClipItemObjectSchema);
 
 export const OverlayItemSchema = z.object({
   type: z.literal('overlay'),
@@ -30,38 +75,41 @@ export const OverlayItemSchema = z.object({
   animation: z.enum(['none', 'fade', 'slide', 'pop']).default('none'),
 });
 
-export const MusicItemSchema = z.object({
+const MusicItemObjectSchema = z.object({
   type: z.literal('music'),
   startClip: z.number().int().min(0),
   startOffset: z.number().default(0),
   endClip: z.number().int().min(0).optional(),
   endOffset: z.number().default(0),
   musicId: z.number(),
-  audioStartSeconds: z.number().default(0),
+  startTime: TimestampSchema.default('00:00'),
   volume: z.number().default(1),
   fadeInSeconds: z.number().default(0),
   fadeOutSeconds: z.number().default(0),
 });
 
+export const MusicItemSchema = z.preprocess(normalizeLegacyTimelineItem, MusicItemObjectSchema);
 
-export const VoiceoverItemSchema = z.object({
+const VoiceoverItemObjectSchema = z.object({
   type: z.literal('voiceover'),
   voiceoverId: z.number(),
   startClip: z.number().int().min(0),
   startOffset: z.number().default(0),
-  audioStartSeconds: z.number().min(0),
-  audioEndSeconds: z.number(),
+  startTime: TimestampSchema,
+  endTime: TimestampSchema,
   volume: z.number().default(1),
-}).refine(v => v.audioEndSeconds > v.audioStartSeconds, {
-  message: 'audioEndSeconds must be greater than audioStartSeconds',
 });
 
-export const TimelineItemSchema = z.discriminatedUnion('type', [
-  ClipItemSchema,
+export const VoiceoverItemSchema = z.preprocess(normalizeLegacyTimelineItem, VoiceoverItemObjectSchema);
+
+const TimelineItemObjectSchema = z.discriminatedUnion('type', [
+  ClipItemObjectSchema,
   OverlayItemSchema,
-  MusicItemSchema,
-  VoiceoverItemSchema,
+  MusicItemObjectSchema,
+  VoiceoverItemObjectSchema,
 ]);
+
+export const TimelineItemSchema = z.preprocess(normalizeLegacyTimelineItem, TimelineItemObjectSchema);
 
 export type ClipItem = z.infer<typeof ClipItemSchema>;
 export type OverlayItem = z.infer<typeof OverlayItemSchema>;
@@ -69,29 +117,30 @@ export type MusicItem = z.infer<typeof MusicItemSchema>;
 export type VoiceoverItem = z.infer<typeof VoiceoverItemSchema>;
 export type TimelineItem = ClipItem | OverlayItem | MusicItem | VoiceoverItem;
 
+export function sourceFileStartSeconds(item: { startTime?: string; startTimeSeconds?: number; audioStartSeconds?: number }): number {
+  if (item.startTime != null) return parseTimestamp(item.startTime);
+  if (typeof item.startTimeSeconds === 'number') return item.startTimeSeconds;
+  if (typeof item.audioStartSeconds === 'number') return item.audioStartSeconds;
+  throw new Error('startTime is required');
+}
+
+export function sourceFileEndSeconds(item: { endTime?: string; endTimeSeconds?: number; audioEndSeconds?: number }): number {
+  if (item.endTime != null) return parseTimestamp(item.endTime);
+  if (typeof item.endTimeSeconds === 'number') return item.endTimeSeconds;
+  if (typeof item.audioEndSeconds === 'number') return item.audioEndSeconds;
+  throw new Error('endTime is required');
+}
+
 /**
  * Strip fields that match their Zod-schema default values from timeline items.
  * Used when serializing for DB storage and LLM context to reduce noise.
- * Default map is auto-extracted from the discriminatedUnion schema at init time.
  */
-const defaultsMap: Record<string, Record<string, unknown>> = (() => {
-  const map: Record<string, Record<string, unknown>> = {};
-  const options = (TimelineItemSchema as any)._zod?.def?.options;
-  if (!options) return map;
-  for (const opt of options) {
-    const shape = opt.shape;
-    const typeVal = shape?.type?._zod?.def?.values?.[0];
-    if (!typeVal) continue;
-    const defaults: Record<string, unknown> = {};
-    for (const [key, fs] of Object.entries(shape)) {
-      if (key === 'type') continue;
-      const d = (fs as any)._zod?.def;
-      if (d && d.defaultValue !== undefined) defaults[key] = d.defaultValue;
-    }
-    map[typeVal] = defaults;
-  }
-  return map;
-})();
+const defaultsMap: Record<string, Record<string, unknown>> = {
+  clip: schemaDefaults(ClipItemObjectSchema),
+  overlay: schemaDefaults(OverlayItemSchema),
+  music: schemaDefaults(MusicItemObjectSchema),
+  voiceover: schemaDefaults(VoiceoverItemObjectSchema),
+};
 
 export function stripTimelineDefaults(items: TimelineItem[]): Record<string, unknown>[] {
   return items.map((item) => {
@@ -118,7 +167,7 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
   let ct = 0;
   for (let i = 0; i < clipItems.length; i++) {
     const clip = clipItems[i];
-    const dur = (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
+    const dur = (sourceFileEndSeconds(clip) - sourceFileStartSeconds(clip)) / clip.playbackRate;
     if (i > 0 && clip.transition) ct -= clip.transition.durationSeconds;
     clipStartTimes.push(ct);
     clipDurations.push(dur);
@@ -144,7 +193,7 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
     .filter((i): i is VoiceoverItem => i.type === 'voiceover')
     .map((vo) => {
       const start = Math.max(0, resolveStart(vo.startClip, vo.startOffset));
-      const duration = vo.audioEndSeconds - vo.audioStartSeconds;
+      const duration = sourceFileEndSeconds(vo) - sourceFileStartSeconds(vo);
       return {
         voiceoverId: vo.voiceoverId,
         timelineStart: fmt(start),
@@ -194,8 +243,8 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
         timelineStart: fmt(start),
         timelineEnd: fmt(end),
         duration: fmt(end - start),
-        audioStart: fmt(m.audioStartSeconds),
-        audioEnd: fmt(m.audioStartSeconds + (end - start)),
+        startTime: m.startTime,
+        endTime: secondsToTimestamp(sourceFileStartSeconds(m) + (end - start)),
       };
     });
 
@@ -281,12 +330,29 @@ export function expandTimeline(
     if (item.type === 'music' && musicFiles) {
       const musicFile = musicFiles.find((m) => m.id === item.musicId);
       const musicDuration = musicFile?.durationSeconds;
-      if (musicDuration && item.audioStartSeconds >= musicDuration) {
-        const normalized = item.audioStartSeconds % musicDuration;
+      const itemStartSeconds = sourceFileStartSeconds(item);
+      if (musicDuration && itemStartSeconds >= musicDuration) {
+        const normalized = itemStartSeconds % musicDuration;
         corrections.push(
-          `Music item (musicId=${item.musicId}): audioStartSeconds ${item.audioStartSeconds}s exceeds music duration ${musicDuration}s - set to ${normalized}s`,
+          `Music item (musicId=${item.musicId}): startTime ${item.startTime} exceeds music duration ${secondsToTimestamp(musicDuration)} - set to ${secondsToTimestamp(normalized)}`,
         );
-        item.audioStartSeconds = normalized;
+        item.startTime = secondsToTimestamp(normalized);
+      }
+    }
+  }
+
+  for (const item of items) {
+    if (item.type === 'clip') {
+      const startSeconds = sourceFileStartSeconds(item);
+      const endSeconds = sourceFileEndSeconds(item);
+      if (endSeconds <= startSeconds) {
+        errors.push(`Clip (videoId=${item.videoId}): endTime (${item.endTime}) must be greater than startTime (${item.startTime})`);
+      }
+    } else if (item.type === 'voiceover') {
+      const startSeconds = sourceFileStartSeconds(item);
+      const endSeconds = sourceFileEndSeconds(item);
+      if (endSeconds <= startSeconds) {
+        errors.push(`Voiceover item (voiceoverId=${item.voiceoverId}): endTime (${item.endTime}) must be greater than startTime (${item.startTime})`);
       }
     }
   }
@@ -308,7 +374,7 @@ export function expandTimeline(
 
   for (let i = 0; i < clipItems.length; i++) {
     const clip = clipItems[i];
-    const rawDuration = clip.endTimeSeconds - clip.startTimeSeconds;
+    const rawDuration = sourceFileEndSeconds(clip) - sourceFileStartSeconds(clip);
     const effectiveDuration = rawDuration / clip.playbackRate;
 
     // Subtract transition overlap from previous clip
@@ -336,8 +402,8 @@ export function expandTimeline(
       sourceFile: video?.path ?? '',
       sourceWidth: video?.width ?? undefined,
       sourceHeight: video?.height ?? undefined,
-      startTimeSeconds: clip.startTimeSeconds,
-      endTimeSeconds: clip.endTimeSeconds,
+      startTimeSeconds: sourceFileStartSeconds(clip),
+      endTimeSeconds: sourceFileEndSeconds(clip),
       playbackRate: clip.playbackRate,
       volume: clip.volume,
       fit: defaultFit,
@@ -380,8 +446,8 @@ export function expandTimeline(
 
       return {
         text: overlay.text,
-        startTimeSeconds: Math.max(0, startTime),
-        endTimeSeconds: endTime,
+        timelineStartSeconds: Math.max(0, startTime),
+        timelineEndSeconds: endTime,
         position: overlay.position,
         style: overlay.style,
         animation: overlay.animation && overlay.animation !== 'none'
@@ -427,17 +493,18 @@ export function expandTimeline(
       }
 
       const timelineDuration = endTime - Math.max(0, startTime);
+      const musicStartSeconds = sourceFileStartSeconds(audio);
       const availableDuration = musicDuration != null
-        ? musicDuration - audio.audioStartSeconds
+        ? musicDuration - musicStartSeconds
         : Infinity;
 
       // No looping needed: single entry
       if (availableDuration >= timelineDuration) {
         return [{
           sourceFile,
-          startTimeSeconds: Math.max(0, startTime),
-          endTimeSeconds: endTime,
-          audioStartSeconds: audio.audioStartSeconds,
+          timelineStartSeconds: Math.max(0, startTime),
+          timelineEndSeconds: endTime,
+          audioStartSeconds: musicStartSeconds,
           volume: audio.volume,
           fadeInSeconds: audio.fadeInSeconds,
           fadeOutSeconds: audio.fadeOutSeconds,
@@ -449,9 +516,9 @@ export function expandTimeline(
       if (availableDuration <= LOOP_CROSSFADE) {
         return [{
           sourceFile,
-          startTimeSeconds: Math.max(0, startTime),
-          endTimeSeconds: Math.max(0, startTime) + Math.max(0, availableDuration),
-          audioStartSeconds: audio.audioStartSeconds,
+          timelineStartSeconds: Math.max(0, startTime),
+          timelineEndSeconds: Math.max(0, startTime) + Math.max(0, availableDuration),
+          audioStartSeconds: musicStartSeconds,
           volume: audio.volume,
           fadeInSeconds: audio.fadeInSeconds,
           fadeOutSeconds: audio.fadeOutSeconds,
@@ -460,8 +527,8 @@ export function expandTimeline(
 
       const entries: {
         sourceFile: string;
-        startTimeSeconds: number;
-        endTimeSeconds: number;
+        timelineStartSeconds: number;
+        timelineEndSeconds: number;
         audioStartSeconds: number;
         volume: number;
         fadeInSeconds: number;
@@ -472,7 +539,7 @@ export function expandTimeline(
       let isFirst = true;
 
       while (currentTime < endTime) {
-        const audioStart = isFirst ? audio.audioStartSeconds : 0;
+        const audioStart = isFirst ? musicStartSeconds : 0;
         const segmentAvailable = musicDuration! - audioStart;
         const segmentEnd = Math.min(currentTime + segmentAvailable, endTime);
 
@@ -485,8 +552,8 @@ export function expandTimeline(
 
         entries.push({
           sourceFile,
-          startTimeSeconds: currentTime,
-          endTimeSeconds: actualEnd,
+          timelineStartSeconds: currentTime,
+          timelineEndSeconds: actualEnd,
           audioStartSeconds: audioStart,
           volume: audio.volume,
           fadeInSeconds: isFirst ? audio.fadeInSeconds : LOOP_CROSSFADE,
@@ -503,7 +570,7 @@ export function expandTimeline(
       const loopCount = entries.length;
       if (loopCount > 1) {
         corrections.push(
-          `Music item (musicId=${audio.musicId}): music (${Math.round(availableDuration)}s available) auto-looped ${loopCount}× with ${LOOP_CROSSFADE}s crossfade to cover ~${Math.round(timelineDuration)}s span`,
+          `Music item (musicId=${audio.musicId}): music (${secondsToTimestamp(availableDuration)} available) auto-looped ${loopCount}× with ${LOOP_CROSSFADE}s crossfade to cover ~${Math.round(timelineDuration)}s span`,
         );
       }
 
@@ -524,7 +591,9 @@ export function expandTimeline(
         startTime = clipStartTimes[startClipIdx] + clipDurations[startClipIdx] + vo.startOffset;
       }
 
-      const audioDuration = vo.audioEndSeconds - vo.audioStartSeconds;
+      const voiceoverStartSeconds = sourceFileStartSeconds(vo);
+      const voiceoverEndSeconds = sourceFileEndSeconds(vo);
+      const audioDuration = voiceoverEndSeconds - voiceoverStartSeconds;
       const endTime = Math.max(0, startTime) + audioDuration;
 
       // Resolve source file and validate audio range
@@ -538,9 +607,9 @@ export function expandTimeline(
         }
       }
 
-      if (recordingDuration != null && vo.audioEndSeconds > recordingDuration) {
+      if (recordingDuration != null && voiceoverEndSeconds > recordingDuration) {
         errors.push(
-          `Voiceover item (voiceoverId=${vo.voiceoverId}): audioEndSeconds (${vo.audioEndSeconds}s) exceeds recording duration (${recordingDuration}s)`,
+          `Voiceover item (voiceoverId=${vo.voiceoverId}): endTime (${vo.endTime}) exceeds recording duration (${secondsToTimestamp(recordingDuration)})`,
         );
       }
 
@@ -556,25 +625,25 @@ export function expandTimeline(
 
       return {
         sourceFile,
-        startTimeSeconds: Math.max(0, startTime),
-        endTimeSeconds: endTime,
-        audioStartSeconds: vo.audioStartSeconds,
+        timelineStartSeconds: Math.max(0, startTime),
+        timelineEndSeconds: endTime,
+        audioStartSeconds: voiceoverStartSeconds,
         volume: vo.volume,
       };
     });
 
   // Warn about silent gaps between voiceover segments not covered by music
   if (voiceoverTracks.length > 0) {
-    const sortedVo = [...voiceoverTracks].sort((a, b) => a.startTimeSeconds - b.startTimeSeconds);
+    const sortedVo = [...voiceoverTracks].sort((a, b) => a.timelineStartSeconds - b.timelineStartSeconds);
     const totalTimelineDuration = clipItems.length > 0
       ? clipStartTimes[clipItems.length - 1] + clipDurations[clipItems.length - 1]
       : 0;
 
     // Check gap before the first voiceover
-    const firstStart = sortedVo[0].startTimeSeconds;
+    const firstStart = sortedVo[0].timelineStartSeconds;
     if (firstStart > 0.5) {
       const hasMusicCoverage = audioTracks.some(
-        (a) => a.startTimeSeconds < firstStart && a.endTimeSeconds > 0,
+        (a) => a.timelineStartSeconds < firstStart && a.timelineEndSeconds > 0,
       );
       if (!hasMusicCoverage) {
         corrections.push(
@@ -585,12 +654,12 @@ export function expandTimeline(
 
     // Check gaps between voiceover segments and after the last one
     for (let i = 0; i < sortedVo.length; i++) {
-      const gapStart = sortedVo[i].endTimeSeconds;
-      const gapEnd = i + 1 < sortedVo.length ? sortedVo[i + 1].startTimeSeconds : totalTimelineDuration;
+      const gapStart = sortedVo[i].timelineEndSeconds;
+      const gapEnd = i + 1 < sortedVo.length ? sortedVo[i + 1].timelineStartSeconds : totalTimelineDuration;
       if (gapEnd - gapStart < 0.5) continue;
 
       const hasMusicCoverage = audioTracks.some(
-        (a) => a.startTimeSeconds < gapEnd && a.endTimeSeconds > gapStart,
+        (a) => a.timelineStartSeconds < gapEnd && a.timelineEndSeconds > gapStart,
       );
       if (!hasMusicCoverage) {
         corrections.push(

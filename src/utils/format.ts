@@ -1,4 +1,5 @@
 import chalk from 'chalk';
+import { timeToSeconds } from './time.js';
 
 /**
  * Format seconds into a human-readable duration string.
@@ -49,7 +50,13 @@ export function computeTimelineDuration(items: Array<Record<string, unknown>>): 
   let total = 0;
   for (let i = 0; i < clips.length; i++) {
     const c = clips[i];
-    const dur = ((c.endTimeSeconds as number) - (c.startTimeSeconds as number)) / ((c.playbackRate as number) || 1);
+    const startTime = typeof c.startTime === 'string'
+      ? timeToSeconds(c.startTime)
+      : (c.startTimeSeconds as number);
+    const endTime = typeof c.endTime === 'string'
+      ? timeToSeconds(c.endTime)
+      : (c.endTimeSeconds as number);
+    const dur = (endTime - startTime) / ((c.playbackRate as number) || 1);
     total += dur;
     if (i > 0 && c.transition) {
       total -= (c.transition as { durationSeconds: number }).durationSeconds;

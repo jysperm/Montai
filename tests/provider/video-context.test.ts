@@ -9,7 +9,7 @@
 import { describe, it, expect } from 'vitest';
 import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type FileContent, type TextContent } from '@mariozechner/pi-ai';
-import { Type } from '@sinclair/typebox';
+import { Type } from 'typebox';
 import { GoogleGenAI } from '@google/genai';
 
 const VIDEO_PATH = '/Users/jysperm/Movies/2026-02 Chiang Mai Flower Festival/footage/DJI_20260214191551_0020_D.MP4';

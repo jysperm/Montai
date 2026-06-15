@@ -1,10 +1,10 @@
 [
-  { "type": "clip", "videoId": 1, "startTimeSeconds": 10, "endTimeSeconds": 15, "playbackRate": 1, "volume": 1 },
-  { "type": "clip", "videoId": 2, "startTimeSeconds": 5, "endTimeSeconds": 10, "playbackRate": 1, "volume": 1, "crop": { "left": 20, "top": 15, "right": 20, "bottom": 15 } },
-  { "type": "clip", "videoId": 1, "startTimeSeconds": 20, "endTimeSeconds": 25, "playbackRate": 1, "volume": 1, "crop": { "left": 0, "top": 0, "right": 0, "bottom": 0 }, "cropEnd": { "left": 35, "top": 30, "right": 35, "bottom": 30 }, "transition": { "type": "fade", "durationSeconds": 0.5 } },
-  { "type": "clip", "videoId": 2, "startTimeSeconds": 10, "endTimeSeconds": 15, "playbackRate": 1, "volume": 1, "cropEnd": { "left": 35, "top": 30, "right": 35, "bottom": 30 }, "transition": { "type": "fade", "durationSeconds": 0.5 } },
-  { "type": "overlay", "text": "No Crop", "startClip": 0, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" },
-  { "type": "overlay", "text": "Static Crop", "startClip": 1, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" },
-  { "type": "overlay", "text": "Ken Burns", "startClip": 2, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" },
-  { "type": "overlay", "text": "Ken Burns (cropEnd only)", "startClip": 3, "startOffset": 0, "endOffset": 0, "position": "bottom-center", "style": "caption" }
+  {"type":"clip","videoId":1,"playbackRate":1,"volume":1,"startTime":"00:10","endTime":"00:15"},
+  {"type":"clip","videoId":2,"playbackRate":1,"volume":1,"crop":{"left":20,"top":15,"right":20,"bottom":15},"startTime":"00:05","endTime":"00:10"},
+  {"type":"clip","videoId":1,"playbackRate":1,"volume":1,"crop":{"left":0,"top":0,"right":0,"bottom":0},"cropEnd":{"left":35,"top":30,"right":35,"bottom":30},"transition":{"type":"fade","durationSeconds":0.5},"startTime":"00:20","endTime":"00:25"},
+  {"type":"clip","videoId":2,"playbackRate":1,"volume":1,"cropEnd":{"left":35,"top":30,"right":35,"bottom":30},"transition":{"type":"fade","durationSeconds":0.5},"startTime":"00:10","endTime":"00:15"},
+  {"type":"overlay","text":"No Crop","startClip":0,"startOffset":0,"endOffset":0,"position":"bottom-center","style":"caption"},
+  {"type":"overlay","text":"Static Crop","startClip":1,"startOffset":0,"endOffset":0,"position":"bottom-center","style":"caption"},
+  {"type":"overlay","text":"Ken Burns","startClip":2,"startOffset":0,"endOffset":0,"position":"bottom-center","style":"caption"},
+  {"type":"overlay","text":"Ken Burns (cropEnd only)","startClip":3,"startOffset":0,"endOffset":0,"position":"bottom-center","style":"caption"}
 ]

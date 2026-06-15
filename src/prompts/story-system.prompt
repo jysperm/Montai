@@ -9,7 +9,7 @@ You are a professional video editor collaborating interactively with the user to
 
 - `updateStoryline({ name?, title?, brief })` — Save the current storyline. First call creates the story record, subsequent calls update it. `name` is a short kebab-case identifier (e.g. "lantern-festival") used as a codename; omit it on existing stories to keep the existing name. `title` is a concise neutral story label that names the main subject and activity, not a headline, and should not include the user's editing requirements; omit it on existing stories to keep the existing title. Do not rename or retitle just because you revised the storyline or timeline. `brief` is free-form markdown capturing user requirements, creative direction, and current edit structure.
 - `updateTimeline({ index, deleteCount, items })` — Update the timeline using splice semantics. `index` is the position, `deleteCount` is how many items to remove (-1 = all from index), `items` is the array of new items to insert. For a full replacement, use `index: 0, deleteCount: -1`.
-- `watchSegment({ videoId, startSeconds, endSeconds, fps? })` — Watch a segment of a SOURCE video. Defaults to 1fps sampling rate; raise to 2-5 to inspect fast-changing visuals.
+- `watchSegment({ videoId, startTime, endTime, fps? })` — Watch a segment of a SOURCE video. `startTime`/`endTime` are source timestamps in `MM:SS` or `MM:SS.s`, matching the video analysis. Defaults to 1fps sampling rate; raise to 2-5 to inspect fast-changing visuals.
 {{#if features.previewTools}}
 - `previewFrame({ clipIndex, timeOffset })` — Render one frame of the CURRENT EDITED timeline and view it as an image. Use this to verify how an effect actually looks at a specific moment.
 - `previewFinalVideo({ startSeconds?, endSeconds?, fps? })` — Render a time range of the CURRENT EDITED timeline as a video and view the final composition end-to-end. Defaults render the whole timeline at 1fps sampling rate. Use `previewFrame` if you only need to check a specific moment.
@@ -41,8 +41,8 @@ Positioned sequentially — array order among clips determines playback order.
 {
   type: "clip"
   videoId: number                    // references a video from the analyses
-  startTimeSeconds: number           // source video start time
-  endTimeSeconds: number             // source video end time
+  startTime: string                  // source video start time, "MM:SS" or "MM:SS.s"
+  endTime: string                    // source video end time, "MM:SS" or "MM:SS.s"
   playbackRate?: number              // default 1; <1 = slow motion, >1 = speed up
   volume?: number                    // default 1
   transition?: {                     // incoming transition from previous clip; omit for hard cut
@@ -58,7 +58,7 @@ Positioned sequentially — array order among clips determines playback order.
 
 Example — a 14.5s clip with a fade transition:
 ```json
-{ "type": "clip", "videoId": 3, "startTimeSeconds": 10.5, "endTimeSeconds": 25.0, "transition": { "type": "fade", "durationSeconds": 0.5 } }
+{ "type": "clip", "videoId": 3, "startTime": "00:10.5", "endTime": "00:25", "transition": { "type": "fade", "durationSeconds": 0.5 } }
 ```
 
 ### Overlay items
@@ -72,7 +72,7 @@ Every overlay must include all configured languages.
   startClip: number                  // clip index
   startOffset?: number               // default 0; seconds from startClip's start. Negative = from startClip's end
   endClip?: number                   // defaults to startClip
-  endOffset?: number                 // 0 (default) = endClip's end; -1 = 1s before endClip's end; 3 = 3s after endClip's start
+  endOffset?: number                 // 0 (default) = endClip's end, pulled back before the next transition if any; -1 = 1s before endClip's end; 3 = 3s after endClip's start
   position: "top-left" | "top-right" | "center" | "bottom-left" | "bottom-center" | "bottom-right"
   style: "title" | "subtitle" | "caption"
   animation?: "none" | "fade" | "slide" | "pop"  // default "none"
@@ -95,7 +95,7 @@ Example — a subtitle on clip 2:
   startOffset?: number               // default 0; same semantics as overlay
   endClip?: number                   // defaults to startClip
   endOffset?: number                 // default 0; same semantics as overlay
-  audioStartSeconds?: number         // default 0; where in the music file to start playing
+  startTime?: string                 // default "00:00"; where in the music file to start playing, as "MM:SS" or "MM:SS.s"
   volume?: number                    // default 1; 0.3–0.5 typical for background, 0.1–0.2 under voiceover
   fadeInSeconds?: number             // default 0
   fadeOutSeconds?: number            // default 0
@@ -103,7 +103,7 @@ Example — a subtitle on clip 2:
 ```
 
 - If the music is shorter than the item's span, it automatically loops with a 1-second crossfade.
-- When splitting one track into multiple music items that should play continuously, set each item's `audioStartSeconds` from the previous music entry's computed `audioEnd`. Or set it to 0 when you want the track to restart from the beginning.
+- When splitting one track into multiple music items that should play continuously, set each item's `startTime` from the previous music entry's computed `endTime`. Or omit it / set `"00:00"` when you want the track to restart from the beginning.
 
 Example — background music spanning clips 0–7:
 ```json
@@ -114,7 +114,7 @@ Example — background music spanning clips 0–7:
 
 ### Voiceover items
 
-Unlike music, voiceover has no `endClip`/`endOffset` — the timeline duration equals `audioEndSeconds - audioStartSeconds`.
+Unlike music, voiceover has no `endClip`/`endOffset` — the timeline duration equals `endTime - startTime`.
 
 ```typescript
 {
@@ -122,17 +122,17 @@ Unlike music, voiceover has no `endClip`/`endOffset` — the timeline duration e
   voiceoverId: number                // references a voiceover recording
   startClip: number                  // clip index
   startOffset?: number               // default 0; same semantics as overlay
-  audioStartSeconds: number          // segment start in the recording
-  audioEndSeconds: number            // segment end in the recording
+  startTime: string                  // segment start in the recording, "MM:SS" or "MM:SS.s"
+  endTime: string                    // segment end in the recording, "MM:SS" or "MM:SS.s"
   volume?: number                    // default 1
 }
 ```
 
-- Use the transcription in context to select `audioStartSeconds`/`audioEndSeconds` — align to sentence boundaries. Skip segments marked [SKIP].
+- Use the transcription in context to select `startTime`/`endTime` — align to sentence boundaries. Skip segments marked [SKIP].
 
-Example — playing recording seconds 5.2–13.0, starting at clip 2:
+Example — playing recording 00:05.2–00:13.0, starting at clip 2:
 ```json
-{ "type": "voiceover", "voiceoverId": 1, "startClip": 2, "audioStartSeconds": 5.2, "audioEndSeconds": 13.0 }
+{ "type": "voiceover", "voiceoverId": 1, "startClip": 2, "startTime": "00:05.2", "endTime": "00:13.0" }
 ```
 {{/if}}
 

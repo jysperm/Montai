@@ -11,7 +11,7 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 - **YAML config**: User create the `montai.yaml` file to describe the project
 - **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
 - **Dual output**: `export` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
-- **Static Remotion project**: The Remotion project lives inside Montai's source tree (`src/remotion/project/`) as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
+- **Static Remotion project**: The Remotion project lives in the package's top-level `remotion/` directory as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
 - **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storylines). Only outputs that are consumed programmatically (e.g. VideoAnalysis, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
 
 ### Historical Note
@@ -132,7 +132,7 @@ Interactive session that merges storyline generation and timeline editing into a
 Uses an agent loop with tools:
 - `updateStoryline(name?, title?, brief)` — Save/update the storyline. `brief` contains the storyline content: user requirements, creative direction, and current edit structure. `name` and `title` are required when creating a story, but omitted on existing stories to preserve the current identifier/title.
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
-- `watchSegment(videoId, startSeconds, endSeconds, fps?)` — Watch a source video segment. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
+- `watchSegment(videoId, startTime, endTime, fps?)` — Watch a source video segment. `startTime`/`endTime` are source timestamps in `MM:SS` or `MM:SS.s`. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
 - `previewFrame(clipIndex, timeOffset)` — Render one frame of the CURRENT edited timeline (Remotion, with crop/rotation/overlays/etc applied) and inject it as an image. For verifying a specific moment of the edit
 - `previewFinalVideo(startSeconds?, endSeconds?, fps?)` — Render a range of the CURRENT edited timeline as a video, upload to Gemini File API, and inject as a video. Provides an end-to-end preview of the final composition. Defaults to the whole timeline at `fps=1`
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
@@ -202,8 +202,8 @@ The LLM works with a unified items array containing four item types:
 ClipItem {
   type: 'clip'
   videoId: number
-  startTimeSeconds: number
-  endTimeSeconds: number
+  startTime: string             // source video start time, MM:SS or MM:SS.s
+  endTime: string               // source video end time, MM:SS or MM:SS.s
   playbackRate: number         // default 1
   volume: number               // default 1
   transition?: Transition      // optional; defines the transition FROM the previous clip INTO this clip
@@ -231,7 +231,7 @@ MusicItem {
   endClip?: number
   endOffset: number
   musicId: number               // references music table (library or generated)
-  audioStartSeconds: number     // offset within music file (default 0)
+  startTime: string            // offset within music file, MM:SS or MM:SS.s (default "00:00")
   volume: number
   fadeInSeconds: number          // linear fade in (default 0)
   fadeOutSeconds: number         // linear fade out (default 0)
@@ -242,15 +242,17 @@ VoiceoverItem {
   voiceoverId: number           // references voiceovers table
   startClip: number
   startOffset: number
-  audioStartSeconds: number     // start position in voiceover recording
-  audioEndSeconds: number       // end position in voiceover recording (required)
+  startTime: string            // start position in voiceover recording, MM:SS or MM:SS.s
+  endTime: string              // end position in voiceover recording, MM:SS or MM:SS.s
   volume: number
 }
 ```
 
-During timeline sanitization, a music item's `audioStartSeconds` is wrapped modulo the source music duration when it exceeds the playable range. The correction is reported explicitly so the agent/user can see that an invalid source offset was changed.
+Raw timeline items use `MM:SS` timestamps for source file times (`startTime`/`endTime`). Agent-facing source media descriptions also show media durations as `MM:SS`. Timeline-relative positions, offsets, and durations remain numeric seconds (`startOffset`, `endOffset`, `durationSeconds`, preview ranges, and ExpandedTimeline `timelineStartSeconds`/`timelineEndSeconds` fields). Older stored timelines with `startTimeSeconds`/`endTimeSeconds` on clip items, `audioStartSeconds` on music items, or `audioStartSeconds`/`audioEndSeconds` on voiceover items are accepted on read and normalized to the new source file time fields when saved.
 
-The agent-facing computed timeline summary includes each music item's absolute timeline span, duration, `audioStart`, and `audioEnd`. This gives the agent enough information to split one music track into multiple consecutive items while keeping playback continuous.
+During timeline sanitization, a music item's `startTime` is wrapped modulo the source music duration when it exceeds the playable range. The correction is reported explicitly so the agent/user can see that an invalid source offset was changed.
+
+The agent-facing computed timeline summary includes each music item's absolute timeline span, duration, and computed music-file `startTime`/`endTime`. This gives the agent enough information to split one music track into multiple consecutive items while keeping playback continuous.
 
 When expanding overlays, if `endOffset` is at its default (0), the overlay end time is automatically pulled back to when the outgoing transition starts (i.e. the next clip's incoming transition), so the old subtitle disappears and the new one appears at the transition boundary. Explicit non-zero `endOffset` bypasses this adjustment.
 
@@ -291,8 +293,8 @@ ExpandedClip {
 
 ExpandedOverlay {
   text: string
-  startTimeSeconds: number
-  endTimeSeconds: number
+  timelineStartSeconds: number
+  timelineEndSeconds: number
   position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right'
   style: 'title' | 'subtitle' | 'caption'
   animation?: {                  // expanded from OverlayItem's enum, with default duration filled in
@@ -303,8 +305,8 @@ ExpandedOverlay {
 
 ExpandedAudio {
   sourceFile: string
-  startTimeSeconds: number
-  endTimeSeconds: number
+  timelineStartSeconds: number
+  timelineEndSeconds: number
   audioStartSeconds: number
   volume: number
   fadeInSeconds: number
@@ -313,18 +315,18 @@ ExpandedAudio {
 
 ExpandedVoiceover {
   sourceFile: string
-  startTimeSeconds: number
-  endTimeSeconds: number
+  timelineStartSeconds: number
+  timelineEndSeconds: number
   audioStartSeconds: number
   volume: number
 }
 ```
 
-VoiceoverItem differs from MusicItem: no endClip/endOffset (end position determined by audio duration), no auto-loop, references voiceoverId instead of musicId. `expandTimeline` validates that voiceover audio doesn't extend beyond the timeline end, rejecting the update with an error if it does.
+VoiceoverItem differs from MusicItem: no endClip/endOffset (end position determined by endTime - startTime), no auto-loop, references voiceoverId instead of musicId. `expandTimeline` validates that voiceover audio doesn't extend beyond the timeline end, rejecting the update with an error if it does.
 
 ## Remotion Output
 
-Montai includes a static Remotion project at `src/remotion/project/` (inside Montai's own source tree). This project is **never modified at runtime** — all dynamic data is passed via CLI flags:
+Montai includes a static Remotion project at `remotion/`. This project is **never modified at runtime** — all dynamic data is passed via CLI flags:
 
 - **Dynamic Compositions**: Root.tsx fetches `timelines.json` from the public dir and registers one Composition per timeline (using the story name as id)
 - **Render mode**: Timeline passed via `--props=<path>`, composition targeted by story name, video files served via `--public-dir=<path>`

@@ -61,8 +61,8 @@ function seedStoryWithClips(ctx: StoryToolsContext, videoId: number, storyName: 
     title: 'Preview Integration Test',
     storyline: 's',
     timeline: JSON.stringify([
-      { type: 'clip', videoId, startTimeSeconds: 0, endTimeSeconds: 1 },
-      { type: 'clip', videoId, startTimeSeconds: 1, endTimeSeconds: 2 },
+      { type: 'clip', videoId, startTime: '00:00', endTime: '00:01' },
+      { type: 'clip', videoId, startTime: '00:01', endTime: '00:02' },
     ]),
     createdAt: now,
     updatedAt: now,
@@ -105,8 +105,8 @@ describe.skipIf(!hasGeminiKey)('preview tools integration', () => {
 
     const watched = await watchSegment.execute('watch-1', {
       videoId,
-      startSeconds: 0,
-      endSeconds: 1,
+      startTime: '00:00',
+      endTime: '00:01',
       fps: 1,
     });
     expect(watched.isError).toBeFalsy();

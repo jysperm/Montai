@@ -33,7 +33,7 @@ Title: {{currentStoryTitle}}
 ## Video Analyses
 
 {{#each fullVideoAnalyses}}
---- Video ID {{this.videoId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+--- Video ID {{this.videoId}} ({{this.filename}}, {{this.duration}}) ---
 {{> video-analysis this}}
 
 {{/each}}
@@ -43,7 +43,7 @@ Title: {{currentStoryTitle}}
 Segments, speech content, quality notes, and technical notes are omitted. Use `getVideoAnalysis` to retrieve full details.
 
 {{#each summaryVideoAnalyses}}
---- Video ID {{this.videoId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+--- Video ID {{this.videoId}} ({{this.filename}}, {{this.duration}}) ---
 {{> video-summary this}}
 
 {{/each}}
@@ -54,7 +54,7 @@ Segments, speech content, quality notes, and technical notes are omitted. Use `g
 Segments marked [SKIP] were identified during transcription as unusable (hesitations, repetitions, etc.) and should be excluded when selecting voiceover segments.
 
 {{#each fullVoiceoverAnalyses}}
---- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+--- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.duration}}) ---
 {{> voiceover-analysis this}}
 
 {{/each}}
@@ -65,7 +65,7 @@ Segments marked [SKIP] were identified during transcription as unusable (hesitat
 Transcription is omitted. Use `getVoiceoverAnalysis` to retrieve full details.
 
 {{#each summaryVoiceoverAnalyses}}
---- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.durationSeconds}}s) ---
+--- Voiceover ID {{this.voiceoverId}} ({{this.filename}}, {{this.duration}}) ---
 {{> voiceover-summary this}}
 
 {{/each}}
@@ -73,7 +73,7 @@ Transcription is omitted. Use `getVoiceoverAnalysis` to retrieve full details.
 ## Music Library
 
 {{#each fullMusicAnalyses}}
---- Music ID {{this.musicId}} ({{this.filename}}) ---
+--- Music ID {{this.musicId}} ({{this.filename}}, {{this.duration}}) ---
 {{> music-analysis this}}
 
 {{/each}}
@@ -83,7 +83,7 @@ Transcription is omitted. Use `getVoiceoverAnalysis` to retrieve full details.
 Segments are omitted. Use `getMusicAnalysis` to retrieve full details.
 
 {{#each summaryMusicAnalyses}}
---- Music ID {{this.musicId}} ({{this.filename}}) ---
+--- Music ID {{this.musicId}} ({{this.filename}}, {{this.duration}}) ---
 {{> music-summary this}}
 
 {{/each}}
@@ -94,7 +94,7 @@ Segments are omitted. Use `getMusicAnalysis` to retrieve full details.
 Previously generated background music. Reuse by setting `musicId` in music items, same as library tracks.
 
 {{#each generatedMusic}}
---- Music ID {{this.musicId}} (generated, {{this.durationSeconds}}s) ---
+--- Music ID {{this.musicId}} (generated, {{this.duration}}) ---
 Prompt: {{this.prompt}}
 
 {{/each}}

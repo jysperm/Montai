@@ -18,6 +18,7 @@ import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/form
 import { loadExpandedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
+import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
 
 // Shared per-turn cap across all tools that inject media (videos/images) into
 // the model context — Gemini limits how many file refs a single request can
@@ -216,16 +217,16 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const watchSegmentTool = {
     name: 'watchSegment',
     label: 'Watch Segment',
-    description: `Watch a specific segment of a SOURCE video. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Watch a specific segment of a SOURCE video. startTime and endTime use MM:SS or MM:SS.s timestamps matching the video analysis. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
     parameters: Type.Object({
       videoId: Type.Number({ description: 'The video ID' }),
-      startSeconds: Type.Number({ description: 'Start time in seconds' }),
-      endSeconds: Type.Number({ description: 'End time in seconds' }),
+      startTime: Type.String({ description: 'Segment start timestamp' }),
+      endTime: Type.String({ description: 'Segment end timestamp' }),
       fps: Type.Optional(Type.Number({ minimum: 1, description: 'Sampling frame rate (default 1). Raise to 2-5 to inspect fast-changing visuals in short segments.' })),
     }),
     async execute(
       _toolCallId: string,
-      params: { videoId: number; startSeconds: number; endSeconds: number; fps?: number },
+      params: { videoId: number; startTime: string; endTime: string; fps?: number },
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
@@ -236,18 +237,20 @@ export function getStoryTools(ctx: StoryToolsContext) {
       if (!video) {
         throw new Error(`Error: Video ${params.videoId} not found`);
       }
+      const startSeconds = parseTimestamp(params.startTime);
+      const endSeconds = parseTimestamp(params.endTime);
 
       // Gemini returns a 500 INTERNAL (instead of a proper 400) for invalid
       // video ranges. Validate before uploading so the LLM retries with a valid range.
-      if (params.startSeconds >= params.endSeconds) {
-        throw new Error(`Error: startSeconds (${params.startSeconds}s) must be less than endSeconds (${params.endSeconds}s).`);
+      if (startSeconds >= endSeconds) {
+        throw new Error(`Error: startTime (${params.startTime}) must be less than endTime (${params.endTime}).`);
       }
 
       const duration = video.durationSeconds ?? 0;
-      if (duration > 0 && params.startSeconds >= duration) {
-        throw new Error(`Error: startSeconds ${params.startSeconds}s is past the end of video ${video.filename} (duration ${duration}s). Pick a start within the video.`);
+      if (duration > 0 && startSeconds >= duration) {
+        throw new Error(`Error: startTime ${params.startTime} is past the end of video ${video.filename} (duration ${secondsToTimestamp(duration)}). Pick a start within the video.`);
       }
-      const clampedEnd = duration > 0 ? Math.min(params.endSeconds, duration) : params.endSeconds;
+      const clampedEnd = duration > 0 ? Math.min(endSeconds, duration) : endSeconds;
       const fps = params.fps ?? 1;
       if (fps < 1) {
         throw new Error('Error: fps must be >= 1.');
@@ -266,14 +269,14 @@ export function getStoryTools(ctx: StoryToolsContext) {
         uri: uploaded.fileUri,
         mimeType: 'video/mp4',
         videoMetadata: {
-          startOffset: `${params.startSeconds}s`,
+          startOffset: `${startSeconds}s`,
           endOffset: `${clampedEnd}s`,
           ...(params.fps !== undefined ? { fps: params.fps } : {}),
         },
       };
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Video segment from ${video.filename} (${params.startSeconds}s-${params.endSeconds}s) is now in context.`,
+        text: `Video segment from ${video.filename} (${params.startTime}-${params.endTime}) is now in context.`,
       };
       return { content: [textContent, fileContent], details: {} };
     },
@@ -417,7 +420,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       const analysis = ctx.allVideoAnalyses.find((s) => s.videoId === params.videoId);
       const video = ctx.allVideos.find((v) => v.id === params.videoId);
-      const header = [video?.filename, video?.durationSeconds ? `${video.durationSeconds}s` : null]
+      const header = [video?.filename, video?.durationSeconds ? secondsToTimestamp(video.durationSeconds) : null]
         .filter(Boolean)
         .join(', ');
       const textContent: TextContent = {
@@ -426,6 +429,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
           ? `Analysis for video ${params.videoId}${header ? ` (${header})` : ''}:\n${renderPrompt('video-analysis', {
               videoId: params.videoId,
               filename: video?.filename ?? 'unknown',
+              duration: secondsToTimestamp(video?.durationSeconds ?? 0),
               overview: analysis.overview,
               location: analysis.location,
               timeOfDay: analysis.timeOfDay,
@@ -452,12 +456,16 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       const analysis = ctx.allMusicAnalyses.find((s) => s.musicId === params.musicId);
       const track = ctx.allMusic.find((m) => m.id === params.musicId);
+      const header = [track?.filename, track?.durationSeconds ? secondsToTimestamp(track.durationSeconds) : null]
+        .filter(Boolean)
+        .join(', ');
       const textContent: TextContent = {
         type: 'text' as const,
         text: analysis
-          ? `Analysis for music ${params.musicId}:\n${renderPrompt('music-analysis', {
+          ? `Analysis for music ${params.musicId}${header ? ` (${header})` : ''}:\n${renderPrompt('music-analysis', {
               musicId: params.musicId,
               filename: track?.filename ?? 'unknown',
+              duration: secondsToTimestamp(track?.durationSeconds ?? 0),
               overview: analysis.overview,
               segments: JSON.parse(analysis.segments),
             } satisfies MusicAnalysisData).trim()}`
@@ -480,13 +488,17 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       const analysis = ctx.allVoiceoverAnalyses.find((a) => a.voiceoverId === params.voiceoverId);
       const vo = ctx.allVoiceovers.find((v) => v.id === params.voiceoverId);
+      const header = [vo?.filename, vo?.durationSeconds ? secondsToTimestamp(vo.durationSeconds) : null]
+        .filter(Boolean)
+        .join(', ');
       const textContent: TextContent = {
         type: 'text' as const,
         text: analysis
-          ? `Analysis for voiceover ${params.voiceoverId}:\n${renderPrompt('voiceover-analysis', {
+          ? `Analysis for voiceover ${params.voiceoverId}${header ? ` (${header})` : ''}:\n${renderPrompt('voiceover-analysis', {
               voiceoverId: params.voiceoverId,
               filename: vo?.filename ?? 'unknown',
               durationSeconds: vo?.durationSeconds ?? 0,
+              duration: secondsToTimestamp(vo?.durationSeconds ?? 0),
               overview: analysis.overview,
               transcription: JSON.parse(analysis.transcription),
             } satisfies VoiceoverAnalysisData).trim()}`
@@ -532,7 +544,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       const textContent: TextContent = {
         type: 'text' as const,
-        text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${result.durationSeconds} seconds\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in music timeline items to reference this track.`,
+        text: `Music generated successfully.\n- Music ID: ${result.musicId}\n- Duration: ${secondsToTimestamp(result.durationSeconds)}\n- Prompt: "${params.prompt}"\n\nUse musicId: ${result.musicId} in music timeline items to reference this track.`,
       };
       return { content: [textContent], details: {} };
     },

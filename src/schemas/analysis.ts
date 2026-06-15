@@ -1,6 +1,7 @@
 import { z } from 'zod';
+import { TIMESTAMP_PATTERN } from '../utils/time.js';
 
-const TimestampSchema = z.string().regex(/^(?:\d+:[0-5]\d:[0-5]\d|\d+:[0-5]\d)(?:\.\d+)?$/, 'must be MM:SS or MM:SS.s with seconds in 00–59');
+const TimestampSchema = z.string().regex(TIMESTAMP_PATTERN, 'must be MM:SS or MM:SS.s');
 
 export const VideoSegmentSchema = z.object({
   startTime: TimestampSchema,

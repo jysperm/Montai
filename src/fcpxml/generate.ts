@@ -93,7 +93,7 @@ export function generateFcpxml(
     if (i === 0 || !a.sourceFile) return false;
     const prev = arr[i - 1];
     return prev.sourceFile && basename(a.sourceFile) === basename(prev.sourceFile)
-      && a.startTimeSeconds < prev.endTimeSeconds;
+      && a.timelineStartSeconds < prev.timelineEndSeconds;
   });
   const crossDissolveId = (usedTransitionTypes.has('fade') || hasAudioLoops) ? `r${nextResourceId++}` : null;
   const slideId = usedTransitionTypes.has('slide') ? `r${nextResourceId++}` : null;
@@ -230,7 +230,7 @@ export function generateFcpxml(
   // Assign overlays to their parent clips (in sequential timeline positions)
   const clipOverlays = new Map<number, typeof spec.textOverlays>();
   for (const overlay of spec.textOverlays) {
-    const seqStart = o2s(overlay.startTimeSeconds);
+    const seqStart = o2s(overlay.timelineStartSeconds);
     for (let i = spec.clips.length - 1; i >= 0; i--) {
       if (seqStart >= clipSeqStarts[i]) {
         if (!clipOverlays.has(i)) clipOverlays.set(i, []);
@@ -298,7 +298,7 @@ export function generateFcpxml(
     const prev = audioGroups[audioGroups.length - 1];
     const prevTrack = prev?.[prev.length - 1];
     if (prevTrack && basename(audio.sourceFile) === basename(prevTrack.sourceFile)
-        && audio.startTimeSeconds < prevTrack.endTimeSeconds) {
+        && audio.timelineStartSeconds < prevTrack.timelineEndSeconds) {
       prev.push(audio);
     } else {
       audioGroups.push([audio]);
@@ -353,13 +353,13 @@ export function generateFcpxml(
   }
 
   for (const group of audioGroups) {
-    const groupSeqStart = o2s(group[0].startTimeSeconds);
-    const groupSeqEnd = o2s(group[group.length - 1].endTimeSeconds);
+    const groupSeqStart = o2s(group[0].timelineStartSeconds);
+    const groupSeqEnd = o2s(group[group.length - 1].timelineEndSeconds);
     const laneCount = target === 'fcp' || group.length === 1 ? 1 : 2;
     const audioLane = assignAudioLane(groupSeqStart, groupSeqEnd, laneCount);
     const filename = basename(group[0].sourceFile);
     const audioAssetId = audioAssetMap.get(filename)!;
-    const { parentClipIdx, offset: spineOffset } = apo(group[0].startTimeSeconds);
+    const { parentClipIdx, offset: spineOffset } = apo(group[0].timelineStartSeconds);
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
 
     if (group.length === 1) {
@@ -367,8 +367,8 @@ export function generateFcpxml(
       // Cap duration at available source audio so the FCPXML clip doesn't
       // exceed the file length when sequential duration > overlap duration.
       const audio = group[0];
-      const audioSeqStart = o2s(audio.startTimeSeconds);
-      const audioSeqEnd = o2s(audio.endTimeSeconds);
+      const audioSeqStart = o2s(audio.timelineStartSeconds);
+      const audioSeqEnd = o2s(audio.timelineEndSeconds);
       let seqDuration = audioSeqEnd - audioSeqStart;
       const meta = audioMeta?.get(filename);
       if (meta?.durationSeconds) {
@@ -395,8 +395,8 @@ export function generateFcpxml(
       // clip to ensure the spine fully covers the target sequential duration.
       // Audio track times are in the overlap model (transitions shorten the timeline),
       // but the FCPXML spine uses sequential placement. Convert to sequential duration.
-      const targetDuration = o2s(group[group.length - 1].endTimeSeconds)
-        - o2s(group[0].startTimeSeconds);
+      const targetDuration = o2s(group[group.length - 1].timelineEndSeconds)
+        - o2s(group[0].timelineStartSeconds);
 
       // First pass: compute clip starts and durations with handle shrinkage
       const spineClips: { audioStart: number; duration: number; fadeIn: number; fadeOut: number }[] = [];
@@ -406,10 +406,10 @@ export function generateFcpxml(
         const audio = group[gi];
         const isFirst = gi === 0;
         const isLast = gi === group.length - 1;
-        const trackDuration = audio.endTimeSeconds - audio.startTimeSeconds;
+        const trackDuration = audio.timelineEndSeconds - audio.timelineStartSeconds;
 
-        const crossfadeIn = isFirst ? 0 : (group[gi - 1].endTimeSeconds - audio.startTimeSeconds);
-        const crossfadeOut = isLast ? 0 : (audio.endTimeSeconds - group[gi + 1].startTimeSeconds);
+        const crossfadeIn = isFirst ? 0 : (group[gi - 1].timelineEndSeconds - audio.timelineStartSeconds);
+        const crossfadeOut = isLast ? 0 : (audio.timelineEndSeconds - group[gi + 1].timelineStartSeconds);
         const handleIn = crossfadeIn / 2;
         const handleOut = crossfadeOut / 2;
         if (!isFirst) totalTransitionDur += crossfadeIn;
@@ -444,7 +444,7 @@ export function generateFcpxml(
 
         // Add transition before this clip (except first)
         if (gi > 0 && crossDissolveId && audioCrossfadeId) {
-          const crossfadeIn = group[gi - 1].endTimeSeconds - group[gi].startTimeSeconds;
+          const crossfadeIn = group[gi - 1].timelineEndSeconds - group[gi].timelineStartSeconds;
           const crossfadeFrames = Math.round(crossfadeIn * fps);
           const boundaryFrames = Math.round(seqOffset * fps);
           const transOffsetFrames = boundaryFrames - Math.round(crossfadeFrames / 2);
@@ -486,10 +486,10 @@ export function generateFcpxml(
       for (let gi = 0; gi < group.length; gi++) {
         const audio = group[gi];
         const lane = gi % 2 === 0 ? audioLane : audioLane - 1;
-        const { parentClipIdx: clipIdx, offset: clipOffset } = apo(audio.startTimeSeconds);
+        const { parentClipIdx: clipIdx, offset: clipOffset } = apo(audio.timelineStartSeconds);
         if (!clipAudioAnchors.has(clipIdx)) clipAudioAnchors.set(clipIdx, []);
-        const audioSeqStart = o2s(audio.startTimeSeconds);
-        const audioSeqEnd = o2s(audio.endTimeSeconds);
+        const audioSeqStart = o2s(audio.timelineStartSeconds);
+        const audioSeqEnd = o2s(audio.timelineEndSeconds);
         const clipDuration = toRational(audioSeqEnd - audioSeqStart, fps);
         const clipStart = toRational(audio.audioStartSeconds, fps);
         const volXml = avx(audio.volume, audio.fadeInSeconds, audio.fadeOutSeconds, II);
@@ -536,12 +536,12 @@ export function generateFcpxml(
     const voLane = audioLaneCounter--;
     const filename = basename(vo.sourceFile);
     const voAssetId = voiceoverAssetMap.get(filename)!;
-    const { parentClipIdx, offset: spineOffset } = apo(vo.startTimeSeconds);
+    const { parentClipIdx, offset: spineOffset } = apo(vo.timelineStartSeconds);
     if (!clipAudioAnchors.has(parentClipIdx)) clipAudioAnchors.set(parentClipIdx, []);
 
     // Use audio duration directly — o2s(end)-o2s(start) would stretch the clip
     // when the voiceover spans a video transition boundary.
-    const clipDuration = toRational(vo.endTimeSeconds - vo.startTimeSeconds, fps);
+    const clipDuration = toRational(vo.timelineEndSeconds - vo.timelineStartSeconds, fps);
     const clipStart = toRational(vo.audioStartSeconds, fps);
     const volXml = avx(vo.volume, 0, 0, II);
 
@@ -745,8 +745,8 @@ export function generateFcpxml(
 
       for (let oi = 0; oi < overlays.length; oi++) {
         const overlay = overlays[oi];
-        const overlaySeqStart = o2s(overlay.startTimeSeconds);
-        const overlaySeqEnd = o2sEnd(overlay.endTimeSeconds);
+        const overlaySeqStart = o2s(overlay.timelineStartSeconds);
+        const overlaySeqEnd = o2sEnd(overlay.timelineEndSeconds);
         const deltaInClip = overlaySeqStart - clipSeqStarts[i];
 
         // Title offset must be in the parent clip's source timebase. When the

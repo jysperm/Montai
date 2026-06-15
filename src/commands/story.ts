@@ -8,6 +8,7 @@ import { languageNames } from '../prompts/index.js';
 import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline-items.js';
 import { z } from 'zod';
 import { formatTimeAgo, formatStoryLine } from '../utils/format.js';
+import { secondsToTimestamp } from '../utils/time.js';
 import { resolveFeatureFlags } from '../feature-flags.js';
 import { selectStoryInteractive } from '../agents/story-ui.js';
 import { StoryAgent } from '../agents/story-agent.js';
@@ -83,6 +84,7 @@ export async function storyCommand(
       videoId: s.videoId,
       filename: video?.filename ?? 'unknown',
       durationSeconds: video?.durationSeconds ?? 0,
+      duration: secondsToTimestamp(video?.durationSeconds ?? 0),
       overview: s.overview,
       location: s.location,
       timeOfDay: s.timeOfDay,
@@ -100,6 +102,7 @@ export async function storyCommand(
     return {
       musicId: s.musicId,
       filename: track?.filename ?? 'unknown',
+      duration: secondsToTimestamp(track?.durationSeconds ?? 0),
       overview: s.overview,
       segments: JSON.parse(s.segments),
     };
@@ -110,6 +113,7 @@ export async function storyCommand(
     .map((m) => ({
       musicId: m.id,
       durationSeconds: m.durationSeconds ?? 30,
+      duration: secondsToTimestamp(m.durationSeconds ?? 30),
       prompt: m.generationPrompt!,
     }));
 
@@ -122,6 +126,7 @@ export async function storyCommand(
       voiceoverId: a.voiceoverId,
       filename: vo?.filename ?? 'unknown',
       durationSeconds: vo?.durationSeconds ?? 0,
+      duration: secondsToTimestamp(vo?.durationSeconds ?? 0),
       overview: a.overview,
       transcription: JSON.parse(a.transcription),
     };

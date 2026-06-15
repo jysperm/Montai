@@ -1,5 +1,5 @@
 import chalk from 'chalk';
-import type { TimelineItem, ClipItem, OverlayItem, MusicItem, VoiceoverItem } from '../schemas/timeline-items.js';
+import { sourceFileStartSeconds, sourceFileEndSeconds, type TimelineItem, type ClipItem, type OverlayItem, type MusicItem, type VoiceoverItem } from '../schemas/timeline-items.js';
 
 export const GENERATED_MUSIC_PROMPT_PREVIEW_LENGTH = 40;
 
@@ -168,7 +168,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
 
   // Compute clip durations
   const clipDurations = clips.map(c =>
-    (c.endTimeSeconds - c.startTimeSeconds) / c.playbackRate,
+    (sourceFileEndSeconds(c) - sourceFileStartSeconds(c)) / c.playbackRate,
   );
 
   // Total duration accounting for transition overlaps
@@ -397,7 +397,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   for (const vo of voiceoversItems) {
     if (vo.startClip >= clips.length) continue;
     const voStartTime = resolveStartTime(vo.startClip, vo.startOffset);
-    const voEndTime = voStartTime + (vo.audioEndSeconds - vo.audioStartSeconds);
+    const voEndTime = voStartTime + (sourceFileEndSeconds(vo) - sourceFileStartSeconds(vo));
     let startCol = timeToCol(voStartTime);
     if (vo.startClip > 0 && clips[vo.startClip].transition && vo.startOffset === 0) {
       startCol = Math.max(startCol, clipStartCol[vo.startClip] + 1);

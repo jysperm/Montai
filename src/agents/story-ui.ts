@@ -6,6 +6,7 @@ import { existsSync, unlinkSync } from 'fs';
 import type { MontaiDb } from '../db/index.js';
 import { stories, storyMarks } from '../db/schema.js';
 import { formatDuration, formatStoryLine, formatMarkLine, countItemsByType, formatItemCounts } from '../utils/format.js';
+import { timeToSeconds } from '../utils/time.js';
 import {
   applySlashCompletion,
   createStoryInputState,
@@ -243,10 +244,12 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
     case 'watchSegment': {
       if (!error) {
         const videoId = args.videoId as number;
-        const startSec = args.startSeconds as number;
-        const endSec = args.endSeconds as number;
+        const startLabel = args.startTime as string;
+        const endLabel = args.endTime as string;
+        const startSec = timeToSeconds(startLabel);
+        const endSec = timeToSeconds(endLabel);
         const dur = formatDuration(endSec - startSec);
-        console.log(`  ${check} ${label}: video ${videoId} (${formatTimestamp(startSec)} - ${formatTimestamp(endSec)}, ${dur}${formatFpsSuffix(args.fps)})`);
+        console.log(`  ${check} ${label}: video ${videoId} (${startLabel} - ${endLabel}, ${dur}${formatFpsSuffix(args.fps)})`);
         return;
       } else {
         break;

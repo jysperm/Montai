@@ -40,6 +40,7 @@ export function renderPrompt(name: string, data: Record<string, unknown>): strin
 export interface VideoAnalysisData {
   videoId: number;
   filename: string;
+  duration?: string;
   overview: string;
   location?: string | null;
   timeOfDay?: string | null;
@@ -51,6 +52,7 @@ export interface VideoAnalysisData {
 export interface MusicAnalysisData {
   musicId: number;
   filename: string;
+  duration?: string;
   overview: string;
   segments: { startTime: string; endTime: string; description: string }[];
 }
@@ -59,6 +61,7 @@ export interface VoiceoverAnalysisData {
   voiceoverId: number;
   filename: string;
   durationSeconds: number;
+  duration?: string;
   overview: string;
   transcription: { startTime: string; endTime: string; text: string; skip?: boolean }[];
 }

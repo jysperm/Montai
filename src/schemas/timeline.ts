@@ -39,8 +39,8 @@ export const OverlayAnimationSchema = z.object({
 
 export const ExpandedOverlaySchema = z.object({
   text: z.string(),
-  startTimeSeconds: z.number(),
-  endTimeSeconds: z.number(),
+  timelineStartSeconds: z.number(),
+  timelineEndSeconds: z.number(),
   position: z.enum(['top-left', 'top-right', 'center', 'bottom-left', 'bottom-center', 'bottom-right']),
   style: z.enum(['title', 'subtitle', 'caption']),
   animation: OverlayAnimationSchema.optional(),
@@ -48,8 +48,8 @@ export const ExpandedOverlaySchema = z.object({
 
 export const ExpandedAudioSchema = z.object({
   sourceFile: z.string(),
-  startTimeSeconds: z.number(),
-  endTimeSeconds: z.number(),
+  timelineStartSeconds: z.number(),
+  timelineEndSeconds: z.number(),
   audioStartSeconds: z.number(),
   volume: z.number(),
   fadeInSeconds: z.number(),
@@ -58,17 +58,18 @@ export const ExpandedAudioSchema = z.object({
 
 export const ExpandedVoiceoverSchema = z.object({
   sourceFile: z.string(),
-  startTimeSeconds: z.number(),
-  endTimeSeconds: z.number(),
+  timelineStartSeconds: z.number(),
+  timelineEndSeconds: z.number(),
   audioStartSeconds: z.number(),
   volume: z.number(),
 });
 
-// All time fields (startTimeSeconds, endTimeSeconds) in ExpandedTimeline use the
-// "overlap model": transitions shorten the timeline by overlapping adjacent clips.
-// For example, two 10s clips with a 0.5s transition produce a 19.5s timeline.
-// The FCPXML exporter converts these to a "sequential model" (clips end-to-end,
-// transitions are visual effects) via overlapToSeq() in fcpxml/generate.ts.
+// ExpandedClip startTimeSeconds/endTimeSeconds describe source file ranges.
+// Expanded overlay/audio/voiceover timelineStartSeconds/timelineEndSeconds describe
+// absolute positions in the "overlap model": transitions shorten the timeline by
+// overlapping adjacent clips. For example, two 10s clips with a 0.5s transition
+// produce a 19.5s timeline. The FCPXML exporter converts these to a "sequential
+// model" (clips end-to-end, transitions are visual effects) via overlapToSeq().
 export const ExpandedTimelineSchema = z.object({
   name: z.string(),
   title: z.string().optional(),

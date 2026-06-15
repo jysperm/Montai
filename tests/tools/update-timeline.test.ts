@@ -119,8 +119,8 @@ describe('updateTimeline tool', () => {
       index: 0,
       deleteCount: -1,
       items: [
-        { type: 'clip', videoId: 1, startTimeSeconds: 0, endTimeSeconds: 10 },
-        { type: 'clip', videoId: 1, startTimeSeconds: 10, endTimeSeconds: 20 },
+        { type: 'clip', videoId: 1, startTime: '00:00', endTime: '00:10' },
+        { type: 'clip', videoId: 1, startTime: '00:10', endTime: '00:20' },
       ],
     });
   });
@@ -137,6 +137,50 @@ describe('updateTimeline tool', () => {
     expect(result.isError).toBeUndefined();
     expect(result.content[0].text).toContain('Timeline updated');
     expect(result.content[0].text).not.toContain('Corrections');
+  });
+
+  it('stores clip start/end timestamps with the new field names', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 0,
+      deleteCount: -1,
+      items: [
+        { type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const row = (ctx.db as any).select().from(schema.stories).get();
+    const stored = JSON.parse(row.timeline);
+    expect(stored[0]).toMatchObject({ type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' });
+    expect(stored[0]).not.toHaveProperty('startTimeSeconds');
+    expect(stored[0]).not.toHaveProperty('endTimeSeconds');
+  });
+
+  it('normalizes legacy clip seconds when saving', async () => {
+    const result = await updateTimeline.execute('call-1', {
+      index: 0,
+      deleteCount: -1,
+      items: [
+        { type: 'clip', videoId: 1, startTimeSeconds: 65, endTimeSeconds: 72.5 },
+      ],
+    });
+
+    expect(result.isError).toBeUndefined();
+    const row = (ctx.db as any).select().from(schema.stories).get();
+    const stored = JSON.parse(row.timeline);
+    expect(stored[0]).toMatchObject({ type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' });
+    expect(stored[0]).not.toHaveProperty('startTimeSeconds');
+    expect(stored[0]).not.toHaveProperty('endTimeSeconds');
+  });
+
+  it('rejects clips where endTime is not after startTime', async () => {
+    await expect(updateTimeline.execute('call-1', {
+      index: 0,
+      deleteCount: -1,
+      items: [
+        { type: 'clip', videoId: 1, startTime: '00:10', endTime: '00:10' },
+      ],
+    })).rejects.toThrow(/endTime \(00:10\) must be greater than startTime \(00:10\)/);
   });
 
   it('clamps out-of-range clip indices for audio and overlay', async () => {
@@ -184,7 +228,7 @@ describe('updateTimeline tool', () => {
       index: 2,
       deleteCount: 0,
       items: [
-        { type: 'clip', videoId: 999, startTimeSeconds: 0, endTimeSeconds: 10 },
+        { type: 'clip', videoId: 999, startTime: '00:00', endTime: '00:10' },
       ],
     });
     expect(result.content[0].text).toContain('videoId=999');
@@ -203,7 +247,7 @@ describe('updateTimeline tool', () => {
     expect(ctx.currentItems.filter(i => i.type === 'music')).toHaveLength(0);
   });
 
-  it('wraps music audioStartSeconds into the source duration', async () => {
+  it('wraps legacy music audioStartSeconds into the source duration', async () => {
     const result = await updateTimeline.execute('call-1', {
       index: 2,
       deleteCount: 0,
@@ -213,12 +257,12 @@ describe('updateTimeline tool', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('audioStartSeconds 43s exceeds music duration 30s');
-    expect(result.content[0].text).toContain('set to 13s');
-    expect(result.content[0].text).toContain('audioStart=13.0s, audioEnd=33.0s');
+    expect(result.content[0].text).toContain('startTime 00:43 exceeds music duration 00:30');
+    expect(result.content[0].text).toContain('set to 00:13');
+    expect(result.content[0].text).toContain('startTime=00:13, endTime=00:33');
 
     const musicItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'music' }> => i.type === 'music')!;
-    expect(musicItem.audioStartSeconds).toBe(13);
+    expect(musicItem.startTime).toBe('00:13');
   });
 
 });
@@ -240,8 +284,8 @@ describe('updateTimeline auto-loop', () => {
       index: 0,
       deleteCount: -1,
       items: [
-        { type: 'clip', videoId: 1, startTimeSeconds: 0, endTimeSeconds: 15 },
-        { type: 'clip', videoId: 2, startTimeSeconds: 0, endTimeSeconds: 15 },
+        { type: 'clip', videoId: 1, startTime: '00:00', endTime: '00:15' },
+        { type: 'clip', videoId: 2, startTime: '00:00', endTime: '00:15' },
       ],
     });
   });
@@ -255,6 +299,7 @@ describe('updateTimeline auto-loop', () => {
       ],
     });
     expect(result.content[0].text).toContain('auto-looped');
+    expect(result.content[0].text).toContain('music (00:05 available)');
     expect(result.content[0].text).toContain('crossfade');
   });
 
@@ -268,5 +313,21 @@ describe('updateTimeline auto-loop', () => {
       ],
     });
     expect(result.content[0].text).not.toContain('auto-looped');
+  });
+});
+
+describe('watchSegment tool', () => {
+  it('reports source video duration as MM:SS in range errors', async () => {
+    const db = createTestDb();
+    const ctx = createContext(db);
+    ctx.allVideos = [{ id: 1, path: '/test/video1.mp4', filename: 'video1.mp4', durationSeconds: 371 }];
+    const { tools } = getStoryTools(ctx);
+    const watchSegment = tools.find((t) => t.name === 'watchSegment')!;
+
+    await expect(watchSegment.execute('call-1', {
+      videoId: 1,
+      startTime: '08:30',
+      endTime: '08:40',
+    })).rejects.toThrow('duration 06:11');
   });
 });

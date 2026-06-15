@@ -37,8 +37,8 @@ interface OverlayAnimation {
 
 interface TextOverlay {
   text: string;
-  startTimeSeconds: number;
-  endTimeSeconds: number;
+  timelineStartSeconds: number;
+  timelineEndSeconds: number;
   position: 'top-left' | 'top-right' | 'center' | 'bottom-left' | 'bottom-center' | 'bottom-right';
   style: 'title' | 'subtitle' | 'caption';
   animation?: OverlayAnimation;
@@ -46,8 +46,8 @@ interface TextOverlay {
 
 interface AudioTrack {
   sourceFile: string;
-  startTimeSeconds: number;
-  endTimeSeconds: number;
+  timelineStartSeconds: number;
+  timelineEndSeconds: number;
   audioStartSeconds: number;
   volume: number;
   fadeInSeconds: number;
@@ -416,9 +416,9 @@ export function calculateTotalFrames(spec: TimelineProps): number {
 }
 
 function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number }) {
-  const startFrame = Math.round(track.startTimeSeconds * fps);
+  const startFrame = Math.round(track.timelineStartSeconds * fps);
   const durationFrames = Math.round(
-    (track.endTimeSeconds - track.startTimeSeconds) * fps,
+    (track.timelineEndSeconds - track.timelineStartSeconds) * fps,
   );
   const startFromFrame = Math.round(track.audioStartSeconds * fps);
   const fadeInFrames = Math.round(track.fadeInSeconds * fps);
@@ -504,9 +504,9 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
       </TransitionSeries>
 
       {textOverlays.map((overlay, i) => {
-        const startFrame = Math.round(overlay.startTimeSeconds * fps);
+        const startFrame = Math.round(overlay.timelineStartSeconds * fps);
         const durationFrames = Math.round(
-          (overlay.endTimeSeconds - overlay.startTimeSeconds) * fps,
+          (overlay.timelineEndSeconds - overlay.timelineStartSeconds) * fps,
         );
 
         return (

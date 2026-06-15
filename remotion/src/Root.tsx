@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react';
-import type { AnyZodObject } from 'zod';
 import { Composition, staticFile, watchStaticFile } from 'remotion';
 import { MontaiVideo, calculateTotalFrames, type TimelineProps } from './MontaiVideo';
 
@@ -33,7 +32,7 @@ export const RemotionRoot = () => {
   return (
     <>
       {timelines.map(spec => (
-        <Composition<AnyZodObject, TimelineProps>
+        <Composition
           key={spec.name}
           id={spec.name}
           component={MontaiVideo}
