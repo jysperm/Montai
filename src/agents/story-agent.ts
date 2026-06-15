@@ -8,9 +8,11 @@ import { Agent } from '@mariozechner/pi-agent-core';
 import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
 import type { MontaiDb } from '../db/index.js';
 import { stories, sessions, sessionMessages, storyMarks } from '../db/schema.js';
-import { loadExpandedTimelines } from '../utils/project.js';
+import { loadResolvedTimelines } from '../utils/project.js';
 import { renderPrompt } from '../prompts/index.js';
-import { TimelineItemSchema, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
+import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline.js';
+import { buildComputedTimelineData } from '../schemas/timeline/compute.js';
+import { stripTimelineDefaults } from '../schemas/timeline/edit.js';
 import { z } from 'zod';
 import { extractFileContentFromToolResults, limitVideoFilesInContext, removeExpiredFileRefs } from './agent-context.js';
 import { formatCost } from '../analyzer/utils.js';
@@ -630,7 +632,7 @@ export class StoryAgent {
     if (this.autoExport) {
       const storyName = this.toolsCtx.currentStoryName;
       if (storyName) {
-        const result = loadExpandedTimelines(this.db, this.config, storyName, { quiet: true });
+        const result = loadResolvedTimelines(this.db, this.config, storyName, { quiet: true });
         if (result.errors.length > 0) {
           console.log(chalk.yellow(`FCPXML failed: ${result.errors.join('; ')}`));
         } else if (result.timelines.length > 0) {
@@ -654,7 +656,7 @@ export class StoryAgent {
         this.autoPreview = false;
         return;
       }
-      const { timelines } = loadExpandedTimelines(this.db, this.config, storyName, { quiet: true });
+      const { timelines } = loadResolvedTimelines(this.db, this.config, storyName, { quiet: true });
       let publicDir: string;
       try {
         publicDir = preparePublicDir(timelines);
@@ -740,7 +742,7 @@ export class StoryAgent {
     const storyName = this.toolsCtx.currentStoryName;
     if (!storyName || (!this.autoExport && !this.autoPreview)) return;
 
-    const result = loadExpandedTimelines(this.db, this.config, storyName, { quiet: true });
+    const result = loadResolvedTimelines(this.db, this.config, storyName, { quiet: true });
     if (result.errors.length > 0) {
       const targets = [this.autoPreview && 'Remotion', this.autoExport && 'FCPXML'].filter(Boolean).join(' and ');
       console.log(chalk.yellow(`${targets} failed: ${result.errors.join('; ')}`));

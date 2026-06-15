@@ -1,8 +1,8 @@
 import { mkdirSync, linkSync, writeFileSync, unlinkSync, existsSync } from 'fs';
 import { resolve, basename } from 'path';
-import type { ExpandedTimeline } from '../schemas/timeline.js';
+import type { ResolvedTimeline } from '../schemas/timeline.js';
 
-export function collectMediaFiles(timelines: ExpandedTimeline[]): Set<string> {
+export function collectMediaFiles(timelines: ResolvedTimeline[]): Set<string> {
   const files = new Set<string>();
   for (const t of timelines) {
     for (const clip of t.clips) files.add(basename(clip.sourceFile));
@@ -12,13 +12,13 @@ export function collectMediaFiles(timelines: ExpandedTimeline[]): Set<string> {
   return files;
 }
 
-export function writeTimelinesJson(timelines: ExpandedTimeline[]): void {
+export function writeTimelinesJson(timelines: ResolvedTimeline[]): void {
   const publicDir = resolve('.montai/public');
   mkdirSync(publicDir, { recursive: true });
   writeFileSync(resolve(publicDir, 'timelines.json'), JSON.stringify(timelines, null, 2));
 }
 
-export function preparePublicDir(timelines: ExpandedTimeline | ExpandedTimeline[]): string {
+export function preparePublicDir(timelines: ResolvedTimeline | ResolvedTimeline[]): string {
   const timelineArray = Array.isArray(timelines) ? timelines : [timelines];
   const publicDir = resolve('.montai/public');
   mkdirSync(publicDir, { recursive: true });

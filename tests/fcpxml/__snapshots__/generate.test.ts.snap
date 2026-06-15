@@ -1078,6 +1078,417 @@ Line 2</text-style>
 "
 `;
 
+exports[`spatial-conform-test > FCP snapshot (1080p) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
+        </asset>
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
+        </asset>
+        <asset id="asset-3" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
+        </asset>
+        <asset id="asset-4" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape-misoriented.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="spatial-test.matrix">
+                <sequence format="r1" duration="1050/30s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="landscape.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts1" alignment="left">landscape.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
+                        <adjust-transform scale="0.5091 0.5091" rotation="-45" />
+                        <title ref="r2" lane="1" name="landscape.mp4 rotation: 45" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts2" alignment="left">landscape.mp4
+rotation: 45</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="portrait.mp4" offset="300/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <title ref="r2" lane="1" name="portrait.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="left">portrait.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <adjust-transform scale="0.5625 0.5625" rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts4" alignment="left">portrait-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="600/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-transform scale="0.5625 0.5625" rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts5" alignment="left">portrait-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -30.2963" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="750/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <adjust-transform scale="1.7778 1.7778" rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts6" alignment="left">landscape-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -35.6296" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="900/30s" duration="150/30s" start="150/30s" format="r3" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-transform scale="1.7778 1.7778" rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts7" alignment="left">landscape-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="96" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="10" />
+                            </text-style-def>
+                            <adjust-transform position="-85.1852 -30.2963" />
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`spatial-conform-test > FCP snapshot (1080s) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r4" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
+        </asset>
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r4">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
+        </asset>
+        <asset id="asset-3" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
+        </asset>
+        <asset id="asset-4" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r4">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape-misoriented.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="spatial-test.matrix">
+                <sequence format="r1" duration="1050/30s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="landscape.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts1" alignment="left">landscape.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="150/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="0.5091 0.5091" rotation="-45" />
+                        <title ref="r2" lane="1" name="landscape.mp4 rotation: 45" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts2" alignment="left">landscape.mp4
+rotation: 45</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="portrait.mp4" offset="300/30s" duration="150/30s" start="0/30s" format="r4" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="portrait.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="left">portrait.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts4" alignment="left">portrait-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="600/30s" duration="150/30s" start="150/30s" format="r3" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-conform type="fill" />
+                        <adjust-transform rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts5" alignment="left">portrait-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -33.0519" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="750/30s" duration="150/30s" start="0/30s" format="r4" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts6" alignment="left">landscape-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -38.3852" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="900/30s" duration="150/30s" start="150/30s" format="r4" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-conform type="fill" />
+                        <adjust-transform rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts7" alignment="left">landscape-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-46.2963 -33.0519" scale="0.516 0.516" />
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
+exports[`spatial-conform-test > FCP snapshot (1080v) 1`] = `
+"<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE fcpxml>
+<fcpxml version="1.11">
+    <resources>
+        <format id="r1" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <effect id="r2" name="Essential Title" uid=".../Titles.localized/Essential Titles.localized/Essential Title.localized/Essential Title.moti" />
+        <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
+        </asset>
+        <asset id="asset-2" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
+        </asset>
+        <asset id="asset-3" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
+            <media-rep kind="original-media" src="file:///fixtures/output/portrait-misoriented.mp4" />
+        </asset>
+        <asset id="asset-4" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
+            <media-rep kind="original-media" src="file:///fixtures/output/landscape-misoriented.mp4" />
+        </asset>
+    </resources>
+    <library>
+        <event name="Montai Export">
+            <project name="spatial-test.matrix">
+                <sequence format="r1" duration="1050/30s" tcStart="0/1s" tcFormat="NDF">
+                    <spine>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="0/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="landscape.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts1" alignment="left">landscape.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts1">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-1" name="landscape.mp4" offset="150/30s" duration="150/30s" start="150/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="0.5091 0.5091" rotation="-45" />
+                        <title ref="r2" lane="1" name="landscape.mp4 rotation: 45" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts2" alignment="left">landscape.mp4
+rotation: 45</text-style>
+                            </text>
+                            <text-style-def id="ts2">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-2" name="portrait.mp4" offset="300/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <title ref="r2" lane="1" name="portrait.mp4 no rotation" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts3" alignment="left">portrait.mp4
+no rotation</text-style>
+                            </text>
+                            <text-style-def id="ts3">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="450/30s" duration="150/30s" start="0/30s" format="r3" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="0.5625 0.5625" rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts4" alignment="left">portrait-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts4">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-3" name="portrait-misoriented.mp4" offset="600/30s" duration="150/30s" start="150/30s" format="r3" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="0.5625 0.5625" rotation="-90" />
+                        <title ref="r2" lane="1" name="portrait-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts5" alignment="left">portrait-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts5">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -40.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="750/30s" duration="150/30s" start="0/30s" tcFormat="NDF">
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="1.7778 1.7778" rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90" offset="0/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts6" alignment="left">landscape-misoriented.mp4
+rotation: 90</text-style>
+                            </text>
+                            <text-style-def id="ts6">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -43.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    <asset-clip ref="asset-4" name="landscape-misoriented.mp4" offset="900/30s" duration="150/30s" start="150/30s" tcFormat="NDF">
+                        <adjust-crop mode="crop">
+                            <crop-rect left="10" top="0" right="0" bottom="10" />
+                        </adjust-crop>
+                        <adjust-conform type="fill" />
+                        <adjust-transform scale="1.7778 1.7778" rotation="-90" />
+                        <title ref="r2" lane="1" name="landscape-misoriented.mp4 rotation: 90 crop: left-top 10%" offset="150/30s" duration="150/30s" start="0/1s">
+                            <text>
+                                <text-style ref="ts7" alignment="left">landscape-misoriented.mp4
+rotation: 90
+crop: left/top 10%</text-style>
+                            </text>
+                            <text-style-def id="ts7">
+                                <text-style font="Helvetica Neue" fontSize="60" fontFace="Regular" fontColor="1 1 1 1" alignment="left" shadowColor="0 0 0 0.8" shadowOffset="2 2" shadowBlurRadius="6" />
+                            </text-style-def>
+                            <adjust-transform position="-26.0417 -40.2167" scale="0.444 0.444" />
+                        </title>
+                    </asset-clip>
+                    </spine>
+                </sequence>
+            </project>
+        </event>
+    </library>
+</fcpxml>
+"
+`;
+
 exports[`transition-test > FCP snapshot 1`] = `
 "<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE fcpxml>

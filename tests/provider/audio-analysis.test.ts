@@ -33,7 +33,7 @@ describe.skip('audio FileContent analysis via pi-ai complete()', () => {
   it('Gemini can analyze music mood and structure from audio file', async () => {
     const fileUri = await uploadAudio(AUDIO_PATH);
 
-    const model = getModel('google', 'gemini-3.5-flash');
+    const model = getModel('google', 'gemini-3.5-flash' as Parameters<typeof getModel>[1]);
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     const fileContent: FileContent = {

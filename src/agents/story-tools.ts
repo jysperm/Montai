@@ -11,11 +11,14 @@ import type { ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 import { uploadFileToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
-import { TimelineItemSchema, spliceTimelineItems, expandTimeline, stripTimelineDefaults, buildComputedTimelineData, type TimelineItem } from '../schemas/timeline-items.js';
+import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline.js';
+import { resolveTimeline } from '../schemas/timeline/resolve.js';
+import { buildComputedTimelineData } from '../schemas/timeline/compute.js';
+import { spliceTimelineItems, stripTimelineDefaults } from '../schemas/timeline/edit.js';
 import { z } from 'zod';
 import { generateMusicTrack } from '../lyria/generate.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
-import { loadExpandedTimelines } from '../utils/project.js';
+import { loadResolvedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
@@ -50,13 +53,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
   // Resolve the current expanded timeline by re-loading from DB. Returns an
   // error string if the story has no clips yet (preview tools are meaningless
-  // without a backbone) or expandTimeline reports validation errors.
-  function loadCurrentExpanded() {
+  // without a backbone) or resolveTimeline reports validation errors.
+  function loadCurrentResolved() {
     const storyName = ctx.currentStoryName;
     if (!storyName) {
       return { error: 'No active story. Save the storyline and timeline first.' as const };
     }
-    const result = loadExpandedTimelines(ctx.db, ctx.config, storyName, { quiet: true });
+    const result = loadResolvedTimelines(ctx.db, ctx.config, storyName, { quiet: true });
     if (result.errors.length > 0) {
       return { error: `Timeline has errors: ${result.errors.join('; ')}` as const };
     }
@@ -165,7 +168,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
       // Sanitize + expand: validates references, clamps indices, detects auto-loop.
       // Sanitized items are written to DB; corrections are returned to the LLM.
       const splicedItems = spliceTimelineItems(ctx.currentItems, params.index, params.deleteCount, newItems);
-      const { sanitizedItems: allItems, corrections, errors } = expandTimeline(
+      const { sanitizedItems: allItems, corrections, errors } = resolveTimeline(
         splicedItems, ctx.config, ctx.currentStoryName ?? 'unnamed', ctx.allVideos, undefined, ctx.allMusic, ctx.allVoiceovers,
       );
 
@@ -299,7 +302,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
         throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
       }
 
-      const loaded = loadCurrentExpanded();
+      const loaded = loadCurrentResolved();
       if ('error' in loaded) {
         throw new Error(`Error: ${loaded.error}`);
       }
@@ -358,7 +361,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
         throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
       }
 
-      const loaded = loadCurrentExpanded();
+      const loaded = loadCurrentResolved();
       if ('error' in loaded) {
         throw new Error(`Error: ${loaded.error}`);
       }

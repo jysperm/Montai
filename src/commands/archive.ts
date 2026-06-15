@@ -4,7 +4,7 @@ import { existsSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { resolve, basename, extname, join } from 'path';
 import { getDb } from '../db/index.js';
 import { videos } from '../db/schema.js';
-import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
+import { loadProjectConfig, loadResolvedTimelines } from '../utils/project.js';
 import { formatArchiveTime } from '../utils/archived-videos.js';
 import type { ProjectConfig, ResolutionPreset } from '../schemas/project.js';
 import { resolutionPresets } from '../schemas/project.js';
@@ -135,7 +135,7 @@ export async function archiveCommand(
     process.exit(1);
   }
 
-  const { timelines: specs } = loadExpandedTimelines(db, config);
+  const { timelines: specs } = loadResolvedTimelines(db, config);
   if (specs.length === 0) return;
 
   const allVideos = db.select().from(videos).all();

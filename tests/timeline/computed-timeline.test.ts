@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { renderPrompt } from '../../src/prompts/index.js';
-import { buildComputedTimelineData, type TimelineItem } from '../../src/schemas/timeline-items.js';
+import { buildComputedTimelineData } from '../../src/schemas/timeline/compute.js';
+import type { TimelineItem } from '../../src/schemas/timeline.js';
 
 describe('computed timeline prompt', () => {
   it('renders timeline positions and music start/end times', () => {

@@ -8,9 +8,10 @@ import chalk from 'chalk';
 import { eq, desc, sql } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
 import { stories, videos, music, voiceovers } from '../db/schema.js';
-import { expandTimeline, TimelineItemSchema, type TimelineItem } from '../schemas/timeline-items.js';
+import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline.js';
+import { resolveTimeline } from '../schemas/timeline/resolve.js';
 import { z } from 'zod';
-import type { ExpandedTimeline } from '../schemas/timeline.js';
+import type { ResolvedTimeline } from '../schemas/timeline.js';
 
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.avi', '.mkv']);
 const AUDIO_EXTENSIONS = new Set(['.mp3', '.wav', '.flac', '.m4a', '.aac', '.ogg']);
@@ -170,21 +171,21 @@ export function getVoiceoverFilename(filepath: string): string {
 }
 
 /**
- * Load timelines from the database, expanding raw TimelineItems into ExpandedTimeline format.
+ * Load timelines from the database, expanding raw TimelineItems into ResolvedTimeline format.
  * If name is given, loads that single story; otherwise loads all stories with timelines.
  * Returns null and prints an error if no timelines are found.
  */
-export interface LoadExpandedOptions {
+export interface LoadResolvedOptions {
   quiet?: boolean;
 }
 
-export interface LoadExpandedResult {
-  timelines: ExpandedTimeline[];
+export interface LoadResolvedResult {
+  timelines: ResolvedTimeline[];
   correctionCount: number;
   errors: string[];
 }
 
-export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?: string, options?: LoadExpandedOptions): LoadExpandedResult {
+export function loadResolvedTimelines(db: MontaiDb, config: ProjectConfig, name?: string, options?: LoadResolvedOptions): LoadResolvedResult {
   let storyRows: { name: string; title: string; timeline: string }[];
   if (name) {
     const row = db.select({ name: stories.name, title: stories.title, timeline: stories.timeline }).from(stories).where(eq(stories.name, name)).get();
@@ -221,7 +222,7 @@ export function loadExpandedTimelines(db: MontaiDb, config: ProjectConfig, name?
   const allErrors: string[] = [];
   const timelines = storyRows.map(r => {
     const items = z.array(TimelineItemSchema).parse(JSON.parse(r.timeline));
-    const { timeline, corrections, errors } = expandTimeline(items, config, r.name, allVideos, r.title, allMusic, allVoiceovers);
+    const { timeline, corrections, errors } = resolveTimeline(items, config, r.name, allVideos, r.title, allMusic, allVoiceovers);
     correctionCount += corrections.length;
     allErrors.push(...errors);
     if (!options?.quiet) {

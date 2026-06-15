@@ -1,5 +1,5 @@
 import { basename } from 'path';
-import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
+import type { ResolvedTimeline, ResolvedClip } from '../schemas/timeline.js';
 import { escapeXml, fcpName, framesToRational, round4, toRational } from './utils.js';
 import { buildTitleLayout, makeTitleXml, titleEffectLines, titleEffectRef, titleEffectsNeeded } from './overlays.js';
 
@@ -39,7 +39,7 @@ export interface AudioFormatInfo {
 }
 
 export function generateFcpxml(
-  spec: ExpandedTimeline,
+  spec: ResolvedTimeline,
   videoMeta?: Map<string, VideoFormatInfo>,
   options?: { eventName?: string; projectTitle?: string; target?: 'fcp' | 'davinci' },
   audioMeta?: Map<string, AudioFormatInfo>,
@@ -196,7 +196,7 @@ export function generateFcpxml(
     clipDurations.push((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate);
   }
 
-  // The ExpandedTimeline uses an "overlap model" (clips overlap by transition duration,
+  // The ResolvedTimeline uses an "overlap model" (clips overlap by transition duration,
   // total time = sum(durations) - sum(transitions)), but FCPXML uses a "sequential model"
   // (clips placed end-to-end, transitions borrow handles from adjacent clips,
   // total time = sum(durations)). We build both coordinate systems and convert all
@@ -888,7 +888,7 @@ function audioVolumeXml(vol: number, fadeInSec: number, fadeOutSec: number, inde
   return `\n${indent}    <adjust-volume amount="${dB}dB"/>`;
 }
 
-function getAssetId(clip: ExpandedClip, clips: ExpandedClip[]): string {
+function getAssetId(clip: ResolvedClip, clips: ResolvedClip[]): string {
   const filename = basename(clip.sourceFile);
   const seen = new Set<string>();
   let index = 0;
@@ -958,7 +958,7 @@ function rotatedDimensions(width: number, height: number, degrees: number): { wi
   };
 }
 
-function rotationFitScale(clip: ExpandedClip, seqWidth: number, seqHeight: number): number {
+function rotationFitScale(clip: ResolvedClip, seqWidth: number, seqHeight: number): number {
   const sourceWidth = clip.sourceWidth ?? seqWidth;
   const sourceHeight = clip.sourceHeight ?? seqHeight;
   const fit = clip.fit === 'cover' ? 'cover' : 'contain';

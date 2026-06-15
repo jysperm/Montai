@@ -1,7 +1,7 @@
 import chalk from 'chalk';
 import { existsSync, readdirSync } from 'fs';
 import { resolve, basename, join } from 'path';
-import type { ExpandedTimeline } from '../schemas/timeline.js';
+import type { ResolvedTimeline } from '../schemas/timeline.js';
 
 const ARCHIVE_DIR = 'archived';
 const ARCHIVED_PATTERN = /^(.+)-(\d+(?:\.\d+)?)s-(\d+(?:\.\d+)?)s(\.\w+)$/;
@@ -40,7 +40,7 @@ export function formatArchiveTime(seconds: number): string {
  * Parses archived filenames to determine source video and time range,
  * then adjusts clip sourceFile and start/end times accordingly.
  */
-export function remapToArchived(specs: ExpandedTimeline[]): ExpandedTimeline[] {
+export function remapToArchived(specs: ResolvedTimeline[]): ResolvedTimeline[] {
   const archiveDir = resolve(ARCHIVE_DIR);
   if (!existsSync(archiveDir)) {
     console.log(chalk.red(`${ARCHIVE_DIR}/ directory not found.`));

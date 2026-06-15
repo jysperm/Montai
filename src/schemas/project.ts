@@ -17,21 +17,16 @@ export const resolutionPresets = {
   '1440s': { width: 1440, height: 1440 },
 } as const;
 
-export type ResolutionPreset = keyof typeof resolutionPresets;
-
-export function resolveResolution(preset: ResolutionPreset) {
-  return resolutionPresets[preset];
-}
-
 const RESOLUTION_PRESET_NAMES = Object.keys(resolutionPresets) as [ResolutionPreset, ...ResolutionPreset[]];
 
+export type ResolutionPreset = keyof typeof resolutionPresets;
 export type SequenceShape = 'landscape' | 'vertical' | 'square';
-
-export function sequenceShape(width: number, height: number): SequenceShape {
-  if (width > height) return 'landscape';
-  if (height > width) return 'vertical';
-  return 'square';
-}
+export type Assets = z.infer<typeof AssetsSchema>;
+export type Output = z.infer<typeof OutputSchema>;
+export type Models = z.infer<typeof ModelsSchema>;
+export type Effects = z.infer<typeof EffectsSchema>;
+export type FeatureFlagsOverride = z.infer<typeof FeatureFlagsSchema>;
+export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
 
 export const OutputSchema = z.object({
   resolution: z.enum(RESOLUTION_PRESET_NAMES).default('1080p'),
@@ -60,11 +55,6 @@ export const FeatureFlagsSchema = z.object({
   transcodeFps: z.number().min(1).optional(),
 }).default({});
 
-const PathListSchema = (schema: z.ZodType<string[]>) => z.preprocess(
-  (value) => typeof value === 'string' ? [value] : value,
-  schema,
-);
-
 export const AssetsSchema = z.object({
   videos: PathListSchema(z.array(z.string()).min(1)),
   music: PathListSchema(z.array(z.string()).default([])),
@@ -90,9 +80,19 @@ export const ProjectConfigSchema = z.preprocess(
   }),
 );
 
-export type Assets = z.infer<typeof AssetsSchema>;
-export type Output = z.infer<typeof OutputSchema>;
-export type Models = z.infer<typeof ModelsSchema>;
-export type Effects = z.infer<typeof EffectsSchema>;
-export type FeatureFlagsOverride = z.infer<typeof FeatureFlagsSchema>;
-export type ProjectConfig = z.infer<typeof ProjectConfigSchema>;
+export function resolveResolution(preset: ResolutionPreset) {
+  return resolutionPresets[preset];
+}
+
+export function sequenceShape(width: number, height: number): SequenceShape {
+  if (width > height) return 'landscape';
+  if (height > width) return 'vertical';
+  return 'square';
+}
+
+function PathListSchema(schema: z.ZodType<string[]>) {
+  return z.preprocess(
+    (value) => typeof value === 'string' ? [value] : value,
+    schema,
+  );
+}

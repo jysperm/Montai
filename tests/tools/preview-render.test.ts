@@ -1,16 +1,16 @@
 import { describe, it, expect } from 'vitest';
 import { resolveStartFrame, clipStartFrame, totalTimelineFrames, totalTimelineSeconds, previewHash, stillHash } from '../../src/utils/preview-render.js';
-import type { ExpandedTimeline } from '../../src/schemas/timeline.js';
+import type { ResolvedTimeline } from '../../src/schemas/timeline.js';
 
-const sampleSpec: ExpandedTimeline = {
+const sampleSpec: ResolvedTimeline = {
   name: 'test',
   fps: 50,
   width: 1920,
   height: 1080,
   clips: [
-    { clipId: 'a', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 0, endTimeSeconds: 4, playbackRate: 1, volume: 1 },
-    { clipId: 'b', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 10, endTimeSeconds: 16, playbackRate: 1, volume: 1 },
-    { clipId: 'c', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 20, endTimeSeconds: 22, playbackRate: 1, volume: 1, transition: { type: 'fade', durationSeconds: 0.5 } },
+    { clipId: 'a', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 0, endTimeSeconds: 4, playbackRate: 1, volume: 1, fit: 'cover' },
+    { clipId: 'b', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 10, endTimeSeconds: 16, playbackRate: 1, volume: 1, fit: 'cover' },
+    { clipId: 'c', videoId: 1, sourceFile: 'v1.mp4', startTimeSeconds: 20, endTimeSeconds: 22, playbackRate: 1, volume: 1, fit: 'cover', transition: { type: 'fade', durationSeconds: 0.5 } },
   ],
   textOverlays: [],
   audioTracks: [],

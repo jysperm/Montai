@@ -1,5 +1,6 @@
 import chalk from 'chalk';
-import { sourceFileStartSeconds, sourceFileEndSeconds, type TimelineItem, type ClipItem, type OverlayItem, type MusicItem, type VoiceoverItem } from '../schemas/timeline-items.js';
+import { sourceFileStartSeconds, sourceFileEndSeconds, computeClipTimings, clipAnchoredStart, clipAnchoredEnd } from '../schemas/timeline/clip-utils.js';
+import type { TimelineItem, ClipItem, OverlayItem, MusicItem, VoiceoverItem } from '../schemas/timeline.js';
 
 export const GENERATED_MUSIC_PROMPT_PREVIEW_LENGTH = 40;
 
@@ -166,19 +167,9 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   const trackWidth = terminalWidth - padding * 2;
   if (trackWidth < 8) return [];
 
-  // Compute clip durations
-  const clipDurations = clips.map(c =>
-    (sourceFileEndSeconds(c) - sourceFileStartSeconds(c)) / c.playbackRate,
-  );
-
-  // Total duration accounting for transition overlaps
-  let totalDuration = 0;
-  for (let i = 0; i < clips.length; i++) {
-    totalDuration += clipDurations[i];
-    if (i > 0 && clips[i].transition) {
-      totalDuration -= clips[i].transition!.durationSeconds;
-    }
-  }
+  const timings = computeClipTimings(clips);
+  const clipDurations = timings.durations;
+  const totalDuration = timings.total;
 
   // Allocate clip character widths with error diffusion
   const minWidth = (i: number) => (i > 0 && clips[i].transition) ? 5 : 4;
@@ -212,16 +203,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     clipEndCol.push(col);
   }
 
-  // Compute cumulative clip start times (matching expandTimeline logic)
-  const clipStartTimes: number[] = [];
-  let cumulativeTime = 0;
-  for (let i = 0; i < clips.length; i++) {
-    if (i > 0 && clips[i].transition) {
-      cumulativeTime -= clips[i].transition!.durationSeconds;
-    }
-    clipStartTimes.push(cumulativeTime);
-    cumulativeTime += clipDurations[i];
-  }
+  const clipStartTimes = timings.startTimes;
 
   // Map absolute time to column, interpolating within clips
   function timeToCol(time: number): number {
@@ -263,40 +245,18 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
     }
   }
 
-  // Resolve overlay/music/voiceover start time from startClip + startOffset
-  function resolveStartTime(startClipIdx: number, startOffset: number): number {
-    if (startOffset >= 0) {
-      return clipStartTimes[startClipIdx] + startOffset;
-    }
-    return clipStartTimes[startClipIdx] + clipDurations[startClipIdx] + startOffset;
-  }
-
-  // Resolve overlay/music end time from endClip + endOffset
-  function resolveEndTime(endClipIdx: number, endOffset: number): number {
-    if (endOffset === 0) return clipStartTimes[endClipIdx] + clipDurations[endClipIdx];
-    if (endOffset > 0) return clipStartTimes[endClipIdx] + endOffset;
-    return clipStartTimes[endClipIdx] + clipDurations[endClipIdx] + endOffset;
-  }
-
   // Map overlays to column spans
   const overlaySpans: OverlaySpan[] = [];
   for (const o of overlays) {
     const endClipIdx = o.endClip ?? o.startClip;
     if (o.startClip >= clips.length || endClipIdx >= clips.length) continue;
-    let startCol = timeToCol(resolveStartTime(o.startClip, o.startOffset));
+    let startCol = timeToCol(clipAnchoredStart(timings, o.startClip, o.startOffset));
     // Skip past the `~` transition marker
     if (o.startClip > 0 && clips[o.startClip].transition && o.startOffset === 0) {
       startCol = Math.max(startCol, clipStartCol[o.startClip] + 1);
     }
-    // For overlays, endOffset === 0 means end before the next clip's incoming transition
-    let endTime: number;
-    if (o.endOffset === 0) {
-      const nextTransDur = clips[endClipIdx + 1]?.transition?.durationSeconds ?? 0;
-      endTime = clipStartTimes[endClipIdx] + clipDurations[endClipIdx] - nextTransDur;
-    } else {
-      endTime = resolveEndTime(endClipIdx, o.endOffset);
-    }
-    let endCol = timeToCol(endTime);
+    // endOffset 0 ends before the next clip's incoming transition
+    let endCol = timeToCol(clipAnchoredEnd(timings, endClipIdx, o.endOffset, clips));
     if (endCol <= startCol) endCol = startCol + 1;
     overlaySpans.push({
       startCol,
@@ -326,11 +286,11 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   for (const a of audios) {
     const endClipIdx = a.endClip ?? a.startClip;
     if (a.startClip >= clips.length || endClipIdx >= clips.length) continue;
-    let startCol = timeToCol(resolveStartTime(a.startClip, a.startOffset));
+    let startCol = timeToCol(clipAnchoredStart(timings, a.startClip, a.startOffset));
     if (a.startClip > 0 && clips[a.startClip].transition && a.startOffset === 0) {
       startCol = Math.max(startCol, clipStartCol[a.startClip] + 1);
     }
-    let endCol = timeToCol(resolveEndTime(endClipIdx, a.endOffset));
+    let endCol = timeToCol(clipAnchoredEnd(timings, endClipIdx, a.endOffset));
     if (endCol <= startCol) endCol = startCol + 1;
     let label: string;
     if (a.musicId != null && musicNames?.has(a.musicId)) {
@@ -396,7 +356,7 @@ export function renderTimeline(items: TimelineItem[], terminalWidth: number, mus
   const voiceoverSpans: AudioSpan[] = [];
   for (const vo of voiceoversItems) {
     if (vo.startClip >= clips.length) continue;
-    const voStartTime = resolveStartTime(vo.startClip, vo.startOffset);
+    const voStartTime = clipAnchoredStart(timings, vo.startClip, vo.startOffset);
     const voEndTime = voStartTime + (sourceFileEndSeconds(vo) - sourceFileStartSeconds(vo));
     let startCol = timeToCol(voStartTime);
     if (vo.startClip > 0 && clips[vo.startClip].transition && vo.startOffset === 0) {

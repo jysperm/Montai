@@ -1,6 +1,13 @@
 import { z } from 'zod';
 import { TIMESTAMP_PATTERN } from '../utils/time.js';
 
+export type VideoSegment = z.infer<typeof VideoSegmentSchema>;
+export type VideoAnalysis = z.infer<typeof VideoAnalysisSchema>;
+export type MusicSegment = z.infer<typeof MusicSegmentSchema>;
+export type MusicAnalysis = z.infer<typeof MusicAnalysisSchema>;
+export type VoiceoverTranscriptionSegment = z.infer<typeof VoiceoverTranscriptionSegmentSchema>;
+export type VoiceoverAnalysis = z.infer<typeof VoiceoverAnalysisSchema>;
+
 const TimestampSchema = z.string().regex(TIMESTAMP_PATTERN, 'must be MM:SS or MM:SS.s');
 
 export const VideoSegmentSchema = z.object({
@@ -48,10 +55,3 @@ export const VoiceoverAnalysisSchema = z.object({
   overview: z.string(),
   transcription: z.array(VoiceoverTranscriptionSegmentSchema),
 });
-
-export type VideoSegment = z.infer<typeof VideoSegmentSchema>;
-export type VideoAnalysis = z.infer<typeof VideoAnalysisSchema>;
-export type MusicSegment = z.infer<typeof MusicSegmentSchema>;
-export type MusicAnalysis = z.infer<typeof MusicAnalysisSchema>;
-export type VoiceoverTranscriptionSegment = z.infer<typeof VoiceoverTranscriptionSegmentSchema>;
-export type VoiceoverAnalysis = z.infer<typeof VoiceoverAnalysisSchema>;

@@ -11,5 +11,6 @@
     "resolveJsonModule": true,
     "isolatedModules": true
   },
-  "include": ["src"]
+  "include": ["src", "tests"],
+  "exclude": ["remotion", "tests/fixtures/src"]
 }

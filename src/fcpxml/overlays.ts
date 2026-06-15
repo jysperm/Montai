@@ -3,7 +3,7 @@
 // <title> XML. generate.ts owns resource-id allocation and the spine call site;
 // everything about how an overlay looks lives here.
 
-import type { ExpandedOverlay } from '../schemas/timeline.js';
+import type { ResolvedOverlay } from '../schemas/timeline.js';
 import { escapeXml, fcpName, round4, toRational } from './utils.js';
 
 const LINE_HEIGHT = 1.2;  // on-screen line spacing as a multiple of the visual font size
@@ -134,7 +134,7 @@ export function makeTitleXml(
   style: 'title' | 'subtitle' | 'caption',
   layout: TitleLayout,
   lane: number = 1,
-  animation?: ExpandedOverlay['animation'],
+  animation?: ResolvedOverlay['animation'],
   durationSeconds: number = 0,
   fps: number = 50,
 ): string {
@@ -197,7 +197,7 @@ export function makeTitleXml(
 }
 
 function makeSlideTransformXml(
-  animation: NonNullable<ExpandedOverlay['animation']>,
+  animation: NonNullable<ResolvedOverlay['animation']>,
   position: string,
   style: 'title' | 'subtitle' | 'caption',
   lineCount: number,
@@ -249,7 +249,7 @@ export interface TitleEffectIds {
 
 // Which title templates the overlays require: Essential Title (no animation /
 // slide), Essential Fade (fade), Essential Scale (pop).
-export function titleEffectsNeeded(overlays: ExpandedOverlay[]): { essential: boolean; fade: boolean; scale: boolean } {
+export function titleEffectsNeeded(overlays: ResolvedOverlay[]): { essential: boolean; fade: boolean; scale: boolean } {
   return {
     essential: overlays.some(o => !o.animation || o.animation.type === 'slide'),
     fade: overlays.some(o => o.animation?.type === 'fade'),
@@ -259,7 +259,7 @@ export function titleEffectsNeeded(overlays: ExpandedOverlay[]): { essential: bo
 
 // Pick the template ref for one overlay: fade→Essential Fade, pop→Essential Scale,
 // else Essential Title. (DaVinci ignores titles; they render at center there.)
-export function titleEffectRef(overlay: ExpandedOverlay, ids: TitleEffectIds): string {
+export function titleEffectRef(overlay: ResolvedOverlay, ids: TitleEffectIds): string {
   if (overlay.animation?.type === 'fade') return ids.fadeId!;
   if (overlay.animation?.type === 'pop') return ids.scaleId!;
   return ids.essentialId!;

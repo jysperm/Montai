@@ -35,7 +35,7 @@ describe.skip('video FileContent in agent context', () => {
   it('model can describe video content returned by a tool', async () => {
     const fileUri = await uploadVideo(VIDEO_PATH);
 
-    const model = getModel('google', 'gemini-3.5-flash');
+    const model = getModel('google', 'gemini-3.5-flash' as Parameters<typeof getModel>[1]);
 
     const watchTool = {
       name: 'watch_video',
@@ -47,7 +47,7 @@ describe.skip('video FileContent in agent context', () => {
       }),
       async execute(
         _toolCallId: string,
-        params: { startSeconds: number; endSeconds: number },
+        params: any,
       ) {
         const fileContent: FileContent = {
           type: 'file',
@@ -77,7 +77,7 @@ describe.skip('video FileContent in agent context', () => {
       getApiKey: () => process.env.GOOGLE_GENERATIVE_AI_API_KEY,
     });
 
-    agent.setTools([watchTool]);
+    agent.state.tools = [watchTool];
 
     let assistantText = '';
     let thinkingText = '';

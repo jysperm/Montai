@@ -3,18 +3,18 @@ import { writeFileSync, mkdirSync } from 'fs';
 import { basename, resolve } from 'path';
 import { initDb, type MontaiDb } from '../db/index.js';
 import { videos, music, voiceovers } from '../db/schema.js';
-import { loadProjectConfig, loadExpandedTimelines } from '../utils/project.js';
+import { loadProjectConfig, loadResolvedTimelines } from '../utils/project.js';
 import { generateFcpxml, type VideoFormatInfo, type AudioFormatInfo } from '../fcpxml/generate.js';
 import { remapToArchived } from '../utils/archived-videos.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
-import type { ExpandedTimeline } from '../schemas/timeline.js';
+import type { ResolvedTimeline } from '../schemas/timeline.js';
 
 export async function exportCommand(name?: string, options?: { fcp?: boolean; davinci?: boolean; fromArchived?: boolean }) {
   const target: 'fcp' | 'davinci' = options?.davinci ? 'davinci' : 'fcp';
   const config = loadProjectConfig();
   const db = await initDb();
 
-  let { timelines: specs } = loadExpandedTimelines(db, config, name);
+  let { timelines: specs } = loadResolvedTimelines(db, config, name);
   if (specs.length === 0) return;
 
   let archivedMeta: Map<string, VideoFormatInfo> | undefined;
@@ -39,7 +39,7 @@ export async function exportCommand(name?: string, options?: { fcp?: boolean; da
 }
 
 export function exportFcpxmlFiles(
-  specs: ExpandedTimeline[],
+  specs: ResolvedTimeline[],
   db: MontaiDb,
   target: 'fcp' | 'davinci' = 'fcp',
   archivedMeta?: Map<string, VideoFormatInfo>,

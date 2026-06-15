@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { expandTimeline, TimelineItemSchema, type TimelineItem } from '../../src/schemas/timeline-items.js';
+import { TimelineItemSchema, type TimelineItem } from '../../src/schemas/timeline.js';
+import { resolveTimeline } from '../../src/schemas/timeline/resolve.js';
 
 describe('TimelineItemSchema', () => {
   it('returns zod issues instead of throwing for malformed timestamps', () => {
@@ -67,10 +68,10 @@ describe('TimelineItemSchema', () => {
   it('reports voiceover endTime/startTime ordering errors during expansion', () => {
     const items: TimelineItem[] = [
       { type: 'clip', videoId: 1, startTime: '00:00', endTime: '00:20', playbackRate: 1, volume: 1 },
-      { type: 'voiceover', voiceoverId: 1, startClip: 0, startTime: '00:10', endTime: '00:05', volume: 1 },
+      { type: 'voiceover', voiceoverId: 1, startClip: 0, startOffset: 0, startTime: '00:10', endTime: '00:05', volume: 1 },
     ];
 
-    const { errors } = expandTimeline(
+    const { errors } = resolveTimeline(
       items,
       {
         output: { resolution: '1080p', fps: 50 },

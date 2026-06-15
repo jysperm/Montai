@@ -5,7 +5,7 @@ import { initDb } from '../db/index.js';
 import { videos, videoAnalyses, stories, music, musicAnalyses, voiceovers, voiceoverAnalyses, sessions, sessionMessages } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { languageNames } from '../prompts/index.js';
-import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline-items.js';
+import { TimelineItemSchema, type TimelineItem } from '../schemas/timeline.js';
 import { z } from 'zod';
 import { formatTimeAgo, formatStoryLine } from '../utils/format.js';
 import { secondsToTimestamp } from '../utils/time.js';

@@ -3,7 +3,6 @@ import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import * as schema from '../../src/db/schema.js';
 import { getStoryTools, type StoryToolsContext } from '../../src/agents/story-tools.js';
-import type { TimelineItem } from '../../src/schemas/timeline-items.js';
 
 function createTestDb() {
   const sqlite = new Database(':memory:');
@@ -72,6 +71,11 @@ function seedStory(ctx: StoryToolsContext) {
   ctx.currentStoryName = 'test';
 }
 
+function storedTimeline(ctx: StoryToolsContext): unknown {
+  const row = (ctx.db as any).select().from(schema.stories).get();
+  return JSON.parse(row.timeline);
+}
+
 describe('updateStoryline tool', () => {
   it('keeps the existing name and title when omitted', async () => {
     const db = createTestDb();
@@ -125,7 +129,7 @@ describe('updateTimeline tool', () => {
     });
   });
 
-  it('returns no corrections for valid items', async () => {
+  it('returns the timeline summary without corrections for valid items', async () => {
     const result = await updateTimeline.execute('call-1', {
       index: 2,
       deleteCount: 0,
@@ -135,42 +139,21 @@ describe('updateTimeline tool', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Timeline updated');
-    expect(result.content[0].text).not.toContain('Corrections');
-  });
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 3 items (2 clips, 1 overlays)
 
-  it('stores clip start/end timestamps with the new field names', async () => {
-    const result = await updateTimeline.execute('call-1', {
-      index: 0,
-      deleteCount: -1,
-      items: [
-        { type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' },
-      ],
-    });
+      ## Computed Timeline (20.0s in total)
 
-    expect(result.isError).toBeUndefined();
-    const row = (ctx.db as any).select().from(schema.stories).get();
-    const stored = JSON.parse(row.timeline);
-    expect(stored[0]).toMatchObject({ type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' });
-    expect(stored[0]).not.toHaveProperty('startTimeSeconds');
-    expect(stored[0]).not.toHaveProperty('endTimeSeconds');
-  });
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
 
-  it('normalizes legacy clip seconds when saving', async () => {
-    const result = await updateTimeline.execute('call-1', {
-      index: 0,
-      deleteCount: -1,
-      items: [
-        { type: 'clip', videoId: 1, startTimeSeconds: 65, endTimeSeconds: 72.5 },
-      ],
-    });
+      Clips:
+        0.0–10.0s vid=1 [0]
+        10.0–20.0s vid=1 [1]
 
-    expect(result.isError).toBeUndefined();
-    const row = (ctx.db as any).select().from(schema.stories).get();
-    const stored = JSON.parse(row.timeline);
-    expect(stored[0]).toMatchObject({ type: 'clip', videoId: 1, startTime: '01:05', endTime: '01:12.5' });
-    expect(stored[0]).not.toHaveProperty('startTimeSeconds');
-    expect(stored[0]).not.toHaveProperty('endTimeSeconds');
+      Overlays:
+        0.0–20.0s "Hello" (20.0s)
+      "
+    `);
   });
 
   it('rejects clips where endTime is not after startTime', async () => {
@@ -194,16 +177,59 @@ describe('updateTimeline tool', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Corrections applied');
-    expect(result.content[0].text).toContain('endClip clamped from 5 to 1');
-    expect(result.content[0].text).toContain('startClip clamped from 9 to 1');
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 4 items (2 clips, 1 overlays, 1 music)
+      Corrections applied:
+      - Music item (musicId=1): endClip clamped from 5 to 1 (total clips: 2)
+      - Overlay "Late subtitle": startClip clamped from 9 to 1 (total clips: 2)
+      - Overlay "Late subtitle": endClip clamped from 9 to 1 (total clips: 2)
 
-    const musicItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'music' }> => i.type === 'music')!;
-    expect(musicItem.endClip).toBe(1);
+      ## Computed Timeline (20.0s in total)
 
-    const overlayItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'overlay' }> => i.type === 'overlay')!;
-    expect(overlayItem.startClip).toBe(1);
-    expect(overlayItem.endClip).toBe(1);
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+
+      Clips:
+        0.0–10.0s vid=1 [0]
+        10.0–20.0s vid=1 [1]
+
+      Overlays:
+        10.0–20.0s "Late subti..." (10.0s)
+
+      Music:
+        0.0–20.0s music=1 (20.0s, startTime=00:00, endTime=00:20)
+      "
+    `);
+    expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
+      [
+        {
+          "endTime": "00:10",
+          "startTime": "00:00",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endTime": "00:20",
+          "startTime": "00:10",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endClip": 1,
+          "musicId": 1,
+          "startClip": 0,
+          "type": "music",
+          "volume": 0.5,
+        },
+        {
+          "endClip": 1,
+          "position": "bottom-center",
+          "startClip": 1,
+          "style": "subtitle",
+          "text": "Late subtitle",
+          "type": "overlay",
+        },
+      ]
+    `);
   });
 
   it('fixes escaped newlines in overlay text', async () => {
@@ -216,11 +242,30 @@ describe('updateTimeline tool', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('Corrections applied');
-    expect(result.content[0].text).toContain('escaped \\\\n replaced with newline');
-
-    const overlayItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'overlay' }> => i.type === 'overlay')!;
-    expect(overlayItem.text).toBe('Line 1\nLine 2');
+    expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
+      [
+        {
+          "endTime": "00:10",
+          "startTime": "00:00",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endTime": "00:20",
+          "startTime": "00:10",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "position": "bottom-center",
+          "startClip": 0,
+          "style": "subtitle",
+          "text": "Line 1
+      Line 2",
+          "type": "overlay",
+        },
+      ]
+    `);
   });
 
   it('removes clips referencing missing videos', async () => {
@@ -231,8 +276,37 @@ describe('updateTimeline tool', () => {
         { type: 'clip', videoId: 999, startTime: '00:00', endTime: '00:10' },
       ],
     });
-    expect(result.content[0].text).toContain('videoId=999');
-    expect(ctx.currentItems.filter(i => i.type === 'clip')).toHaveLength(2); // only the original 2
+
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 2 items (2 clips, 0 overlays)
+      Corrections applied:
+      - Clip (videoId=999): video not found in database — removed
+
+      ## Computed Timeline (20.0s in total)
+
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+
+      Clips:
+        0.0–10.0s vid=1 [0]
+        10.0–20.0s vid=1 [1]
+      "
+    `);
+    expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
+      [
+        {
+          "endTime": "00:10",
+          "startTime": "00:00",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endTime": "00:20",
+          "startTime": "00:10",
+          "type": "clip",
+          "videoId": 1,
+        },
+      ]
+    `);
   });
 
   it('removes audio referencing missing music', async () => {
@@ -243,8 +317,37 @@ describe('updateTimeline tool', () => {
         { type: 'music', startClip: 0, musicId: 999, volume: 0.5 },
       ],
     });
-    expect(result.content[0].text).toContain('musicId=999');
-    expect(ctx.currentItems.filter(i => i.type === 'music')).toHaveLength(0);
+
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 2 items (2 clips, 0 overlays)
+      Corrections applied:
+      - Music item (musicId=999): music not found in database — removed
+
+      ## Computed Timeline (20.0s in total)
+
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+
+      Clips:
+        0.0–10.0s vid=1 [0]
+        10.0–20.0s vid=1 [1]
+      "
+    `);
+    expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
+      [
+        {
+          "endTime": "00:10",
+          "startTime": "00:00",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endTime": "00:20",
+          "startTime": "00:10",
+          "type": "clip",
+          "videoId": 1,
+        },
+      ]
+    `);
   });
 
   it('wraps legacy music audioStartSeconds into the source duration', async () => {
@@ -257,14 +360,49 @@ describe('updateTimeline tool', () => {
     });
 
     expect(result.isError).toBeUndefined();
-    expect(result.content[0].text).toContain('startTime 00:43 exceeds music duration 00:30');
-    expect(result.content[0].text).toContain('set to 00:13');
-    expect(result.content[0].text).toContain('startTime=00:13, endTime=00:33');
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 3 items (2 clips, 0 overlays, 1 music)
+      Corrections applied:
+      - Music item (musicId=1): startTime 00:43 exceeds music duration 00:30 - set to 00:13
+      - Music item (musicId=1): music (00:17 available) auto-looped 2× with 1s crossfade to cover ~20s span
 
-    const musicItem = ctx.currentItems.find((i): i is Extract<TimelineItem, { type: 'music' }> => i.type === 'music')!;
-    expect(musicItem.startTime).toBe('00:13');
+      ## Computed Timeline (20.0s in total)
+
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+
+      Clips:
+        0.0–10.0s vid=1 [0]
+        10.0–20.0s vid=1 [1]
+
+      Music:
+        0.0–20.0s music=1 (20.0s, startTime=00:13, endTime=00:33)
+      "
+    `);
+    expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
+      [
+        {
+          "endTime": "00:10",
+          "startTime": "00:00",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endTime": "00:20",
+          "startTime": "00:10",
+          "type": "clip",
+          "videoId": 1,
+        },
+        {
+          "endClip": 1,
+          "musicId": 1,
+          "startClip": 0,
+          "startTime": "00:13",
+          "type": "music",
+          "volume": 0.3,
+        },
+      ]
+    `);
   });
-
 });
 
 describe('updateTimeline auto-loop', () => {
@@ -298,9 +436,23 @@ describe('updateTimeline auto-loop', () => {
         { type: 'music', startClip: 0, endClip: 1, musicId: 1, volume: 0.3 },
       ],
     });
-    expect(result.content[0].text).toContain('auto-looped');
-    expect(result.content[0].text).toContain('music (00:05 available)');
-    expect(result.content[0].text).toContain('crossfade');
+    expect(result.content[0].text).toMatchInlineSnapshot(`
+      "Timeline updated: 3 items (2 clips, 0 overlays, 1 music)
+      Corrections applied:
+      - Music item (musicId=1): music (00:05 available) auto-looped 8× with 1s crossfade to cover ~30s span
+
+      ## Computed Timeline (30.0s in total)
+
+      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+
+      Clips:
+        0.0–15.0s vid=1 [0]
+        15.0–30.0s vid=2 [1]
+
+      Music:
+        0.0–30.0s music=1 (30.0s, startTime=00:00, endTime=00:30)
+      "
+    `);
   });
 
   it('does not report loop when music is long enough', async () => {

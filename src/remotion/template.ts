@@ -1,6 +1,6 @@
-import type { ExpandedTimeline } from '../schemas/timeline.js';
+import type { ResolvedTimeline } from '../schemas/timeline.js';
 
-export function calculateTotalFrames(spec: ExpandedTimeline): number {
+export function calculateTotalFrames(spec: ResolvedTimeline): number {
   let total = 0;
   const { fps } = spec;
 

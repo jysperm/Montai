@@ -91,7 +91,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 2, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
-- **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ExpandedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
+- **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ResolvedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **story_marks** — TUI-local timeline checkpoints created via `/mark` in the story TUI. Each row stores a `TimelineItem[]` JSON snapshot for a specific story (`storyId` FK). `name` is unique within a story. Storyline is intentionally not captured; restore overwrites the current timeline only.
 - **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
@@ -150,7 +150,7 @@ Both tools use the `@remotion/renderer` programmatic API instead of the CLI:
 
 Gated by the `previewTools` feature flag (default `true`).
 
-The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ExpandedTimeline` format for downstream consumption.
+The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ResolvedTimeline` format for downstream consumption.
 
 Stories can be resumed: `montai story <name>` restores the current storyline and timeline state. Running `montai story` with no name shows an interactive arrow-key picker listing existing stories (plus a "new story" option); `--new` forces a fresh story. Use `--no-intro` to skip the initial LLM summary and go straight to input.
 
@@ -190,7 +190,7 @@ The `--from-archived` flag on `render`, `preview`, and `export` commands remaps 
 
 ## Timeline Data Model
 
-The timeline has two layers: raw `TimelineItem` (stored in DB, edited by LLM) and `ExpandedTimeline` (consumed by Remotion/FCPXML).
+The timeline has two layers: raw `TimelineItem` (stored in DB, edited by LLM) and `ResolvedTimeline` (consumed by Remotion/FCPXML).
 
 A project can produce multiple timelines (multiple output videos). Each has a unique `name` used as an identifier and output filename.
 
@@ -248,7 +248,7 @@ VoiceoverItem {
 }
 ```
 
-Raw timeline items use `MM:SS` timestamps for source file times (`startTime`/`endTime`). Agent-facing source media descriptions also show media durations as `MM:SS`. Timeline-relative positions, offsets, and durations remain numeric seconds (`startOffset`, `endOffset`, `durationSeconds`, preview ranges, and ExpandedTimeline `timelineStartSeconds`/`timelineEndSeconds` fields). Older stored timelines with `startTimeSeconds`/`endTimeSeconds` on clip items, `audioStartSeconds` on music items, or `audioStartSeconds`/`audioEndSeconds` on voiceover items are accepted on read and normalized to the new source file time fields when saved.
+Raw timeline items use `MM:SS` timestamps for source file times (`startTime`/`endTime`). Agent-facing source media descriptions also show media durations as `MM:SS`. Timeline-relative positions, offsets, and durations remain numeric seconds (`startOffset`, `endOffset`, `durationSeconds`, preview ranges, and ResolvedTimeline `timelineStartSeconds`/`timelineEndSeconds` fields). Older stored timelines with `startTimeSeconds`/`endTimeSeconds` on clip items, `audioStartSeconds` on music items, or `audioStartSeconds`/`audioEndSeconds` on voiceover items are accepted on read and normalized to the new source file time fields when saved.
 
 During timeline sanitization, a music item's `startTime` is wrapped modulo the source music duration when it exceeds the playable range. The correction is reported explicitly so the agent/user can see that an invalid source offset was changed.
 
@@ -256,21 +256,21 @@ The agent-facing computed timeline summary includes each music item's absolute t
 
 When expanding overlays, if `endOffset` is at its default (0), the overlay end time is automatically pulled back to when the outgoing transition starts (i.e. the next clip's incoming transition), so the old subtitle disappears and the new one appears at the transition boundary. Explicit non-zero `endOffset` bypasses this adjustment.
 
-These are expanded via `expandTimeline()` into `ExpandedTimeline` format at consumption time:
+These are expanded via `resolveTimeline()` into `ResolvedTimeline` format at consumption time:
 
 ```typescript
-ExpandedTimeline {
+ResolvedTimeline {
   name: string
   fps: number
   width: number
   height: number
   clips: TimelineClip[]
   textOverlays: TextOverlay[]
-  audioTracks: ExpandedAudio[]
-  voiceoverTracks: ExpandedVoiceover[]
+  audioTracks: ResolvedAudio[]
+  voiceoverTracks: ResolvedVoiceover[]
 }
 
-ExpandedClip {
+ResolvedClip {
   clipId: string
   videoId: number
   sourceFile: string
@@ -291,7 +291,7 @@ ExpandedClip {
   cropEnd?: Crop               // passed through from ClipItem
 }
 
-ExpandedOverlay {
+ResolvedOverlay {
   text: string
   timelineStartSeconds: number
   timelineEndSeconds: number
@@ -303,7 +303,7 @@ ExpandedOverlay {
   }
 }
 
-ExpandedAudio {
+ResolvedAudio {
   sourceFile: string
   timelineStartSeconds: number
   timelineEndSeconds: number
@@ -313,7 +313,7 @@ ExpandedAudio {
   fadeOutSeconds: number
 }
 
-ExpandedVoiceover {
+ResolvedVoiceover {
   sourceFile: string
   timelineStartSeconds: number
   timelineEndSeconds: number
@@ -322,7 +322,7 @@ ExpandedVoiceover {
 }
 ```
 
-VoiceoverItem differs from MusicItem: no endClip/endOffset (end position determined by endTime - startTime), no auto-loop, references voiceoverId instead of musicId. `expandTimeline` validates that voiceover audio doesn't extend beyond the timeline end, rejecting the update with an error if it does.
+VoiceoverItem differs from MusicItem: no endClip/endOffset (end position determined by endTime - startTime), no auto-loop, references voiceoverId instead of musicId. `resolveTimeline` validates that voiceover audio doesn't extend beyond the timeline end, rejecting the update with an error if it does.
 
 ## Remotion Output
 
@@ -407,7 +407,7 @@ The `generateMusic` tool in the story agent generates instrumental background mu
 - **Output**: ~30s instrumental WAV at 48kHz stereo, $0.06/clip
 - **Caching**: Generated files stored in `generated-music/` using SHA-256 hash of prompt. Same prompt reuses existing file + DB row.
 - **Reuse**: Previously generated music appears in the story context under "Generated Music" so the LLM can reference it without regenerating. The LLM is prompted to prefer existing tracks (library or generated) before generating new ones.
-- **Auto-loop**: When a music track (library or generated) is shorter than the music item's timeline span, `expandTimeline()` automatically splits it into multiple `ExpandedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
+- **Auto-loop**: When a music track (library or generated) is shorter than the music item's timeline span, `resolveTimeline()` automatically splits it into multiple `ResolvedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
 - **Analysis**: Only library music is analyzed by Gemini during `montai analyze`. Generated music uses its generation prompt as the description.
 
 ## User Project Directory Structure

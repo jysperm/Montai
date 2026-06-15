@@ -1,7 +1,8 @@
 import { readdirSync, readFileSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
-import { expandTimeline, type TimelineItem } from '../../src/schemas/timeline-items.js';
+import { resolveTimeline } from '../../src/schemas/timeline/resolve.js';
+import type { TimelineItem } from '../../src/schemas/timeline.js';
 import { resolutionPresets, type ProjectConfig } from '../../src/schemas/project.js';
 import { musicFiles, musicMeta, videos, voiceoverFiles, voiceoverMeta } from '../fixtures/index.js';
 
@@ -64,7 +65,7 @@ export function parseTimelineSpec(spec: string): TimelineSpec {
 }
 
 export function expand(items: TimelineItem[], name: string) {
-  return expandTimeline(items, config, name, videos, undefined, musicFiles, voiceoverFiles);
+  return resolveTimeline(items, config, name, videos, undefined, musicFiles, voiceoverFiles);
 }
 
 export function expandForTimeline(
@@ -72,7 +73,7 @@ export function expandForTimeline(
   resolution: ProjectConfig['output']['resolution'] = config.output.resolution,
 ) {
   const items = loadTimeline(name);
-  return expandTimeline(
+  return resolveTimeline(
     items,
     { ...config, output: { ...config.output, resolution } },
     name,

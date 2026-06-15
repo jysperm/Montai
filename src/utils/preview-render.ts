@@ -4,23 +4,23 @@ import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
 import { bundle } from '@remotion/bundler';
 import { renderStill, renderMedia, selectComposition } from '@remotion/renderer';
-import type { ExpandedTimeline, ExpandedClip } from '../schemas/timeline.js';
+import type { ResolvedTimeline, ResolvedClip } from '../schemas/timeline.js';
 
 const REMOTION_DIR = fileURLToPath(new URL('../../remotion', import.meta.url));
 const BUNDLE_OUT = resolve('.montai/.cache/remotion-bundle');
 const PUBLIC_DIR = resolve('.montai/public');
 
-function clipDurationFrames(clip: ExpandedClip, fps: number): number {
+function clipDurationFrames(clip: ResolvedClip, fps: number): number {
   const seconds = (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
   return Math.round(seconds * fps);
 }
 
-function transitionFrames(clip: ExpandedClip, fps: number): number {
+function transitionFrames(clip: ResolvedClip, fps: number): number {
   return clip.transition ? Math.round(clip.transition.durationSeconds * fps) : 0;
 }
 
 // Global frame at which clip k's content starts. Mirrors MontaiVideo.calculateTotalFrames.
-export function clipStartFrame(spec: ExpandedTimeline, k: number): number {
+export function clipStartFrame(spec: ResolvedTimeline, k: number): number {
   let frame = 0;
   for (let i = 0; i < k; i++) {
     frame += clipDurationFrames(spec.clips[i], spec.fps);
@@ -30,7 +30,7 @@ export function clipStartFrame(spec: ExpandedTimeline, k: number): number {
   return frame;
 }
 
-export function totalTimelineFrames(spec: ExpandedTimeline): number {
+export function totalTimelineFrames(spec: ResolvedTimeline): number {
   let total = 0;
   for (let i = 0; i < spec.clips.length; i++) {
     total += clipDurationFrames(spec.clips[i], spec.fps);
@@ -39,13 +39,13 @@ export function totalTimelineFrames(spec: ExpandedTimeline): number {
   return Math.max(total, 1);
 }
 
-export function totalTimelineSeconds(spec: ExpandedTimeline): number {
+export function totalTimelineSeconds(spec: ResolvedTimeline): number {
   return totalTimelineFrames(spec) / spec.fps;
 }
 
 // (clipIndex, timeOffset) → absolute frame. timeOffset follows OverlayItem.startOffset:
 // >=0 from clip start, <0 from clip end.
-export function resolveStartFrame(spec: ExpandedTimeline, clipIndex: number, timeOffset: number): number {
+export function resolveStartFrame(spec: ResolvedTimeline, clipIndex: number, timeOffset: number): number {
   const clip = spec.clips[clipIndex];
   if (!clip) throw new Error(`clipIndex ${clipIndex} out of range (timeline has ${spec.clips.length} clips)`);
   const startFrame = clipStartFrame(spec, clipIndex);
@@ -95,12 +95,12 @@ async function getBundle(): Promise<string> {
 // derives all per-frame quantities from `fps * seconds`, so total frames and
 // transition overlaps adjust automatically. Lower fps = fewer frames rendered
 // (no waste) at the cost of animation sample density.
-function specWithFps(spec: ExpandedTimeline, fps: number): ExpandedTimeline {
+function specWithFps(spec: ResolvedTimeline, fps: number): ResolvedTimeline {
   return { ...spec, fps };
 }
 
 export interface RenderStillOpts {
-  spec: ExpandedTimeline;
+  spec: ResolvedTimeline;
   frame: number;
   outPath: string;
 }
@@ -123,7 +123,7 @@ export async function renderStillFrame({ spec, frame, outPath }: RenderStillOpts
 }
 
 export interface RenderRangeOpts {
-  spec: ExpandedTimeline;
+  spec: ResolvedTimeline;
   startSeconds: number;
   endSeconds: number;
   fps: number;
@@ -162,13 +162,13 @@ export async function renderRange({ spec, startSeconds, endSeconds, fps, outPath
 }
 
 // Stable hash over (spec + range + fps) for cross-session preview caching.
-export function previewHash(spec: ExpandedTimeline, startSeconds: number, endSeconds: number, fps: number): string {
+export function previewHash(spec: ResolvedTimeline, startSeconds: number, endSeconds: number, fps: number): string {
   const data = JSON.stringify({ spec, startSeconds, endSeconds, fps });
   return createHash('sha256').update(data).digest('hex').slice(0, 16);
 }
 
 // Stable hash over (spec + frame) for cross-session still caching.
-export function stillHash(spec: ExpandedTimeline, frame: number): string {
+export function stillHash(spec: ResolvedTimeline, frame: number): string {
   const data = JSON.stringify({ spec, frame });
   return createHash('sha256').update(data).digest('hex').slice(0, 16);
 }
