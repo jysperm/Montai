@@ -144,11 +144,11 @@ describe('updateTimeline tool', () => {
 
       ## Computed Timeline (20.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–10.0s vid=1 [0]
-        10.0–20.0s vid=1 [1]
+        0.0–10.0s (10.0s) vid=1 source=00:00–00:10 [0]
+        10.0–20.0s (10.0s) vid=1 source=00:10–00:20 [1]
 
       Overlays:
         0.0–20.0s "Hello" (20.0s)
@@ -186,17 +186,17 @@ describe('updateTimeline tool', () => {
 
       ## Computed Timeline (20.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–10.0s vid=1 [0]
-        10.0–20.0s vid=1 [1]
+        0.0–10.0s (10.0s) vid=1 source=00:00–00:10 [0]
+        10.0–20.0s (10.0s) vid=1 source=00:10–00:20 [1]
 
       Overlays:
         10.0–20.0s "Late subti..." (10.0s)
 
       Music:
-        0.0–20.0s music=1 (20.0s, startTime=00:00, endTime=00:20)
+        0.0–20.0s (20.0s) music=1 source=00:00–00:20
       "
     `);
     expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
@@ -284,11 +284,11 @@ describe('updateTimeline tool', () => {
 
       ## Computed Timeline (20.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–10.0s vid=1 [0]
-        10.0–20.0s vid=1 [1]
+        0.0–10.0s (10.0s) vid=1 source=00:00–00:10 [0]
+        10.0–20.0s (10.0s) vid=1 source=00:10–00:20 [1]
       "
     `);
     expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
@@ -325,11 +325,11 @@ describe('updateTimeline tool', () => {
 
       ## Computed Timeline (20.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–10.0s vid=1 [0]
-        10.0–20.0s vid=1 [1]
+        0.0–10.0s (10.0s) vid=1 source=00:00–00:10 [0]
+        10.0–20.0s (10.0s) vid=1 source=00:10–00:20 [1]
       "
     `);
     expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
@@ -368,14 +368,14 @@ describe('updateTimeline tool', () => {
 
       ## Computed Timeline (20.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–10.0s vid=1 [0]
-        10.0–20.0s vid=1 [1]
+        0.0–10.0s (10.0s) vid=1 source=00:00–00:10 [0]
+        10.0–20.0s (10.0s) vid=1 source=00:10–00:20 [1]
 
       Music:
-        0.0–20.0s music=1 (20.0s, startTime=00:13, endTime=00:33)
+        0.0–20.0s (20.0s) music=1 source=00:13–00:33
       "
     `);
     expect(storedTimeline(ctx)).toMatchInlineSnapshot(`
@@ -443,14 +443,14 @@ describe('updateTimeline auto-loop', () => {
 
       ## Computed Timeline (30.0s in total)
 
-      Format: \`start–end\` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+      Format: the leading time range and parenthesized duration are on the final timeline. \`source\` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
       Clips:
-        0.0–15.0s vid=1 [0]
-        15.0–30.0s vid=2 [1]
+        0.0–15.0s (15.0s) vid=1 source=00:00–00:15 [0]
+        15.0–30.0s (15.0s) vid=2 source=00:00–00:15 [1]
 
       Music:
-        0.0–30.0s music=1 (30.0s, startTime=00:00, endTime=00:30)
+        0.0–30.0s (30.0s) music=1 source=00:00–00:30
       "
     `);
   });

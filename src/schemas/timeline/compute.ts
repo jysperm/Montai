@@ -19,6 +19,9 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
     videoId: clip.videoId,
     timelineStart: fmt(clipStartTimes[i]),
     timelineEnd: fmt(clipStartTimes[i] + clipDurations[i]),
+    duration: fmt(clipDurations[i]),
+    start: secondsToTimestamp(sourceFileStartSeconds(clip)),
+    end: secondsToTimestamp(sourceFileEndSeconds(clip)),
   }));
 
   const voiceovers = items
@@ -58,8 +61,8 @@ export function buildComputedTimelineData(items: TimelineItem[]): Record<string,
         timelineStart: fmt(start),
         timelineEnd: fmt(end),
         duration: fmt(end - start),
-        startTime: m.startTime,
-        endTime: secondsToTimestamp(sourceFileStartSeconds(m) + (end - start)),
+        start: secondsToTimestamp(sourceFileStartSeconds(m)),
+        end: secondsToTimestamp(sourceFileStartSeconds(m) + (end - start)),
       };
     });
 

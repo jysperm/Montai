@@ -1,10 +1,10 @@
 ## Computed Timeline ({{totalDuration}}s in total)
 
-Format: `start–end` is the absolute position in seconds on the timeline of the final video; parenthesized value is the duration; bracketed number is the clip index for startClip/endClip references.
+Format: the leading time range and parenthesized duration are on the final timeline. `source` is the timestamp range in the source media file. The bracketed number is the clip index for startClip/endClip references.
 
 Clips:
 {{#each clips}}
-  {{this.timelineStart}}–{{this.timelineEnd}}s vid={{this.videoId}} [{{this.index}}]
+  {{this.timelineStart}}–{{this.timelineEnd}}s ({{this.duration}}s) vid={{this.videoId}} source={{this.start}}–{{this.end}} [{{this.index}}]
 {{/each}}
 {{#if voiceovers.length}}
 
@@ -24,6 +24,6 @@ Overlays:
 
 Music:
 {{#each music}}
-  {{this.timelineStart}}–{{this.timelineEnd}}s music={{this.musicId}} ({{this.duration}}s, startTime={{this.startTime}}, endTime={{this.endTime}})
+  {{this.timelineStart}}–{{this.timelineEnd}}s ({{this.duration}}s) music={{this.musicId}} source={{this.start}}–{{this.end}}
 {{/each}}
 {{/if}}

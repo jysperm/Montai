@@ -252,7 +252,7 @@ Raw timeline items use `MM:SS` timestamps for source file times (`startTime`/`en
 
 During timeline sanitization, a music item's `startTime` is wrapped modulo the source music duration when it exceeds the playable range. The correction is reported explicitly so the agent/user can see that an invalid source offset was changed.
 
-The agent-facing computed timeline summary includes each music item's absolute timeline span, duration, and computed music-file `startTime`/`endTime`. This gives the agent enough information to split one music track into multiple consecutive items while keeping playback continuous.
+The agent-facing computed timeline summary starts each row with a time range and parenthesized duration measured on the final timeline. Source media ranges are labeled separately as `source`, and clip rows keep a bracketed clip-only index for `startClip`/`endClip` references. This gives the agent enough information to call `watchSegment` for existing clips and to split one music track into multiple consecutive items while keeping playback continuous.
 
 When expanding overlays, if `endOffset` is at its default (0), the overlay end time is automatically pulled back to when the outgoing transition starts (i.e. the next clip's incoming transition), so the old subtitle disappears and the new one appears at the transition boundary. Explicit non-zero `endOffset` bypasses this adjustment.
 
