@@ -49,35 +49,26 @@ function findReusableTranscode(videoId: number, requiredFps: number, sourcePath:
 export interface TranscodeResult {
   path: string;
   cached: boolean;
+  // Name of the hardware decoder ffmpeg actually engaged (e.g. 'videotoolbox'), or null for software/cached.
+  hwaccel: string | null;
 }
 
-export async function transcodeForUpload(videoId: number, sourcePath: string, fps = 1): Promise<TranscodeResult> {
-  const reusable = findReusableTranscode(videoId, fps, sourcePath);
-  if (reusable) return { path: reusable, cached: true };
-
-  const outPath = getTranscodedPath(videoId, fps);
-  mkdirSync(dirname(outPath), { recursive: true });
-
-  const tmpPath = outPath.replace(/\.mp4$/, '.tmp.mp4');
-
-  return new Promise<TranscodeResult>((resolve, reject) => {
-    const child = spawn('ffmpeg', [
-      '-y',
-      '-i', sourcePath,
-      '-vf', `scale=-2:720,fps=${fps}`,
-      '-c:v', 'libx264',
-      '-preset', 'fast',
-      '-crf', '28',
-      '-pix_fmt', 'yuv420p',
-      '-c:a', 'aac',
-      '-b:a', '64k',
-      '-ac', '1',
-      tmpPath,
-    ], { stdio: ['ignore', 'ignore', 'pipe'] });
+function runFfmpeg(args: string[], tmpPath: string): Promise<{ hwaccel: string | null }> {
+  return new Promise<{ hwaccel: string | null }>((resolve, reject) => {
+    const child = spawn('ffmpeg', args, { stdio: ['ignore', 'ignore', 'pipe'] });
 
     let stderrTail = '';
+    let stderrHead = '';
+    let hwaccel: string | null = null;
     child.stderr.on('data', (data: Buffer) => {
-      stderrTail = data.toString().slice(-2000);
+      const text = data.toString();
+      stderrTail = text.slice(-2000);
+      // The "Using ... hwaccel type X" line is printed early; keep a head buffer to catch it.
+      if (stderrHead.length < 16384) {
+        stderrHead += text;
+        const match = stderrHead.match(/Using .*hwaccel type (\S+)/i);
+        if (match) hwaccel = match[1];
+      }
     });
 
     const cleanup = () => {
@@ -100,8 +91,7 @@ export async function transcodeForUpload(videoId: number, sourcePath: string, fp
       process.removeListener('SIGTERM', onSignal);
 
       if (code === 0) {
-        renameSync(tmpPath, outPath);
-        resolve({ path: outPath, cached: false });
+        resolve({ hwaccel });
       } else {
         cleanup();
         const detail = stderrTail.trim();
@@ -116,4 +106,43 @@ export async function transcodeForUpload(videoId: number, sourcePath: string, fp
       reject(err);
     });
   });
+}
+
+export async function transcodeForUpload(videoId: number, sourcePath: string, fps = 1): Promise<TranscodeResult> {
+  const reusable = findReusableTranscode(videoId, fps, sourcePath);
+  if (reusable) return { path: reusable, cached: true, hwaccel: null };
+
+  const outPath = getTranscodedPath(videoId, fps);
+  mkdirSync(dirname(outPath), { recursive: true });
+
+  const tmpPath = outPath.replace(/\.mp4$/, '.tmp.mp4');
+
+  // -hwaccel auto offloads decode to whatever the platform offers (videotoolbox/cuda/vaapi/…)
+  // and is the heavy cost for 4K/10-bit sources. It falls back to software for any stream it can't handle.
+  const buildArgs = (hwaccel: boolean): string[] => [
+    '-y',
+    ...(hwaccel ? ['-hwaccel', 'auto'] : []),
+    '-i', sourcePath,
+    '-vf', `scale=-2:720,fps=${fps}`,
+    '-c:v', 'libx264',
+    '-preset', 'fast',
+    '-crf', '28',
+    '-pix_fmt', 'yuv420p',
+    '-c:a', 'aac',
+    '-b:a', '64k',
+    '-ac', '1',
+    tmpPath,
+  ];
+
+  let hwaccel: string | null = null;
+  try {
+    ({ hwaccel } = await runFfmpeg(buildArgs(true), tmpPath));
+  } catch {
+    // Hardware decode unavailable or failed for this stream; retry with pure software decode.
+    await runFfmpeg(buildArgs(false), tmpPath);
+    hwaccel = null;
+  }
+
+  renameSync(tmpPath, outPath);
+  return { path: outPath, cached: false, hwaccel };
 }

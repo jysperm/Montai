@@ -2,26 +2,14 @@ import chalk from 'chalk';
 import ora from 'ora';
 import { asc, eq, isNull } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
-import { videos, videoAnalyses, projectContext } from '../db/schema.js';
-import { resolveVideoFiles, getVideoFilename, readProjectFile } from '../utils/project.js';
+import { videos, videoAnalyses } from '../db/schema.js';
+import { resolveVideoFiles, getVideoFilename } from '../utils/project.js';
 import { getVideoMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
-import { statSync } from 'fs';
 import { resolve, basename } from 'path';
-import { uploadFileToGemini } from '../gemini/upload.js';
-import { renderPrompt } from '../prompts/index.js';
-import { transcodeForUpload } from '../utils/transcode.js';
-import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
-import { AsyncQueue, completeWithSchemaRetry, formatDuration, formatCost } from './utils.js';
-import { VideoAnalysisSchema } from '../schemas/analysis.js';
-import { formatDuration as formatDurationHuman, formatFileSize } from '../utils/format.js';
-
-function formatCacheRate(usage: { input: number; cacheRead: number }): string | null {
-  const total = usage.input + usage.cacheRead;
-  if (total === 0 || usage.cacheRead === 0) return null;
-  return `${Math.round((usage.cacheRead / total) * 100)}% cached`;
-}
+import type { AnalyzeItem } from './pipeline.js';
+import { formatDuration as formatDurationHuman } from '../utils/format.js';
 
 export function parseTimeToSeconds(time: string): number {
   const parts = time.split(':').map(Number);
@@ -155,19 +143,18 @@ export function listVideos(db: MontaiDb): void {
   }
 }
 
-export async function syncAndAnalyzeVideos(
+export async function syncVideos(
   db: MontaiDb,
   config: ProjectConfig,
-  model: Parameters<typeof complete>[0],
   options?: { reRun?: string; reRunAll?: boolean },
-): Promise<{ totalCost: number }> {
+): Promise<AnalyzeItem[]> {
   const videoFiles = resolveVideoFiles(config);
   if (videoFiles.length === 0) {
     console.log(chalk.red('No videos found. Check your montai.yaml paths.'));
-    return { totalCost: 0 };
+    return [];
   }
 
-  console.log(chalk.blue(`Found ${videoFiles.length} video(s)`));
+  console.log(chalk.blue(`Found ${videoFiles.length} videos`));
 
   // Sync discovered videos to database
   for (const filepath of videoFiles) {
@@ -275,7 +262,7 @@ export async function syncAndAnalyzeVideos(
     }
     if (videosToAnalyze.length === 0) {
       console.log(chalk.red(`Video "${options.reRun}" not found.`));
-      return { totalCost: 0 };
+      return [];
     }
   } else {
     videosToAnalyze = db
@@ -289,195 +276,8 @@ export async function syncAndAnalyzeVideos(
 
   if (videosToAnalyze.length === 0) {
     console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
-    return { totalCost: 0 };
+    return [];
   }
 
-  const agentInstructions = readProjectFile('AGENTS.md');
-
-  console.log(chalk.blue(`Analyzing ${videosToAnalyze.length} video(s)...`));
-  let totalCost = 0;
-  let failed = 0;
-
-  const pipelineState: { transcoding: string | null; uploading: string | null; analyzing: string | null } = {
-    transcoding: null,
-    uploading: null,
-    analyzing: null,
-  };
-  const spinner = ora();
-
-  function updateSpinner(): void {
-    const parts: string[] = [];
-    if (pipelineState.transcoding) parts.push(`Transcoding: ${pipelineState.transcoding}`);
-    if (pipelineState.uploading) parts.push(`Uploading: ${pipelineState.uploading}`);
-    if (pipelineState.analyzing) parts.push(`Analyzing: ${pipelineState.analyzing}`);
-    if (parts.length > 0) {
-      spinner.text = parts.join(chalk.dim(' | '));
-      if (!spinner.isSpinning) spinner.start();
-    } else if (spinner.isSpinning) {
-      spinner.stop();
-    }
-  }
-
-  function logLine(message: string): void {
-    if (spinner.isSpinning) {
-      spinner.clear();
-    }
-    console.log(message);
-    if (spinner.isSpinning) {
-      spinner.render();
-    }
-  }
-
-  type VideoItem = typeof videosToAnalyze[number];
-
-  const analyzeQueue = new AsyncQueue<{ video: VideoItem; fileUri: string }>(async ({ video, fileUri }) => {
-    pipelineState.analyzing = video.filename;
-    updateSpinner();
-
-    try {
-      const fileContent: FileContent = {
-        type: 'file',
-        uri: fileUri,
-        mimeType: 'video/mp4',
-      };
-
-      const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      const analysisPrompt = renderPrompt('analyze-video', { language: config.language, agentInstructions: agentInstructions ?? null });
-
-      const messages: Message[] = [
-        {
-          role: 'user',
-          content: [fileContent, { type: 'text', text: analysisPrompt }],
-          timestamp: Date.now(),
-        },
-      ];
-
-      const t0 = Date.now();
-      const retryResult = await completeWithSchemaRetry({
-        model,
-        messages,
-        apiKey,
-        schema: VideoAnalysisSchema,
-        maxRetries: 2,
-        onAttempt: ({ attempt, error, isFinal }) => {
-          if (error && !isFinal) {
-            logLine(chalk.yellow(`  Retry ${attempt + 1} for ${video.filename}: ${error}`));
-          }
-        },
-      });
-      totalCost += retryResult.totalCost;
-      if (retryResult.finalError) {
-        throw new Error(`schema validation failed after ${retryResult.attempts} attempts: ${retryResult.finalError}`);
-      }
-      const parsedAnalysis = retryResult.raw;
-      const analysisCacheRate = formatCacheRate(retryResult.lastResult.usage);
-      const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';
-      logLine(chalk.green(`  ✓ Analyzed ${video.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(retryResult.totalCost)}, ${config.models.analysis}${analysisCacheRate ? `, ${analysisCacheRate}` : ''}${attemptsTag})`));
-
-      const analysisFields = {
-        overview: String(parsedAnalysis.overview ?? ''),
-        location: parsedAnalysis.location ? String(parsedAnalysis.location) : null,
-        timeOfDay: parsedAnalysis.timeOfDay ? String(parsedAnalysis.timeOfDay) : null,
-        segments: JSON.stringify(parsedAnalysis.segments ?? []),
-        highlights: JSON.stringify(parsedAnalysis.highlights ?? []),
-        technicalNotes: parsedAnalysis.technicalNotes ? String(parsedAnalysis.technicalNotes) : null,
-      };
-
-      const existingAnalysis = db
-        .select()
-        .from(videoAnalyses)
-        .where(eq(videoAnalyses.videoId, video.id))
-        .get();
-
-      if (existingAnalysis) {
-        db.update(videoAnalyses)
-          .set(analysisFields)
-          .where(eq(videoAnalyses.videoId, video.id))
-          .run();
-      } else {
-        db.insert(videoAnalyses)
-          .values({ videoId: video.id, ...analysisFields })
-          .run();
-      }
-
-      const currentCtx = db.select().from(projectContext).get();
-      if (currentCtx) {
-        db.update(projectContext)
-          .set({ overviewStale: true })
-          .where(eq(projectContext.id, currentCtx.id))
-          .run();
-      }
-
-    } catch (err) {
-      logLine(chalk.red(`  ✗ Failed to analyze ${video.filename}: ${err instanceof Error ? err.message : err}`));
-      failed++;
-    } finally {
-      pipelineState.analyzing = null;
-      updateSpinner();
-    }
-  });
-
-  const uploadQueue = new AsyncQueue<{ video: VideoItem; transcodedPath: string }>(async ({ video, transcodedPath }) => {
-    pipelineState.uploading = video.filename;
-    updateSpinner();
-
-    try {
-      const t0 = Date.now();
-      const uploaded = await uploadFileToGemini(transcodedPath);
-      if (uploaded.cached) {
-        logLine(chalk.green(`  ✓ Uploaded ${video.filename} (cached)`));
-      } else {
-        logLine(chalk.green(`  ✓ Uploaded ${video.filename} (${formatDuration(Date.now() - t0)})`));
-      }
-      analyzeQueue.enqueue({ video, fileUri: uploaded.fileUri });
-    } catch (err) {
-      logLine(chalk.red(`  ✗ Failed to upload ${video.filename}: ${err instanceof Error ? err.message : err}`));
-      failed++;
-    } finally {
-      pipelineState.uploading = null;
-      updateSpinner();
-    }
-  });
-
-  const transcodeQueue = new AsyncQueue<{ video: VideoItem }>(async ({ video }) => {
-    pipelineState.transcoding = video.filename;
-    updateSpinner();
-
-    try {
-      const t0 = Date.now();
-      const transcoded = await transcodeForUpload(video.id, video.path, config.featureFlags.transcodeFps);
-      const transcodedSize = formatFileSize(statSync(transcoded.path).size);
-      if (transcoded.cached) {
-        logLine(chalk.green(`  ✓ Transcoded ${video.filename} (cached, ${transcodedSize})`));
-      } else {
-        logLine(chalk.green(`  ✓ Transcoded ${video.filename} (${formatDuration(Date.now() - t0)}, ${transcodedSize})`));
-      }
-      uploadQueue.enqueue({ video, transcodedPath: transcoded.path });
-    } catch (err) {
-      logLine(chalk.red(`  ✗ Failed to transcode ${video.filename}: ${err instanceof Error ? err.message : err}`));
-      failed++;
-    } finally {
-      pipelineState.transcoding = null;
-      updateSpinner();
-    }
-  });
-
-  for (const video of videosToAnalyze) {
-    transcodeQueue.enqueue({ video });
-  }
-  transcodeQueue.seal();
-
-  transcodeQueue.drain().then(() => uploadQueue.seal());
-  uploadQueue.drain().then(() => analyzeQueue.seal());
-
-  await analyzeQueue.drain();
-  spinner.stop();
-
-  if (failed > 0) {
-    console.log(chalk.yellow(`\nVideo analysis complete with ${failed} failure(s), total cost: ${formatCost(totalCost)}. Re-run to retry failed videos.`));
-  } else {
-    console.log(chalk.green(`\nVideo analysis complete! Total cost: ${formatCost(totalCost)}`));
-  }
-
-  return { totalCost };
+  return videosToAnalyze.map((video) => ({ kind: 'video', id: video.id, filename: video.filename, path: video.path }));
 }

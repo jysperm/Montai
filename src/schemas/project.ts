@@ -53,6 +53,11 @@ export const FeatureFlagsSchema = z.object({
   // pre-warms the transcode cache so subsequent watchSegment calls at the
   // same fps don't have to re-transcode.
   transcodeFps: z.number().min(1).optional(),
+  // Per-stage concurrency for the analyze pipeline. transcode defaults to
+  // CPU/4 (min 2); upload and analyze default to 2.
+  transcodeConcurrency: z.number().min(1).optional(),
+  uploadConcurrency: z.number().min(1).optional(),
+  analyzeConcurrency: z.number().min(1).optional(),
 }).default({});
 
 export const AssetsSchema = z.object({

@@ -66,6 +66,9 @@ The goal is a single switch per feature that controls both what the LLM is told 
 | `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool; voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
 | `previewTools` | Agent self-preview of the edited timeline (renders a frame or short video and injects it back into the conversation) | `previewFrame` and `previewFinalVideo` tools; tool descriptions in `story-system` | `true` |
 | `transcodeFps` | FPS the analyze pipeline transcodes source videos at. The analyze step itself still calls Gemini at default 1fps sampling — bumping this only pre-warms the transcode/upload cache so a later `watchSegment(fps=N)` doesn't have to re-transcode or re-upload | `transcodeForUpload` + `uploadFileToGemini` path-keyed cache in `analyze` | `1` (number, not a boolean) |
+| `transcodeConcurrency` | Number of ffmpeg transcode processes the analyze pipeline runs in parallel. Transcode is decode-bound, so the default scales with cores | `resolveConcurrency` in `analyzer/pipeline.ts` | `CPU/4`, min `2` |
+| `uploadConcurrency` | Parallel Gemini File API uploads in the analyze pipeline | `resolveConcurrency` in `analyzer/pipeline.ts` | `2` |
+| `analyzeConcurrency` | Parallel Gemini analysis calls in the analyze pipeline | `resolveConcurrency` in `analyzer/pipeline.ts` | `2` |
 
 ### User overrides
 
@@ -103,27 +106,15 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 
 ### 1. Analyze (`montai analyze`)
 
-Runs a 3-stage concurrent pipeline for videos, followed by a 2-stage pipeline for music.
+All media types (video, music, voiceover) are discovered and registered per type (`syncVideos`/`syncMusic`/`syncVoiceovers` in `src/analyzer/`), then fed into one shared 3-stage pipeline (`runAnalysisPipeline` in `src/analyzer/pipeline.ts`). The pipeline has three stage queues — **transcode → upload → analyze** — each with its own concurrency (`resolveConcurrency`: transcode defaults to CPU/4 min 2, upload/analyze to 2; all overridable via `featureFlags`). Stages overlap: while some assets are being analyzed, others can be uploading or transcoding, and the analyze queue stays saturated regardless of media type.
 
-**Video pipeline** — each stage processes one video at a time, but different stages run in parallel on different videos:
+Per-type behavior is encapsulated in a handler table (mime type, prompt name, schema, and DB persistence):
 
-1. **Transcode** — Transcode video via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Cached in `.montai/transcoded/` and reused until the source file changes.
-2. **Upload** — Upload transcoded video to LLM File API (or reuse cached ref if still active in `gemini_files` table).
-3. **Analyze** — Send video + prompt to get structured VideoAnalysis JSON, store in `video_analyses`. If `AGENTS.md` exists in the project directory, its contents are injected into the analysis prompt as user-provided context.
+1. **Transcode** — Video only. Transcode via ffmpeg to reduce upload size (1 FPS, 720p 8-bit, mono audio 64kbps). Uses `-hwaccel auto` for platform-agnostic hardware-accelerated decode, falling back to a software re-run if that fails; the log annotates the hardware decoder actually used (parsed from ffmpeg stderr). Cached in `.montai/transcoded/` and reused until the source file changes. Audio (music/voiceover) skips this stage and is enqueued straight to upload.
+2. **Upload** — Upload the (transcoded video or raw audio) file to the LLM File API, or reuse a cached ref if still active in `gemini_files`.
+3. **Analyze** — Send file + prompt to get structured JSON, stored in `video_analyses` / `music_analyses` / `voiceover_analyses`. Voiceover analysis is transcription-focused (per-sentence timestamps with skip markers for unusable content). If `AGENTS.md` exists in the project directory, its contents are injected into every analysis prompt as user-provided context.
 
-While video N is being analyzed, video N+1 can be uploading, and video N+2 can be transcoding.
-
-**Music pipeline** — simpler 2-stage pipelined pipeline (no transcoding needed):
-
-1. **Upload** — Upload audio file directly to Gemini File API (cached in `gemini_files` table by project-relative path).
-2. **Analyze** — Send audio + music analysis prompt to get structured analysis (overview + segments), store in `music_analyses`. `AGENTS.md` is injected as context (same as video).
-
-**Voiceover pipeline** — same 2-stage structure as music (no transcoding):
-
-1. **Upload** — Upload audio file to Gemini File API (cached in `gemini_files` by project-relative path).
-2. **Analyze** — Transcription-focused analysis: produces per-sentence timestamps with skip markers for unusable content (hesitations, repeats, etc.), plus an overview summary.
-
-Supports resume: skips videos that already have a row in `video_analyses` on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
+Supports resume: skips assets that already have an analysis row on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
 
 ### 2. Story (`montai story [name]`)
 

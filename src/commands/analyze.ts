@@ -3,9 +3,10 @@ import * as readline from 'readline';
 import { initDb } from '../db/index.js';
 import { ensureProjectConfig, loadProjectConfig } from '../utils/project.js';
 import { getModel } from '@mariozechner/pi-ai';
-import { syncAndAnalyzeVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
-import { syncAndAnalyzeMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
-import { syncAndAnalyzeVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
+import { syncVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
+import { syncMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
+import { syncVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
+import { runAnalysisPipeline } from '../analyzer/pipeline.js';
 import { formatCost } from '../analyzer/utils.js';
 
 export async function analyzeCommand(options: { reRun?: string | boolean; force?: boolean; show?: string; list?: boolean }) {
@@ -51,16 +52,15 @@ export async function analyzeCommand(options: { reRun?: string | boolean; force?
   }
 
   const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
-  let totalCost = 0;
 
-  const videoResult = await syncAndAnalyzeVideos(db, config, model, { reRun: reRunFile, reRunAll });
-  totalCost += videoResult.totalCost;
+  // Discover and register all media types, then run them through one shared pipeline.
+  const items = [
+    ...await syncVideos(db, config, { reRun: reRunFile, reRunAll }),
+    ...await syncMusic(db, config, { reRun: reRunFile, reRunAll }),
+    ...await syncVoiceovers(db, config, { reRun: reRunFile, reRunAll }),
+  ];
 
-  const musicResult = await syncAndAnalyzeMusic(db, config, model, { reRun: reRunFile, reRunAll });
-  totalCost += musicResult.totalCost;
-
-  const voiceoverResult = await syncAndAnalyzeVoiceovers(db, config, model, { reRun: reRunFile, reRunAll });
-  totalCost += voiceoverResult.totalCost;
+  const { totalCost } = await runAnalysisPipeline(db, config, model, items);
 
   console.log(chalk.dim(`Total cost: ${formatCost(totalCost)}`));
 }

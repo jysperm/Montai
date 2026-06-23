@@ -3,25 +3,12 @@ import ora from 'ora';
 import { and, asc, eq, isNull, or } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
 import { music, musicAnalyses } from '../db/schema.js';
-import { resolveMusicFiles, getMusicFilename, readProjectFile } from '../utils/project.js';
+import { resolveMusicFiles, getMusicFilename } from '../utils/project.js';
 import { getAudioMetadata } from '../utils/ffprobe.js';
 import { fileMd5 } from '../utils/hash.js';
-import { extname, resolve, basename } from 'path';
-import { uploadFileToGemini } from '../gemini/upload.js';
-import { renderPrompt } from '../prompts/index.js';
-import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
+import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
-import { AsyncQueue, completeWithSchemaRetry, formatDuration, formatCost } from './utils.js';
-import { MusicAnalysisSchema } from '../schemas/analysis.js';
-
-const mimeTypeMap: Record<string, string> = {
-  '.mp3': 'audio/mpeg',
-  '.wav': 'audio/wav',
-  '.flac': 'audio/flac',
-  '.m4a': 'audio/mp4',
-  '.aac': 'audio/aac',
-  '.ogg': 'audio/ogg',
-};
+import type { AnalyzeItem } from './pipeline.js';
 
 export function showMusicAnalysis(db: MontaiDb, filename: string): void {
   // First try matching by filename (basename)
@@ -104,18 +91,17 @@ export function listMusic(db: MontaiDb): void {
   }
 }
 
-export async function syncAndAnalyzeMusic(
+export async function syncMusic(
   db: MontaiDb,
   config: ProjectConfig,
-  model: Parameters<typeof complete>[0],
   options?: { reRun?: string; reRunAll?: boolean },
-): Promise<{ totalCost: number }> {
+): Promise<AnalyzeItem[]> {
   const musicFiles = resolveMusicFiles(config);
   if (musicFiles.length === 0) {
-    return { totalCost: 0 };
+    return [];
   }
 
-  console.log(chalk.blue(`\nFound ${musicFiles.length} music file(s)`));
+  console.log(chalk.blue(`\nFound ${musicFiles.length} music files`));
 
   for (const filepath of musicFiles) {
     const filename = getMusicFilename(filepath);
@@ -193,7 +179,7 @@ export async function syncAndAnalyzeMusic(
     }
     if (musicToAnalyze.length === 0) {
       console.log(chalk.red(`Music "${options.reRun}" not found.`));
-      return { totalCost: 0 };
+      return [];
     }
     // Delete existing analyses so they get re-analyzed
     for (const track of musicToAnalyze) {
@@ -214,144 +200,8 @@ export async function syncAndAnalyzeMusic(
 
   if (musicToAnalyze.length === 0) {
     console.log(chalk.green(`All music files already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
-    return { totalCost: 0 };
+    return [];
   }
 
-  const agentInstructions = readProjectFile('AGENTS.md');
-
-  console.log(chalk.blue(`Analyzing ${musicToAnalyze.length} music file(s)...`));
-  let totalCost = 0;
-  let failed = 0;
-
-  const pipelineState: { uploading: string | null; analyzing: string | null } = {
-    uploading: null,
-    analyzing: null,
-  };
-  const spinner = ora();
-
-  function updateSpinner(): void {
-    const parts: string[] = [];
-    if (pipelineState.uploading) parts.push(`Uploading: ${pipelineState.uploading}`);
-    if (pipelineState.analyzing) parts.push(`Analyzing: ${pipelineState.analyzing}`);
-    if (parts.length > 0) {
-      spinner.text = parts.join(chalk.dim(' | '));
-      if (!spinner.isSpinning) spinner.start();
-    } else if (spinner.isSpinning) {
-      spinner.stop();
-    }
-  }
-
-  function logLine(message: string): void {
-    if (spinner.isSpinning) {
-      spinner.clear();
-    }
-    console.log(message);
-    if (spinner.isSpinning) {
-      spinner.render();
-    }
-  }
-
-  type MusicItem = typeof musicToAnalyze[number];
-
-  const analyzeQueue = new AsyncQueue<{ track: MusicItem; fileUri: string }>(async ({ track, fileUri }) => {
-    pipelineState.analyzing = track.filename;
-    updateSpinner();
-
-    try {
-      const ext = extname(track.path).toLowerCase();
-      const mimeType = mimeTypeMap[ext] ?? 'audio/mpeg';
-      const fileContent: FileContent = {
-        type: 'file',
-        uri: fileUri,
-        mimeType,
-      };
-
-      const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-      const analysisPrompt = renderPrompt('analyze-music', { language: config.language, agentInstructions: agentInstructions ?? null });
-
-      const messages: Message[] = [
-        {
-          role: 'user',
-          content: [fileContent, { type: 'text', text: analysisPrompt }],
-          timestamp: Date.now(),
-        },
-      ];
-
-      const t0 = Date.now();
-      const retryResult = await completeWithSchemaRetry({
-        model,
-        messages,
-        apiKey,
-        schema: MusicAnalysisSchema,
-        maxRetries: 2,
-        onAttempt: ({ attempt, error, isFinal }) => {
-          if (error && !isFinal) {
-            logLine(chalk.yellow(`  Retry ${attempt + 1} for ${track.filename}: ${error}`));
-          }
-        },
-      });
-      totalCost += retryResult.totalCost;
-      if (retryResult.finalError) {
-        throw new Error(`schema validation failed after ${retryResult.attempts} attempts: ${retryResult.finalError}`);
-      }
-      const parsed = retryResult.raw;
-
-      db.insert(musicAnalyses)
-        .values({
-          musicId: track.id,
-          overview: String(parsed.overview ?? ''),
-          segments: JSON.stringify(parsed.segments ?? []),
-        })
-        .run();
-
-      const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';
-      logLine(chalk.green(`  ✓ Analyzed ${track.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(retryResult.totalCost)}${attemptsTag})`));
-    } catch (err) {
-      logLine(chalk.red(`  ✗ Failed to analyze ${track.filename}: ${err instanceof Error ? err.message : err}`));
-      failed++;
-    } finally {
-      pipelineState.analyzing = null;
-      updateSpinner();
-    }
-  });
-
-  const uploadQueue = new AsyncQueue<{ track: MusicItem }>(async ({ track }) => {
-    pipelineState.uploading = track.filename;
-    updateSpinner();
-
-    try {
-      const t0 = Date.now();
-      const uploaded = await uploadFileToGemini(track.path);
-      if (uploaded.cached) {
-        logLine(chalk.green(`  ✓ Uploaded ${track.filename} (cached)`));
-      } else {
-        logLine(chalk.green(`  ✓ Uploaded ${track.filename} (${formatDuration(Date.now() - t0)})`));
-      }
-      analyzeQueue.enqueue({ track, fileUri: uploaded.fileUri });
-    } catch (err) {
-      logLine(chalk.red(`  ✗ Failed to upload ${track.filename}: ${err instanceof Error ? err.message : err}`));
-      failed++;
-    } finally {
-      pipelineState.uploading = null;
-      updateSpinner();
-    }
-  });
-
-  for (const track of musicToAnalyze) {
-    uploadQueue.enqueue({ track });
-  }
-  uploadQueue.seal();
-
-  uploadQueue.drain().then(() => analyzeQueue.seal());
-
-  await analyzeQueue.drain();
-  spinner.stop();
-
-  if (failed > 0) {
-    console.log(chalk.yellow(`Music analysis complete with ${failed} failure(s), total cost: ${formatCost(totalCost)}.`));
-  } else {
-    console.log(chalk.green(`Music analysis complete! Total cost: ${formatCost(totalCost)}`));
-  }
-
-  return { totalCost };
+  return musicToAnalyze.map((track) => ({ kind: 'music', id: track.id, filename: track.filename, path: track.path }));
 }

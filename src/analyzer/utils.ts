@@ -141,21 +141,23 @@ export async function completeWithSchemaRetry<T>(opts: {
 
 export class AsyncQueue<T> {
   private queue: T[] = [];
-  private processing = false;
+  private active = 0;
   private processor: (item: T) => Promise<void>;
+  private concurrency: number;
   private resolveWhenDrained?: () => void;
   private itemCount = 0;
   private doneCount = 0;
   private sealed = false;
 
-  constructor(processor: (item: T) => Promise<void>) {
+  constructor(processor: (item: T) => Promise<void>, concurrency = 1) {
     this.processor = processor;
+    this.concurrency = Math.max(1, concurrency);
   }
 
   enqueue(item: T): void {
     this.itemCount++;
     this.queue.push(item);
-    void this.processNext();
+    this.pump();
   }
 
   seal(): void {
@@ -170,17 +172,22 @@ export class AsyncQueue<T> {
     });
   }
 
-  private async processNext(): Promise<void> {
-    if (this.processing || this.queue.length === 0) return;
-    this.processing = true;
-    const item = this.queue.shift()!;
+  private pump(): void {
+    while (this.active < this.concurrency && this.queue.length > 0) {
+      const item = this.queue.shift()!;
+      this.active++;
+      void this.run(item);
+    }
+  }
+
+  private async run(item: T): Promise<void> {
     try {
       await this.processor(item);
     } finally {
       this.doneCount++;
-      this.processing = false;
+      this.active--;
+      this.pump();
       this.checkDrained();
-      void this.processNext();
     }
   }
 
@@ -189,7 +196,7 @@ export class AsyncQueue<T> {
       this.sealed &&
       this.doneCount === this.itemCount &&
       this.queue.length === 0 &&
-      !this.processing &&
+      this.active === 0 &&
       this.resolveWhenDrained
     ) {
       this.resolveWhenDrained();
