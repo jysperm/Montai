@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import * as readline from 'readline';
-import { initDb } from '../db/index.js';
+import { initDb, type MontaiDb } from '../db/index.js';
 import { ensureProjectConfig, loadProjectConfig } from '../utils/project.js';
 import { getModel } from '@mariozechner/pi-ai';
 import { syncVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
@@ -8,6 +8,13 @@ import { syncMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
 import { syncVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
 import { runAnalysisPipeline } from '../analyzer/pipeline.js';
 import { formatCost } from '../analyzer/utils.js';
+
+export function showMediaAnalysis(db: MontaiDb, filename: string): boolean {
+  const foundVideo = showVideoAnalysis(db, filename);
+  const foundMusic = showMusicAnalysis(db, filename);
+  const foundVoiceover = showVoiceoverAnalysis(db, filename);
+  return foundVideo || foundMusic || foundVoiceover;
+}
 
 export async function analyzeCommand(options: { reRun?: string | boolean; force?: boolean; show?: string; list?: boolean }) {
   await ensureProjectConfig();
@@ -22,9 +29,10 @@ export async function analyzeCommand(options: { reRun?: string | boolean; force?
   }
 
   if (options.show) {
-    showVideoAnalysis(db, options.show);
-    showMusicAnalysis(db, options.show);
-    showVoiceoverAnalysis(db, options.show);
+    if (showMediaAnalysis(db, options.show)) {
+      return;
+    }
+    console.log(chalk.red(`Media "${options.show}" not found.`));
     return;
   }
 

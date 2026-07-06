@@ -18,7 +18,7 @@ export function parseTimeToSeconds(time: string): number {
   return parts[0] ?? 0;
 }
 
-export function showVideoAnalysis(db: MontaiDb, filename: string): void {
+export function showVideoAnalysis(db: MontaiDb, filename: string): boolean {
   // First try matching by filename (basename)
   let video = db
     .select()
@@ -36,8 +36,7 @@ export function showVideoAnalysis(db: MontaiDb, filename: string): void {
   }
 
   if (!video) {
-    console.log(chalk.red(`Video "${filename}" not found.`));
-    return;
+    return false;
   }
 
   const analysis = db
@@ -48,7 +47,7 @@ export function showVideoAnalysis(db: MontaiDb, filename: string): void {
 
   if (!analysis) {
     console.log(chalk.yellow(`Video "${filename}" has not been analyzed yet.`));
-    return;
+    return true;
   }
 
   console.log(chalk.cyan(`\n${video.filename}`) + chalk.dim(` (ID: ${video.id}${video.durationSeconds ? `, ${video.durationSeconds}s` : ''})`));
@@ -89,6 +88,7 @@ export function showVideoAnalysis(db: MontaiDb, filename: string): void {
   }
 
   console.log();
+  return true;
 }
 
 export function listVideos(db: MontaiDb): void {

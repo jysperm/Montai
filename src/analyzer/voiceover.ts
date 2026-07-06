@@ -10,7 +10,7 @@ import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { AnalyzeItem } from './pipeline.js';
 
-export function showVoiceoverAnalysis(db: MontaiDb, filename: string): void {
+export function showVoiceoverAnalysis(db: MontaiDb, filename: string): boolean {
   let track = db
     .select()
     .from(voiceovers)
@@ -26,8 +26,7 @@ export function showVoiceoverAnalysis(db: MontaiDb, filename: string): void {
   }
 
   if (!track) {
-    // Silent return — filename may match a video or music file, not a voiceover
-    return;
+    return false;
   }
 
   const analysis = db
@@ -38,7 +37,7 @@ export function showVoiceoverAnalysis(db: MontaiDb, filename: string): void {
 
   if (!analysis) {
     console.log(chalk.yellow(`Voiceover "${filename}" has not been analyzed yet.`));
-    return;
+    return true;
   }
 
   console.log(chalk.cyan(`\n${track.filename}`) + chalk.dim(` (ID: ${track.id}${track.durationSeconds ? `, ${track.durationSeconds}s` : ''})`));
@@ -56,6 +55,7 @@ export function showVoiceoverAnalysis(db: MontaiDb, filename: string): void {
   }
 
   console.log();
+  return true;
 }
 
 export function listVoiceovers(db: MontaiDb): void {

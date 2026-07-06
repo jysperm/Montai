@@ -10,7 +10,7 @@ import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { AnalyzeItem } from './pipeline.js';
 
-export function showMusicAnalysis(db: MontaiDb, filename: string): void {
+export function showMusicAnalysis(db: MontaiDb, filename: string): boolean {
   // First try matching by filename (basename)
   let track = db
     .select()
@@ -28,8 +28,7 @@ export function showMusicAnalysis(db: MontaiDb, filename: string): void {
   }
 
   if (!track) {
-    console.log(chalk.red(`Music "${filename}" not found.`));
-    return;
+    return false;
   }
 
   const analysis = db
@@ -40,7 +39,7 @@ export function showMusicAnalysis(db: MontaiDb, filename: string): void {
 
   if (!analysis) {
     console.log(chalk.yellow(`Music "${filename}" has not been analyzed yet.`));
-    return;
+    return true;
   }
 
   console.log(chalk.cyan(`\n${track.filename}`) + chalk.dim(` (ID: ${track.id}${track.durationSeconds ? `, ${track.durationSeconds}s` : ''})`));
@@ -57,6 +56,7 @@ export function showMusicAnalysis(db: MontaiDb, filename: string): void {
   }
 
   console.log();
+  return true;
 }
 
 export function listMusic(db: MontaiDb): void {
