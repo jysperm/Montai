@@ -4,6 +4,8 @@
 
 AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs.
 
+See the [MANUAL.md](MANUAL.md) for full documentation.
+
 ## Install
 
 ```bash
@@ -26,15 +28,7 @@ Prerequisites:
 - Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
-- [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation (optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
-
-Montai also loads global environment variables from `~/.config/montai/env` using dotenv syntax. Runtime environment variables take priority over this file.
-
-```dotenv
-GEMINI_API_KEY=...
-GOOGLE_CLOUD_PROJECT=...
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
-```
+- [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation (both are optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
 
 ## Interactive Story Editing
 
@@ -54,6 +48,8 @@ The `montai story` command opens an interactive session where you chat with AI t
 - **Text overlays** — title, subtitle, and caption styles at 6 positions, with fade, slide, and pop entrance animations
 - **Background music** — add library music with volume and fade controls, auto-looping with crossfade
 - **AI music generation** — generate instrumental background music
+- **AI voiceover generation** — write a script and have the AI narrate it (Google Gemini-TTS, or macOS's built-in voices), then place the narration under the footage
+- **Mixed orientations** — can also mix landscape and portrait shots in the same timeline, with automatic rotation adjustments
 - **Voiceover-driven editing** — match video clips to narration recordings, selecting visuals that fit each spoken segment
 
 ### Self-Feedback
@@ -63,43 +59,48 @@ The `montai story` command opens an interactive session where you chat with AI t
 
 ## Quick Start
 
-1. Create a project directory with a `montai.yaml` (put your videos in `footage`):
+1. Create a project directory and put your source videos in a `footage/` subdirectory inside it.
+
+Create `montai.yaml`:
 
 ```yaml
 assets:
-  videos:
-    - ./footage
-language: en                   # Language for intermediate text (e.g. analysis, storyline)
+  videos: ./footage
+language: en
 output:
   resolution: 1080p
   fps: 50
 models:
   analysis: gemini-3.5-flash
   editing: gemini-3.5-flash
-  musicGeneration: lyria-002   # Optional: enables AI generated music (recommended)
-effects:
-  languages: [zh, en]          # Languages for text overlays, specify multiple for bilingual subtitles
-featureFlags:
-  transcodeFps: 5              # Optional: transcode at analyzis time to speed up watchSegment calls
+  musicGeneration: lyria-002 # Optional but recommended
 ```
 
-2. Analyze videos (transcodes, uploads to Gemini and generates per-video summaries):
+2. Write your credentials to `~/.config/montai/env`:
+
+```dotenv
+GEMINI_API_KEY=...
+GOOGLE_CLOUD_PROJECT=...
+GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
+```
+
+3. Analyze the source media:
 
 ```bash
 montai analyze
 ```
 
-3. Start an interactive story editing session:
+4. Start a new interactive story editing session:
 
 ```bash
 montai story --new
 ```
 
-You can start preview by `/preview` or enable auto-export of .fcpxml by `/export` in the interactive session.
+Inside the story session, use `/preview` to start Remotion Studio to preview the edited video or `/export` to export FCPXML for Final Cut Pro:
 
-```
+```text
 > /preview
-Auto preview: on — Remotion Studio starting in background
+Auto preview: on
 Remotion Studio: http://localhost:3000
 
 > /export
@@ -109,19 +110,24 @@ FCPXML exported
 
 ## Commands
 
-| Command | Description |
-|---------|-------------|
-| `analyze` | Transcode, upload and analyze videos |
-| `project` | Show project overview and stats |
-| `story [name]` | Interactive storyline + timeline editing session |
-| `story --new` | Create a new story |
-| `story --list` | List all stories |
-| `export` | Export .fcpxml from a timeline |
-| `export --fcp` | Optimize for Final Cut Pro (default) |
-| `export --davinci` | Optimize for DaVinci Resolve |
-| `render [name]` | Render video via Remotion |
-| `preview` | Open Remotion Studio for preview |
-| `archive` | Archive original video clips referenced by timelines |
+| Command | Description | See Also |
+|---------|-------------|---------|
+| `montai analyze` | Transcode, upload, and analyze videos, music, and voiceovers | [Analyze Media](MANUAL.md#analyze-media) |
+| `montai analyze --re-run [file]` | Re-analyze media file (omit for all) | [Analyze Media](MANUAL.md#analyze-media) |
+| `montai analyze --list` | List media analysis status | [Analyze Media](MANUAL.md#analyze-media) |
+| `montai analyze --show <file>` | Show one stored media analysis | [Analyze Media](MANUAL.md#analyze-media) |
+| `montai project` | Show project overview and stats | [Project Overview](MANUAL.md#project-overview) |
+| `montai story` | Open an interactive story editing session (create new or open existing one) | [Interactive Story Editing](MANUAL.md#interactive-story-editing) |
+| `montai story --list` | List stories | [Stories](MANUAL.md#stories) |
+| `montai story --sessions` | List saved editing sessions | [Sessions](MANUAL.md#sessions) |
+| `montai story --resume [id]` | Resume a prior editing session (omit to select interactively) | [Sessions](MANUAL.md#sessions) |
+| `montai preview [name]` | Open Remotion Studio for preview (omit for all) | [Live Preview](MANUAL.md#live-preview) |
+| `montai export [name]` | Export FCPXML from a timeline (omit for all) | [Export FCPXML](MANUAL.md#export-fcpxml) |
+| `montai render [name]` | Render MP4 through Remotion (omit for all) | [Render with Remotion](MANUAL.md#render-with-remotion) |
+| `montai [preview \| export \| render] --from-archived` | Use archived videos as source | [Work From Archived Clips](MANUAL.md#work-from-archived-clips) |
+| `montai archive` | Archive original video clips referenced by current timelines | [Archive Source Clips](MANUAL.md#archive-source-clips) |
+| `montai archive --encode [spec]` | Encode archived clips instead of passthrough copy | [Encoded Archive](MANUAL.md#encoded-archive) |
+| `montai clean` | Remove regenerable cache files | [Clean Cache](MANUAL.md#clean-cache) |
 
 Debug logging for LLM calls via the `DEBUG` env var:
 
@@ -130,14 +136,6 @@ DEBUG=montai:*,-montai:*:verbose montai story    # print each LLM call
 DEBUG=montai:* montai story                      # including full message contents
 ```
 
-## Archiving
-
-Montai can be used to curate interesting segments from a large amount of raw footage. After creating stories, you may want to delete the original files to free up space. `montai archive` extracts the video segments referenced by all current story timelines into the `archived/` directory (video files only). Timeline checkpoints created with `/mark` are not included unless restored into the current story timeline first.
-
-By default, `montai archive` uses passthrough mode to preserve original quality without re-encoding. Use `--encode` to re-encode using project output settings, or `--encode 720p,crf=20,fps=30,8bit` to customize the encoding spec.
-
-After archiving, use `--from-archived` on `render`, `preview`, or `export` to work from the archived clips instead of the original files. The time offsets are automatically remapped based on the archived filenames.
-
 ## Export .fcpxml
 
 `montai export` generates .fcpxml 1.11 files in the `fcpxml/` directory, which can be imported into professional video editors. .fcpxml preserves clips, transitions, and text overlays, and is recommended over `render` for HDR projects.
@@ -145,8 +143,6 @@ After archiving, use `--from-archived` on `render`, `preview`, or `export` to wo
 ### Final Cut Pro (recommended)
 
 First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
-
-If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
 
 ![Imported to Final Cut Pro](example/fcp-timeline.png)
 
@@ -159,39 +155,25 @@ Known Issues:
 
 First import your video files into the Media Pool, then use File → Import → Timeline → Import AAF, EDL, XML, FCPXML to import the `.fcpxml` file. Resolve will automatically match the media to the timeline clips.
 
-If your source footage is HDR (e.g. HLG), enable color management in Project Settings → Color Management, otherwise the output will look washed out. Set Color Science to "DaVinci YRGB Color Managed", enable Automatic Color Management, then choose:
-
-- **Output SDR**: Color Processing Mode "SDR", Output Color Space "Rec.709 Gamma 2.4"
-- **Output HDR**: Color Processing Mode "HDR", Output Color Space "HDR HLG"
-
 </details>
 
-## Project Structure
+## Archiving
 
-```
-my-vlog-project/
-  .montai/             # Cache directory
-  generated-music/     # AI-generated music files
-  archived/            # Archived video clips (montai archive)
-  fcpxml/              # Generated .fcpxml files
-  output/              # Rendered videos
-  montai.db            # Project database
-  montai.yaml          # Project config
-  AGENTS.md            # Instructions/knowledge for the agent (optional)
-```
+Montai can be used to curate interesting segments from a large amount of raw footage. After creating stories, you may want to delete the original files to free up space. `montai archive` extracts the video segments referenced by all current story timelines into the `archived/` directory (video files only). Timeline checkpoints created with `/mark` are not included unless restored into the current story timeline first.
+
+By default, `montai archive` uses passthrough mode to preserve original quality without re-encoding. Use `--encode` to re-encode using project output settings, or `--encode 720p,crf=20,fps=30,8bit` to customize the encoding spec.
+
+After archiving, use `--from-archived` on `render`, `preview`, or `export` to work from the archived clips instead of the original files. The time offsets are automatically remapped based on the archived filenames.
 
 ## Output Compatibility
 
-|  | Final Cut Pro | DaVinci Resolve | Remotion |
-|--|---------------|-----------------|----------|
-| Color depth | Passthrough (8/10bit) | Passthrough (8/10bit) | 8bit only |
-| Color space | SDR and HDR (HLG/PQ) | SDR and HDR (HLG/PQ) | SDR only (Rec. 709) |
-| Transitions | fade, slide, wipe | fade only | fade, slide, wipe |
-| Text overlays | All positions | Centered only | All positions |
-| Overlay animations | fade, slide, pop | No | fade, slide, pop |
-| Ken Burns | Yes | Fallback to crop | Yes |
+| | Final Cut Pro | DaVinci Resolve | Remotion |
+|---------|---------------|-----------------|----------|
+| Color depth | Passthrough 8/10-bit | Passthrough 8/10-bit | 8-bit only |
+| Color space | SDR and HDR | SDR and HDR | SDR only |
+| Transitions | Fade, slide, wipe | Fade only | Fade, slide, wipe |
+| Text overlays & animations | Full with known issues | Centered only, no animations | Full |
+| Ken Burns | Full, not working with rotated | Fallback to static crop | Full |
+| Mixed aspect ratios | Yes | Known issues | Yes |
 | Audio fades | Yes | No | Yes |
-
-`preview` and `render` use Remotion, which renders each frame through the browser's canvas (8bit sRGB). HDR metadata and 10bit color depth cannot be preserved.
-
-DaVinci Resolve only reliably imports Cross Dissolve (fade) from .fcpxml — Slide and Wipe transitions fall back to dissolve. Overlay animations and audio fade in/fade out are also ignored by DaVinci. Ken Burns falls back to a static crop at the end frame.
+| Render speed | Fast | Fast | Very slow |
