@@ -146,10 +146,6 @@ First import your video files into Final Cut Pro, then use File → Import → X
 
 ![Imported to Final Cut Pro](example/fcp-timeline.png)
 
-Known Issues:
-
-- **FCP "The item is not on an edit frame boundary" warning.** Triggered when source footage has embedded timecode and a frame rate different from the sequence (e.g. 59.94fps footage in a 50fps project). Safe to dismiss — titles and audio still land in the correct positions.
-
 <details>
 <summary><h3>DaVinci Resolve</h3></summary>
 
@@ -173,7 +169,7 @@ After archiving, use `--from-archived` on `render`, `preview`, or `export` to wo
 | Color space | SDR and HDR | SDR and HDR | SDR only |
 | Transitions | Fade, slide, wipe | Fade only | Fade, slide, wipe |
 | Text overlays & animations | Full with known issues | Centered only, no animations | Full |
-| Ken Burns | Full, not working with rotated | Fallback to static crop | Full |
+| Ken Burns | Yes, not working with rotated | Fallback to static crop | Yes |
 | Mixed aspect ratios | Yes | Known issues | Yes |
 | Audio fades | Yes | No | Yes |
 | Render speed | Fast | Fast | Very slow |

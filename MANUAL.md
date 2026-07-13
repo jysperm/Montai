@@ -438,6 +438,8 @@ Auto preview: on — Remotion Studio starting in background
   Remotion Studio: http://localhost:3000
 ```
 
+![Remotion Live Preview](example/remotion-preview.jpg)
+
 Leave the page open, and it refreshes on its own every time the agent changes the timeline. Type `/preview` again to turn it off.
 
 You can also open the preview on its own, without an editing session:
@@ -614,7 +616,7 @@ Montai supports several render mechanisms, however every mechanism has its own l
 | Color space | SDR and HDR | SDR and HDR | SDR only |
 | Transitions | Fade, slide, wipe | Fade only | Fade, slide, wipe |
 | Text overlays & animations | Full with known issues | Centered only, no animations | Full |
-| Ken Burns | Full, not working with rotated | Fallback to static crop | Full |
+| Ken Burns | Yes, not working with rotated | Fallback to static crop | Yes |
 | Mixed aspect ratios | Yes | Known issues | Yes |
 | Audio fades | Yes | No | Yes |
 | Render speed | Fast | Fast | Very slow |
