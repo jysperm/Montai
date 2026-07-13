@@ -6,6 +6,24 @@ import type { StreamFn } from '@mariozechner/pi-agent-core';
 
 const DEBUG_DIR = '.montai/logs';
 
+// Summary of the outgoing request, so a dump makes it obvious e.g. that a turn
+// was sent with no tools (which makes Gemini reject a tool-call attempt with
+// finishReason MALFORMED_FUNCTION_CALL / UNEXPECTED_TOOL_CALL).
+function summarizePayload(payload: unknown): Record<string, unknown> | null {
+  if (!payload || typeof payload !== 'object') return null;
+  const p = payload as { contents?: unknown; config?: Record<string, unknown> };
+  const cfg = p.config ?? {};
+  const toolBlocks = (cfg.tools as { functionDeclarations?: { name?: string }[] }[] | undefined) ?? [];
+  const toolNames = toolBlocks.flatMap((b) => (b.functionDeclarations ?? []).map((d) => d.name ?? '?'));
+  return {
+    toolCount: toolNames.length,
+    toolNames,
+    contentCount: Array.isArray(p.contents) ? p.contents.length : undefined,
+    thinkingConfig: cfg.thinkingConfig,
+    maxOutputTokens: cfg.maxOutputTokens,
+  };
+}
+
 export class ApiDebugCapture {
   private lastPayload: unknown = null;
   private lastContext: unknown = null;
@@ -38,6 +56,7 @@ export class ApiDebugCapture {
           model: this.lastModel,
           errorMessage: message.errorMessage ?? null,
           stopReason: message.stopReason,
+          requestSummary: summarizePayload(this.lastPayload),
           requestPayload: this.lastPayload,
           context: this.lastContext,
           partialResponse: {

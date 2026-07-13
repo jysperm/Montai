@@ -126,6 +126,48 @@ index 1bc51fa..a7eb28d 100644
          }
      }
      return contents;
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/google.js b/node_modules/@mariozechner/pi-ai/dist/providers/google.js
+index ffbd238..2ab4709 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/google.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/google.js
+@@ -152,6 +152,12 @@ export const streamGoogle = (model, context, options) => {
+                     if (output.content.some((b) => b.type === "toolCall")) {
+                         output.stopReason = "toolUse";
+                     }
++                    // Preserve the raw Gemini finishReason so the generic "error"
++                    // stopReason can be reported with its real cause (e.g.
++                    // MALFORMED_FUNCTION_CALL, UNEXPECTED_TOOL_CALL, SAFETY).
++                    if (output.stopReason === "error") {
++                        output.errorFinishReason = candidate.finishReason;
++                    }
+                 }
+                 if (chunk.usageMetadata) {
+                     output.usage = {
+@@ -193,7 +199,9 @@ export const streamGoogle = (model, context, options) => {
+                 throw new Error("Request was aborted");
+             }
+             if (output.stopReason === "aborted" || output.stopReason === "error") {
+-                throw new Error("An unknown error occurred");
++                throw new Error(output.errorFinishReason
++                    ? `Gemini stopped with finishReason: ${output.errorFinishReason}`
++                    : "An unknown error occurred");
+             }
+             stream.push({ type: "done", reason: output.stopReason, message: output });
+             stream.end();
+@@ -218,7 +226,12 @@ export const streamSimpleGoogle = (model, context, options) => {
+     if (!apiKey) {
+         throw new Error(`No API key for provider: ${model.provider}`);
+     }
+-    const base = buildBaseOptions(model, options, apiKey);
++    const base = {
++        ...buildBaseOptions(model, options, apiKey),
++        // streamSimple accepts provider-specific options at runtime. Preserve
++        // Google's tool choice instead of dropping it in buildBaseOptions.
++        toolChoice: options?.toolChoice,
++    };
+     if (!options?.reasoning) {
+         return streamGoogle(model, context, { ...base, thinking: { enabled: false } });
+     }
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
 index fdc4439..8510672 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js

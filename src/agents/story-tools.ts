@@ -97,6 +97,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
         throw new Error('Error: title is required when creating a new story.');
       }
 
+      if (!ctx.currentStoryId) {
+        const existingStory = ctx.db.select({ id: stories.id }).from(stories).where(eq(stories.name, name)).get();
+        if (existingStory) {
+          throw new Error(`Error: Story name "${name}" already exists. Choose a different name and retry updateStoryline.`);
+        }
+      }
+
       const now = new Date().toISOString();
       let savedTitle: string;
 

@@ -101,6 +101,9 @@ export class StoryAgent {
 
   private allTools!: ReturnType<typeof getStoryTools>['tools'];
   private resetWatchCount!: ReturnType<typeof getStoryTools>['resetWatchCount'];
+  // When set, the tools are still declared (so the request prefix stays cacheable)
+  // but Gemini is told not to call them for this turn. Used for the intro turn.
+  private suppressToolCalls = false;
 
   private prevTimelineVersion = 0;
 
@@ -173,7 +176,13 @@ export class StoryAgent {
       },
       getApiKey: () => process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY,
       transformContext: async (messages) => limitVideoFilesInContext(extractFileContentFromToolResults(removeExpiredFileRefs(messages))),
-      streamFn: this.apiDebug.streamFn,
+      streamFn: (model, context, options) =>
+        this.apiDebug.streamFn(
+          model,
+          context,
+          // toolChoice lives on the provider-specific options; cast past the base type.
+          this.suppressToolCalls ? ({ ...options, toolChoice: 'none' } as typeof options) : options,
+        ),
     });
 
     this.agent.state.tools = this.allTools;
@@ -905,7 +914,9 @@ export class StoryAgent {
     if (!this.isResuming && !this.introEnabled) {
       this.printTimeline();
     } else if (!this.isResuming) {
-      this.agent.state.tools = [];
+      // Keep tools declared (so this turn shares the cache prefix with later
+      // turns) but forbid calling them, so the model only introduces the edit.
+      this.suppressToolCalls = true;
       if (this.introEnabled) {
         this.spinner.start();
       }
@@ -913,8 +924,8 @@ export class StoryAgent {
         ? INTRO_EXISTING_STORY_INSTRUCTION
         : INTRO_NEW_STORY_INSTRUCTION;
       await this.runAgent(introInstruction);
+      this.suppressToolCalls = false;
     }
-    this.agent.state.tools = this.allTools;
 
     await this.startInteractiveLoop();
 
