@@ -199,9 +199,9 @@ models:
   # Accepted only: lyria-002.
   musicGeneration: lyria-002
   # Optional: specify a model to enable AI voiceover generation.
-  # Accepted: gemini-tts, system.
+  # Accepted: gemini-2.5-flash-tts, system.
   # `system` only supports macOS for now.
-  voiceoverGeneration: gemini-tts
+  voiceoverGeneration: gemini-2.5-flash-tts
 effects:
   # Languages used in text overlays (can be different from `language` which is used for internal text).
   # Specify multiple values for bilingual overlays.
@@ -265,7 +265,7 @@ Montai reads the following environment variables:
 ```dotenv
 # Gemini LLM credentials, used for analysis and story editing.
 GEMINI_API_KEY=...
-# Google Cloud credentials, used for Music Generation (Lyria) and the Voiceover Generation (gemini-tts).
+# Google Cloud credentials, used for Music Generation (Lyria) and the Voiceover Generation (Gemini TTS).
 GOOGLE_CLOUD_PROJECT=...
 GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
 # Optional, the Google Cloud region used for music generation. Default: us-central1.
@@ -580,7 +580,7 @@ Enable a provider:
 
 ```yaml
 models:
-  voiceoverGeneration: gemini-tts
+  voiceoverGeneration: gemini-2.5-flash-tts
 effects:
   voiceLanguage: en
 ```
@@ -589,7 +589,7 @@ Supported providers:
 
 | Provider | Notes | Requirements |
 |----------|-------|--------------|
-| `gemini-tts` | Recommended, Google Gemini-TTS via the Cloud Text-to-Speech API. | `GOOGLE_CLOUD_PROJECT` + `GOOGLE_APPLICATION_CREDENTIALS`, the same Google Cloud credentials as `musicGeneration`, no extra key. |
+| `gemini-2.5-flash-tts` | Recommended, Google Gemini-TTS via the Cloud Text-to-Speech API. | `GOOGLE_CLOUD_PROJECT` + `GOOGLE_APPLICATION_CREDENTIALS`, the same Google Cloud credentials as `musicGeneration`, no extra key. |
 | `system` | Free and offline but robotic. Uses macOS's built-in `say`. | macOS only for now. No credentials needed. |
 
 Then ask in `montai story`:

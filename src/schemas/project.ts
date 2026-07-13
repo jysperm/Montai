@@ -37,16 +37,22 @@ export const ModelsSchema = z.object({
   analysis: z.string().default('gemini-3.5-flash'),
   editing: z.string().default('gemini-3.5-flash'),
   musicGeneration: z.enum(['lyria-002']).optional(),
+  voiceoverGeneration: z.enum(['gemini-2.5-flash-tts', 'system']).optional(),
 });
 
 export const EffectsSchema = z.object({
   languages: z.array(z.string()).default(['en']),
+  // Spoken language for AI-generated (TTS) voiceover narration. Distinct from
+  // `language` (internal LLM text) and `languages` (overlay text). Falls back to
+  // the first `languages` entry (then `language`) when unset.
+  voiceLanguage: z.string().optional(),
 });
 
 export const FeatureFlagsSchema = z.object({
   music: z.boolean().optional(),
   musicGeneration: z.boolean().optional(),
   voiceover: z.boolean().optional(),
+  voiceoverGeneration: z.boolean().optional(),
   previewTools: z.boolean().optional(),
   // FPS the analyze pipeline transcodes source videos at. The analyze step
   // itself still calls Gemini at default (1fps) sampling — bumping this only
@@ -87,6 +93,12 @@ export const ProjectConfigSchema = z.preprocess(
 
 export function resolveResolution(preset: ResolutionPreset) {
   return resolutionPresets[preset];
+}
+
+// Spoken language for AI-generated (TTS) voiceover: the dedicated
+// `effects.voiceLanguage`, else the first overlay language, else internal `language`.
+export function resolveVoiceLanguage(config: ProjectConfig): string {
+  return config.effects.voiceLanguage ?? config.effects.languages[0] ?? config.language;
 }
 
 export function sequenceShape(width: number, height: number): SequenceShape {

@@ -5,7 +5,7 @@ import { eq } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
 import { music } from '../db/schema.js';
 import { getAudioMetadata } from '../utils/ffprobe.js';
-import { callLyria } from './client.js';
+import { callLyria } from '../gemini/lyria.js';
 
 const GENERATED_MUSIC_DIR = 'generated-music';
 

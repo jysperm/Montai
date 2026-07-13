@@ -1,5 +1,6 @@
 .envrc
-tests/provider/lyria-output.wav
+tests/provider/*.wav
+tests/provider/*.aiff
 tests/fixtures/output/
 tests/fcpxml/output/
 tests/fcpxml/.preview-public/

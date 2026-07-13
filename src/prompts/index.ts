@@ -13,6 +13,7 @@ export const languageNames: Record<string, string> = {
 };
 
 Handlebars.registerHelper('langName', (language: string) => languageNames[language] ?? language);
+Handlebars.registerHelper('or', (...args: unknown[]) => args.slice(0, -1).some(Boolean));
 
 Handlebars.registerHelper('overlayLanguageInstruction', (languages: string[]) => {
   const names = languages.map((l) => languageNames[l] ?? l);

@@ -35,13 +35,15 @@ models:
   analysis: gemini-3.5-flash             # Per-video analysis
   editing: gemini-3.5-flash              # Story agent loop
   musicGeneration: lyria-002            # Optional: enables AI music generation
+  voiceoverGeneration: gemini-2.5-flash-tts  # Optional: enables AI (TTS) voiceover — gemini-2.5-flash-tts | system
 effects:
   languages: [zh, en]           # Subtitle / caption languages
+  voiceLanguage: zh             # Optional: spoken language for generated (TTS) voiceover; defaults to first of `languages`
 featureFlags:                    # Optional overrides (see Feature Flags)
   music: false
 ```
 
-`language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text.
+`language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text. A third language axis, `effects.voiceLanguage`, sets the spoken language for AI-generated (TTS) voiceover narration; it is a single language and defaults to the first `effects.languages` entry (then `language`) when unset.
 
 `assets.videos`, `assets.music`, and `assets.voiceover` accept either a single string path or an array of string paths. Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 
@@ -63,7 +65,8 @@ The goal is a single switch per feature that controls both what the LLM is told 
 |---------|-------------|----------|---------|
 | `music` | Background music selection from the library and/or generated tracks | `getMusicAnalysis` tool; music item format and editing guidance in `story-system`; music analyses (library + summaries) in `story-context` | Project has music files (`assets.music` non-empty) **or** `models.musicGeneration` is configured |
 | `musicGeneration` | AI-generated background music via Lyria 2 | `generateMusic` tool; "Using generateMusic" prompt section; generated-music list in `story-context` | `models.musicGeneration` is configured |
-| `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool; voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
+| `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool (also enabled by `voiceoverGeneration`); voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
+| `voiceoverGeneration` | AI-generated (TTS) narration voiceover | `generateVoiceover` tool; "Using generateVoiceover" prompt section; also enables `getVoiceoverAnalysis` | `models.voiceoverGeneration` is configured (the `system` provider additionally requires macOS, else config resolution errors) |
 | `previewTools` | Agent self-preview of the edited timeline (renders a frame or short video and injects it back into the conversation) | `previewFrame` and `previewFinalVideo` tools; tool descriptions in `story-system` | `true` |
 | `transcodeFps` | FPS the analyze pipeline transcodes source videos at. The analyze step itself still calls Gemini at default 1fps sampling — bumping this only pre-warms the transcode/upload cache so a later `watchSegment(fps=N)` doesn't have to re-transcode or re-upload | `transcodeForUpload` + `uploadFileToGemini` path-keyed cache in `analyze` | `1` (number, not a boolean) |
 | `transcodeConcurrency` | Number of ffmpeg transcode processes the analyze pipeline runs in parallel. Transcode is decode-bound, so the default scales with cores | `resolveConcurrency` in `analyzer/pipeline.ts` | `CPU/4`, min `2` |
@@ -96,7 +99,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
 - **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ResolvedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **story_marks** — TUI-local timeline checkpoints created via `/mark` in the story TUI. Each row stores a `TimelineItem[]` JSON snapshot for a specific story (`storyId` FK). `name` is unique within a story. Storyline is intentionally not captured; restore overwrites the current timeline only.
-- **voiceovers** — Voiceover recording files (filename, path, md5, duration, sample rate, channels)
+- **voiceovers** — Voiceover audio files: both user-provided recordings and AI-generated (TTS) narration. `type` distinguishes 'recording' (user-provided) from 'generated' (synthesized via `generateVoiceover`, `generationText` stores the script). Shared ID space — `voiceoverId` in timeline items references both types.
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
 - **sessions** — Agent conversation sessions for `montai story`. Each `montai story` invocation creates a session; `--resume` restores one. Stores `currentStoryId` (nullable FK to stories) which is written immediately on every change. A session can span multiple stories via `/switch`.
 - **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
@@ -129,6 +132,7 @@ Uses an agent loop with tools:
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
 - `getVoiceoverAnalysis(voiceoverId)` — Retrieve stored transcription
 - `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in music items
+- `generateVoiceover(text, gender?)` — Synthesize narration audio via TTS, transcribe it in place, and return a voiceoverId for use in voiceover items (see AI Voiceover Generation)
 
 `watchSegment`, `previewFrame`, and `previewFinalVideo` share a single 10-per-turn media budget (Gemini's per-request file-ref limit).
 
@@ -173,7 +177,7 @@ Output filenames encode the source video name and precise time range: `<videoBas
 
 ### 7. Clean (`montai clean`)
 
-Removes regenerable cache files from the project directory — currently just the `.montai/` directory (transcoded videos, public dir, logs, preview/still/bundle caches). Since the cache is always safe to regenerate, it deletes without confirmation and prints the freed size on completion. User data (`montai.db`) and outputs (`output/`, `fcpxml/`, `archived/`, `generated-music/`) are intentionally left untouched. The cache locations are kept in a list (`CACHE_DIRS`) so more can be added later.
+Removes regenerable cache files from the project directory — currently just the `.montai/` directory (transcoded videos, public dir, logs, preview/still/bundle caches). Since the cache is always safe to regenerate, it deletes without confirmation and prints the freed size on completion. User data (`montai.db`) and outputs (`output/`, `fcpxml/`, `archived/`, `generated-music/`, `generated-voiceover/`) are intentionally left untouched. The cache locations are kept in a list (`CACHE_DIRS`) so more can be added later.
 
 ### `--from-archived` flag (render, preview, export)
 
@@ -386,6 +390,7 @@ Configurable per-stage via `models` in `montai.yaml`.
 | analysis | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
 | editing | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
 | musicGeneration | No | N/A | lyria-002 |
+| voiceoverGeneration | No | N/A | gemini-2.5-flash-tts, system |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.
 
@@ -400,6 +405,21 @@ The `generateMusic` tool in the story agent generates instrumental background mu
 - **Reuse**: Previously generated music appears in the story context under "Generated Music" so the LLM can reference it without regenerating. The LLM is prompted to prefer existing tracks (library or generated) before generating new ones.
 - **Auto-loop**: When a music track (library or generated) is shorter than the music item's timeline span, `resolveTimeline()` automatically splits it into multiple `ResolvedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
 - **Analysis**: Only library music is analyzed by Gemini during `montai analyze`. Generated music uses its generation prompt as the description.
+
+## AI Voiceover Generation (TTS)
+
+The `generateVoiceover` tool in the story agent synthesizes narration audio from a script. TTS is not a new timeline type — it is a generation entry point for the existing voiceover capability, mirroring how `generateMusic` writes into the `music` table. Generated audio reuses the existing `voiceovers` table (`type='generated'`), `VoiceoverItem`, resolve, FCPXML, and Remotion paths unchanged. The difference from recorded voiceover is the editing direction: recorded voiceover is narration-driven (the recording drives the cut), while TTS voiceover is editing-driven (write the script, synthesize, then place it under the footage).
+
+- **Providers** (`models.voiceoverGeneration`): `gemini-2.5-flash-tts` (default, high quality) calls Google Gemini-TTS via the Cloud Text-to-Speech `:synthesize` endpoint, sharing Lyria's auth (`GOOGLE_CLOUD_PROJECT` + ADC, `cloud-platform` scope); `system` (free, offline, robotic) shells out to macOS `say -o out.aiff` then converts to WAV with ffmpeg (macOS only, enforced at config resolution).
+- **Voice**: the tool exposes a `gender` argument (`female` default / `male`) rather than a raw voice id. Each provider maps gender to a concrete voice: Gemini-TTS uses the prebuilt `Aoede` (female) / `Puck` (male), picked by ear for a conversational delivery — the voices Google labels "Firm" read as flat newsreader narration; `system` maps to macOS `say -v` voices per language, falling back to the female voice when a language has no reliable default male voice (e.g. Mandarin).
+- **Style prompt**: Gemini-TTS ignores `audioConfig.speakingRate`/`pitch`, so delivery is only steerable through `input.prompt` — a natural-language style instruction sent alongside the script. A fixed prompt (natural, conversational, slightly faster) counteracts the model's slow, flat default; it cuts a sample line from ~7s to ~5.5s. Not exposed to the agent today.
+- **Language**: narration is spoken in `effects.voiceLanguage` (falling back to the first `effects.languages`, then `language`), which drives both the script-writing instruction in the prompt and the TTS voice/language selection.
+- **Implementation**: `src/generate/tts.ts` mirrors `src/generate/music.ts` — it dispatches to a provider (the Gemini-TTS client lives in `src/gemini/tts.ts`, `say` is local to the file), then handles caching, persistence, and in-place transcription.
+- **Caching**: Generated files stored in `generated-voiceover/` keyed by `SHA-256(text + synthesisSignature)`, where the signature covers everything besides the script that shapes the audio (provider, model, language code, concrete voice, style prompt) — so changing the voice or the prompt invalidates cached tracks instead of silently reusing them. An existing file or DB row (matched by md5 = hash) with a transcription is reused.
+- **In-place transcription**: Every generated voiceover is re-transcribed through the same `analyze-voiceover` prompt (writing `voiceover_analyses`) rather than trusting TTS-native timestamps. This keeps timestamp provenance uniform with recordings and works for `system` (which returns none).
+- **Context update**: The tool pushes the new voiceover and its analysis into the agent context (`allVoiceovers` / `allVoiceoverAnalyses`) so a `VoiceoverItem` can reference it in the same turn.
+- **Ordering constraint**: Duration is unknown until synthesis, and `resolveTimeline` rejects clips that don't cover a voiceover span. So the order must be: write script → `generateVoiceover` (get duration) → size/trim clips. Generating per narrative beat (not one long take) makes clip alignment easier.
+- **Clean**: `generated-voiceover/` is treated like `generated-music/` — never removed by `montai clean`.
 
 ## User Project Directory Structure
 
@@ -418,6 +438,7 @@ my-vlog-project/
       track1.mp3                # Hard link to source audio
     logs/                       # Gemini API request/response dumps written on error
   generated-music/               # AI-generated music files (WAV, keyed by prompt hash)
+  generated-voiceover/           # AI-generated (TTS) narration files (WAV, keyed by text+voice+provider hash)
   output/
     <name>.mp4                  # Generated by `montai render`
   fcpxml/

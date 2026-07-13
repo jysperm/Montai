@@ -54,7 +54,7 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
     sessionId: 0,
     languageName: 'English',
     overlayLanguageNames: 'English',
-    features: { music: true, musicGeneration: false, voiceover: false, previewTools: true },
+    features: { music: true, musicGeneration: false, voiceover: false, voiceoverGeneration: false, previewTools: true },
   };
 }
 

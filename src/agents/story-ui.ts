@@ -316,6 +316,19 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
         break;
       }
     }
+    case 'generateVoiceover': {
+      const text = typeof args.text === 'string' ? args.text : undefined;
+      const textDisplay = text
+        ? `"${text.slice(0, 50)}${text.length > 50 ? '...' : ''}"`
+        : undefined;
+      if (!error) {
+        console.log(`  ${check} ${label}${textDisplay ? `: ${textDisplay}` : ''}`);
+        return;
+      } else {
+        if (textDisplay) error = `${textDisplay}: ${error}`;
+        break;
+      }
+    }
     case 'switchStory': {
       if (!error) {
         const targetName = args.name as string | undefined;

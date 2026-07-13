@@ -6,8 +6,8 @@ import type { Agent } from '@mariozechner/pi-agent-core';
 import { Type } from 'typebox';
 import type { MontaiDb } from '../db/index.js';
 import { stories, sessions, type videoAnalyses, type music, type musicAnalyses, type voiceovers, type voiceoverAnalyses } from '../db/schema.js';
-import { renderPrompt, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
-import type { ProjectConfig } from '../schemas/project.js';
+import { renderPrompt, languageNames, type VideoAnalysisData, type MusicAnalysisData, type VoiceoverAnalysisData } from '../prompts/index.js';
+import { resolveVoiceLanguage, type ProjectConfig } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 import { uploadFileToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
@@ -16,7 +16,8 @@ import { resolveTimeline } from '../schemas/timeline/resolve.js';
 import { buildComputedTimelineData } from '../schemas/timeline/compute.js';
 import { spliceTimelineItems, stripTimelineDefaults } from '../schemas/timeline/edit.js';
 import { z } from 'zod';
-import { generateMusicTrack } from '../lyria/generate.js';
+import { generateMusicTrack } from '../generate/music.js';
+import { generateVoiceoverTrack } from '../generate/tts.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
 import { loadResolvedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
@@ -553,6 +554,58 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
+  const voiceLanguageCode = resolveVoiceLanguage(ctx.config);
+  const voiceLanguageName = languageNames[voiceLanguageCode] ?? voiceLanguageCode;
+
+  const generateVoiceoverTool = {
+    name: 'generateVoiceover',
+    label: 'Generate Voiceover',
+    description: `Synthesize narration audio from a script via TTS, then transcribe it so it can be placed like a voiceover recording. Returns a voiceoverId, duration, and the timestamped transcription. Write the script in ${voiceLanguageName}.`,
+    parameters: Type.Object({
+      text: Type.String({ description: `The narration script, written in ${voiceLanguageName}. Keep it concise and generate one narrative beat at a time.` }),
+      voice: Type.Optional(Type.String({ description: 'Narration voice: "female" (default) or "male". The concrete voice is chosen per provider and language.' })),
+    }),
+    async execute(
+      _toolCallId: string,
+      params: { text: string; voice?: string },
+    ) {
+      const voice = params.voice === 'male' ? 'male' : 'female';
+      let result: Awaited<ReturnType<typeof generateVoiceoverTrack>>;
+      try {
+        result = await generateVoiceoverTrack(ctx.db, ctx.config, { text: params.text, voice });
+      } catch (err) {
+        throw new Error(`Voiceover generation failed: ${err instanceof Error ? err.message : err}`);
+      }
+
+      const { voiceover, analysis } = result;
+
+      // Update context so getVoiceoverAnalysis and updateTimeline can reference the
+      // new voiceover within the same turn.
+      if (!ctx.allVoiceovers.find((v) => v.id === voiceover.id)) {
+        ctx.allVoiceovers.push(voiceover);
+      }
+      if (!ctx.allVoiceoverAnalyses.find((a) => a.voiceoverId === voiceover.id)) {
+        ctx.allVoiceoverAnalyses.push(analysis);
+      }
+
+      const durationSeconds = voiceover.durationSeconds ?? 0;
+      const rendered = renderPrompt('voiceover-analysis', {
+        voiceoverId: voiceover.id,
+        filename: voiceover.filename,
+        durationSeconds,
+        duration: secondsToTimestamp(durationSeconds),
+        overview: analysis.overview,
+        transcription: JSON.parse(analysis.transcription),
+      } satisfies VoiceoverAnalysisData).trim();
+
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: `Voiceover generated successfully.\n- Voiceover ID: ${voiceover.id}\n- Duration: ${secondsToTimestamp(durationSeconds)}\n\n${rendered}\n\nUse voiceoverId: ${voiceover.id} in a voiceover timeline item. Set clip durations after this so they cover the narration.`,
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
   const listStoriesTool = {
     name: 'listStories',
     label: 'List Stories',
@@ -671,8 +724,13 @@ export function getStoryTools(ctx: StoryToolsContext) {
   if (ctx.features.musicGeneration) {
     tools.push(generateMusicTool);
   }
-  if (ctx.features.voiceover) {
+  // Generated voiceovers also have a transcription, so getVoiceoverAnalysis is
+  // useful even when there are no library recordings.
+  if (ctx.features.voiceover || ctx.features.voiceoverGeneration) {
     tools.push(getVoiceoverAnalysisTool);
+  }
+  if (ctx.features.voiceoverGeneration) {
+    tools.push(generateVoiceoverTool);
   }
 
   return {

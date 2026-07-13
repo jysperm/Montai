@@ -24,7 +24,7 @@ import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
 import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
-import { resolveResolution, sequenceShape } from '../schemas/project.js';
+import { resolveResolution, sequenceShape, resolveVoiceLanguage } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 
 type StoryRow = typeof stories.$inferSelect;
@@ -160,6 +160,7 @@ export class StoryAgent {
         systemPrompt: renderPrompt('story-system', {
           language: this.config.language,
           overlayLanguages: this.config.effects.languages,
+          voiceLanguage: resolveVoiceLanguage(this.config),
           agentInstructions: this.agentInstructions ?? null,
           features: this.features,
           ...(() => {
@@ -247,6 +248,15 @@ export class StoryAgent {
           const idMatch = resultText.match(/Music ID: (\d+)/);
           if (idMatch) {
             console.log(chalk.dim(`    → musicId ${idMatch[1]}`));
+          }
+        }
+
+        if (event.toolName === 'generateVoiceover') {
+          const resultText = (event.result as { content: { text: string }[] })?.content?.[0]?.text ?? '';
+          const idMatch = resultText.match(/Voiceover ID: (\d+)/);
+          const durMatch = resultText.match(/Duration: (\S+)/);
+          if (idMatch) {
+            console.log(chalk.dim(`    → voiceoverId ${idMatch[1]}${durMatch ? `, ${durMatch[1]}` : ''}`));
           }
         }
 

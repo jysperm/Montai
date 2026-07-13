@@ -5,8 +5,8 @@ import { formatFileSize } from '../utils/format.js';
 
 // Regenerable cache directories, relative to the project directory. Listed
 // separately so more cache locations can be added later; user data
-// (montai.db) and outputs (output/, fcpxml/, archived/, generated-music/) are
-// intentionally excluded.
+// (montai.db) and outputs (output/, fcpxml/, archived/, generated-music/,
+// generated-voiceover/) are intentionally excluded.
 const CACHE_DIRS = ['.montai'];
 
 function dirSize(path: string): number {

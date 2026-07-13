@@ -13,7 +13,7 @@ import { writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
-import { callLyria } from '../../src/lyria/client.js';
+import { callLyria } from '../../src/gemini/lyria.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 

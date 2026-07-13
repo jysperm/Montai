@@ -83,6 +83,8 @@ export const voiceovers = sqliteTable('voiceovers', {
   filename: text('filename').notNull(),
   path: text('path').notNull().unique(),
   md5: text('md5').notNull(),
+  type: text('type').default('recording'),            // 'recording' | 'generated'
+  generationText: text('generation_text'),             // null for recordings, the script text for generated (TTS)
   durationSeconds: integer('duration_seconds'),
   sampleRate: integer('sample_rate'),
   channels: integer('channels'),
