@@ -31,7 +31,7 @@ type StoryRow = typeof stories.$inferSelect;
 
 const AUTO_BACKUP_MARK_NAME = 'last-overwritten';
 const INTRO_EXISTING_STORY_INSTRUCTION = 'Briefly introduce the current storyline and timeline state, then wait for my direction.';
-const INTRO_NEW_STORY_INSTRUCTION = 'Briefly summarize what these source videos contain, then recommend one editing direction for the first story.';
+const INTRO_NEW_STORY_INSTRUCTION = 'Briefly summarize what these source videos contain, then recommend one editing direction for this new story.';
 
 function getUserMessageText(message: Message): string | null {
   if (message.role !== 'user') return null;

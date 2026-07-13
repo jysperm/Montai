@@ -54,6 +54,7 @@ export const FeatureFlagsSchema = z.object({
   voiceover: z.boolean().optional(),
   voiceoverGeneration: z.boolean().optional(),
   previewTools: z.boolean().optional(),
+  multiStory: z.boolean().optional(),
   // FPS the analyze pipeline transcodes source videos at. The analyze step
   // itself still calls Gemini at default (1fps) sampling — bumping this only
   // pre-warms the transcode cache so subsequent watchSegment calls at the

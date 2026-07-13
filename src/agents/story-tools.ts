@@ -714,7 +714,10 @@ export function getStoryTools(ctx: StoryToolsContext) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, listStoriesTool, switchStoryTool];
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool];
+  if (ctx.features.multiStory) {
+    tools.push(listStoriesTool, switchStoryTool);
+  }
   if (ctx.features.previewTools) {
     tools.push(previewFrameTool, previewFinalVideoTool);
   }

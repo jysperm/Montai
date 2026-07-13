@@ -32,7 +32,7 @@ function createContext(db: MontaiDb, videoId: number, storyName: string): StoryT
     agent: null,
     languageName: 'English',
     overlayLanguageNames: 'English',
-    features: { music: false, musicGeneration: false, voiceover: false, voiceoverGeneration: false, previewTools: true },
+    features: { music: false, musicGeneration: false, voiceover: false, voiceoverGeneration: false, previewTools: true, multiStory: true },
     timelineVersion: 0,
     sessionId: 0,
   };

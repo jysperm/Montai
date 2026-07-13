@@ -6,6 +6,7 @@ export interface FeatureFlags {
   voiceover: boolean;
   voiceoverGeneration: boolean;
   previewTools: boolean;
+  multiStory: boolean;
 }
 
 export interface FeatureFlagContext {
@@ -23,6 +24,7 @@ export function resolveFeatureFlags(
     voiceover: context.hasVoiceovers,
     voiceoverGeneration: Boolean(config.models.voiceoverGeneration),
     previewTools: true,
+    multiStory: true,
     ...config.featureFlags,
   };
 

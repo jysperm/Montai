@@ -68,6 +68,7 @@ The goal is a single switch per feature that controls both what the LLM is told 
 | `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool (also enabled by `voiceoverGeneration`); voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
 | `voiceoverGeneration` | AI-generated (TTS) narration voiceover | `generateVoiceover` tool; "Using generateVoiceover" prompt section; also enables `getVoiceoverAnalysis` | `models.voiceoverGeneration` is configured (the `system` provider additionally requires macOS, else config resolution errors) |
 | `previewTools` | Agent self-preview of the edited timeline (renders a frame or short video and injects it back into the conversation) | `previewFrame` and `previewFinalVideo` tools; tool descriptions in `story-system` | `true` |
+| `multiStory` | Agent awareness of and ability to switch between stories | `listStories` and `switchStory` tools and prompt descriptions | `true` |
 | `transcodeFps` | FPS the analyze pipeline transcodes source videos at. The analyze step itself still calls Gemini at default 1fps sampling — bumping this only pre-warms the transcode/upload cache so a later `watchSegment(fps=N)` doesn't have to re-transcode or re-upload | `transcodeForUpload` + `uploadFileToGemini` path-keyed cache in `analyze` | `1` (number, not a boolean) |
 | `transcodeConcurrency` | Number of ffmpeg transcode processes the analyze pipeline runs in parallel. Transcode is decode-bound, so the default scales with cores | `resolveConcurrency` in `analyzer/pipeline.ts` | `CPU/4`, min `2` |
 | `uploadConcurrency` | Parallel Gemini File API uploads in the analyze pipeline | `resolveConcurrency` in `analyzer/pipeline.ts` | `2` |
@@ -82,6 +83,7 @@ featureFlags:
   music: false            # disable music even though music files exist
   musicGeneration: true   # force-enable (still requires the model to be configured to actually work)
   voiceover: false
+  multiStory: false       # keep the agent focused on the current story
 ```
 
 An unset override leaves the default in place. Overrides only affect flag resolution — they do not add missing capabilities (e.g. setting `musicGeneration: true` without configuring `models.musicGeneration` will fail at tool-call time).
@@ -133,6 +135,7 @@ Uses an agent loop with tools:
 - `getVoiceoverAnalysis(voiceoverId)` — Retrieve stored transcription
 - `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in music items
 - `generateVoiceover(text, gender?)` — Synthesize narration audio via TTS, transcribe it in place, and return a voiceoverId for use in voiceover items (see AI Voiceover Generation)
+- `listStories()` / `switchStory(name, new?)` — List and switch the active story when `multiStory` is enabled
 
 `watchSegment`, `previewFrame`, and `previewFinalVideo` share a single 10-per-turn media budget (Gemini's per-request file-ref limit).
 

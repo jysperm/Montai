@@ -228,6 +228,10 @@ featureFlags:
   # Enable agent self-feedback features.
   # Default: true.
   previewTools: false
+  # Enable the agent to list and switch stories within an interactive session.
+  # Controls the agent's story-list/switch tools. The /switch command remains available.
+  # Default: true.
+  multiStory: false
   # Pre-transcoding FPS at analyze time.
   # Default: 1.
   transcodeFps: 5
