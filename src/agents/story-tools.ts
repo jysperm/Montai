@@ -20,7 +20,7 @@ import { generateMusicTrack } from '../generate/music.js';
 import { generateVoiceoverTrack } from '../generate/tts.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
 import { loadResolvedTimelines } from '../utils/project.js';
-import { preparePublicDir } from '../remotion/public-dir.js';
+import { preparePreviewPublicDir, preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
 
@@ -389,7 +389,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       let upload: Awaited<ReturnType<typeof uploadFileToGemini>>;
       try {
-        preparePublicDir(spec);
+        preparePreviewPublicDir(spec, previewFps);
         const hash = previewHash(spec, startSeconds, endSeconds, previewFps);
         const outPath = resolve('.montai/.cache/previews', `${hash}.mp4`);
         if (!existsSync(outPath)) {

@@ -21,7 +21,7 @@ function isTranscodedFresh(transcodedPath: string, sourcePath: string): boolean 
 // A transcode at fps=N can serve any request for fps<=N (Gemini just ignores
 // extra frames). Pick the smallest fresh cache that satisfies the request to
 // keep the upload size minimal.
-function findReusableTranscode(videoId: number, requiredFps: number, sourcePath: string): string | null {
+export function findReusableTranscode(videoId: number, requiredFps: number, sourcePath: string): string | null {
   if (!existsSync(TRANSCODE_DIR)) return null;
   const pattern = new RegExp(`^${videoId}(?:-(\\d+(?:\\.\\d+)?)fps)?\\.mp4$`);
   const candidates = readdirSync(TRANSCODE_DIR)

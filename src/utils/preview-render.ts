@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync, rmSync, symlinkSync } from 'fs';
+import { mkdirSync, rmSync, symlinkSync } from 'fs';
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { createHash } from 'crypto';
@@ -66,9 +66,7 @@ function ensurePublicSymlink(bundleDir: string): void {
   // .montai/public/ means new media files become available without rebundling.
   const link = resolve(bundleDir, 'public');
   mkdirSync(PUBLIC_DIR, { recursive: true });
-  if (existsSync(link)) {
-    rmSync(link, { recursive: true, force: true });
-  }
+  rmSync(link, { recursive: true, force: true });
   symlinkSync(PUBLIC_DIR, link);
 }
 
@@ -76,6 +74,10 @@ async function getBundle(): Promise<string> {
   if (!bundlePromise) {
     bundlePromise = (async () => {
       mkdirSync(dirname(BUNDLE_OUT), { recursive: true });
+      // The previous process leaves this as a symlink to the live public dir.
+      // Bundler copies publicDir before ensurePublicSymlink() runs and otherwise
+      // fails with EEXIST when it encounters that stale destination.
+      rmSync(resolve(BUNDLE_OUT, 'public'), { recursive: true, force: true });
       const dir = await bundle({
         entryPoint: resolve(REMOTION_DIR, 'src/index.tsx'),
         outDir: BUNDLE_OUT,
