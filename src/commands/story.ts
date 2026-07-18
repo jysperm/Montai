@@ -26,7 +26,7 @@ export async function storyCommand(
   if (options.list) {
     const allStories = db.select().from(stories).orderBy(desc(stories.id)).all();
     if (allStories.length === 0) {
-      console.log(chalk.dim(`No stories yet. Run ${chalk.reset.bold('montai story')} to create one.`));
+      console.log(chalk.yellow(`No stories yet. Run ${chalk.bold('montai story')} to create one.`));
     } else {
       for (const s of allStories) {
         console.log(formatStoryLine(s));
@@ -74,7 +74,7 @@ export async function storyCommand(
   const allVideoAnalyses = db.select().from(videoAnalyses).all();
 
   if (allVideoAnalyses.length === 0) {
-    console.log(chalk.red(`No video analyses found. Run ${chalk.bold('montai analyze')} first.`));
+    console.log(chalk.yellow(`No video analyses found. Run ${chalk.bold('montai analyze')} first.`));
     return;
   }
 

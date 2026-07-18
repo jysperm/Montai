@@ -84,7 +84,7 @@ export async function projectCommand(_options: Record<string, never> = {}) {
       .all();
 
     if (allAnalyses.length === 0) {
-      console.log(chalk.dim(`No video analyses yet — run ${chalk.reset.bold('montai analyze')} to generate overview.`));
+      console.log(chalk.yellow(`No video analyses yet — run ${chalk.bold('montai analyze')} to generate overview.`));
     } else {
       const prompt = renderPrompt('project-overview', { agentInstructions: agentInstructions ?? null, videoAnalyses: allAnalyses, language: config.language });
       const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
