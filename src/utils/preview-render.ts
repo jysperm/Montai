@@ -5,10 +5,10 @@ import { createHash } from 'crypto';
 import { bundle } from '@remotion/bundler';
 import { renderStill, renderMedia, selectComposition } from '@remotion/renderer';
 import type { ResolvedTimeline, ResolvedClip } from '../schemas/timeline.js';
+import { AGENT_PUBLIC_DIR } from '../remotion/public-dir.js';
 
 const REMOTION_DIR = fileURLToPath(new URL('../../remotion', import.meta.url));
-const BUNDLE_OUT = resolve('.montai/.cache/remotion-bundle');
-const PUBLIC_DIR = resolve('.montai/public');
+const BUNDLE_OUT = resolve('.montai/agent-bundle');
 
 function clipDurationFrames(clip: ResolvedClip, fps: number): number {
   const seconds = (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
@@ -63,11 +63,12 @@ let bundlePromise: Promise<string> | null = null;
 function ensurePublicSymlink(bundleDir: string): void {
   // The Remotion entry has no `public/` of its own, but renderer-served URLs
   // (and staticFile()) resolve under <bundle>/public. Pointing it at the live
-  // .montai/public/ means new media files become available without rebundling.
+  // the isolated Agent preview public dir means new media files become
+  // available without rebundling or affecting a running Remotion Studio.
   const link = resolve(bundleDir, 'public');
-  mkdirSync(PUBLIC_DIR, { recursive: true });
+  mkdirSync(AGENT_PUBLIC_DIR, { recursive: true });
   rmSync(link, { recursive: true, force: true });
-  symlinkSync(PUBLIC_DIR, link);
+  symlinkSync(AGENT_PUBLIC_DIR, link);
 }
 
 async function getBundle(): Promise<string> {
@@ -81,7 +82,7 @@ async function getBundle(): Promise<string> {
       const dir = await bundle({
         entryPoint: resolve(REMOTION_DIR, 'src/index.tsx'),
         outDir: BUNDLE_OUT,
-        publicDir: PUBLIC_DIR,
+        publicDir: AGENT_PUBLIC_DIR,
       });
       ensurePublicSymlink(dir);
       return dir;

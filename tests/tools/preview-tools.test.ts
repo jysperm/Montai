@@ -135,7 +135,7 @@ describe.skipIf(!hasGeminiKey)('preview tools integration', () => {
 
     const uploadRows = db.all(sql`select cache_key from gemini_files`) as { cache_key: string | null }[];
     expect(uploadRows.some((r) => r.cache_key?.endsWith(`${videoId}.mp4`))).toBe(true);
-    expect(uploadRows.some((r) => r.cache_key?.startsWith('.montai/.cache/previews/') && r.cache_key.endsWith('.mp4'))).toBe(true);
-    expect(readdirSync(resolve('.montai/.cache/previews')).some((f) => statSync(resolve('.montai/.cache/previews', f)).size > 0)).toBe(true);
+    expect(uploadRows.some((r) => r.cache_key?.startsWith('.montai/agent-previews/') && r.cache_key.endsWith('.mp4'))).toBe(true);
+    expect(readdirSync(resolve('.montai/agent-previews')).some((f) => statSync(resolve('.montai/agent-previews', f)).size > 0)).toBe(true);
   }, 300_000);
 });

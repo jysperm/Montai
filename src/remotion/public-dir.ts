@@ -3,7 +3,11 @@ import { resolve, basename } from 'path';
 import type { ResolvedClip, ResolvedTimeline } from '../schemas/timeline.js';
 import { findReusableTranscode } from '../utils/transcode.js';
 
+export const PREVIEW_PUBLIC_DIR = resolve('.montai/preview-public');
+export const AGENT_PUBLIC_DIR = resolve('.montai/agent-public');
+
 interface PreparePublicDirOptions {
+  publicDir?: string;
   resolveVideoSource?: (clip: ResolvedClip) => string;
 }
 
@@ -18,14 +22,13 @@ export function collectMediaFiles(timelines: ResolvedTimeline[]): Set<string> {
 }
 
 export function writeTimelinesJson(timelines: ResolvedTimeline[]): void {
-  const publicDir = resolve('.montai/public');
-  mkdirSync(publicDir, { recursive: true });
-  writeFileSync(resolve(publicDir, 'timelines.json'), JSON.stringify(timelines, null, 2));
+  mkdirSync(PREVIEW_PUBLIC_DIR, { recursive: true });
+  writeFileSync(resolve(PREVIEW_PUBLIC_DIR, 'timelines.json'), JSON.stringify(timelines, null, 2));
 }
 
 export function preparePublicDir(timelines: ResolvedTimeline | ResolvedTimeline[], options?: PreparePublicDirOptions): string {
   const timelineArray = Array.isArray(timelines) ? timelines : [timelines];
-  const publicDir = resolve('.montai/public');
+  const publicDir = options?.publicDir ?? PREVIEW_PUBLIC_DIR;
   mkdirSync(publicDir, { recursive: true });
 
   const seen = new Set<string>();
@@ -101,9 +104,10 @@ export function preparePublicDir(timelines: ResolvedTimeline | ResolvedTimeline[
 // when their cached fps is high enough; otherwise retain the original media.
 // The public filename stays equal to the original basename, so the timeline and
 // all source-time trims remain unchanged.
-export function preparePreviewPublicDir(timeline: ResolvedTimeline, previewFps: number): { publicDir: string; proxyCount: number } {
+export function prepareAgentPublicDir(timeline: ResolvedTimeline, previewFps: number): { publicDir: string; proxyCount: number } {
   let proxyCount = 0;
   const publicDir = preparePublicDir(timeline, {
+    publicDir: AGENT_PUBLIC_DIR,
     resolveVideoSource: (clip) => {
       const proxy = findReusableTranscode(clip.videoId, previewFps, clip.sourceFile);
       if (proxy) proxyCount++;

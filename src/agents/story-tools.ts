@@ -20,7 +20,7 @@ import { generateMusicTrack } from '../generate/music.js';
 import { generateVoiceoverTrack } from '../generate/tts.js';
 import { countItemsByType, formatItemCounts, formatTimeAgo } from '../utils/format.js';
 import { loadResolvedTimelines } from '../utils/project.js';
-import { preparePreviewPublicDir, preparePublicDir } from '../remotion/public-dir.js';
+import { AGENT_PUBLIC_DIR, prepareAgentPublicDir, preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
 
@@ -327,10 +327,10 @@ export function getStoryTools(ctx: StoryToolsContext) {
         // Cross-session disk cache: hash of (spec, frame). Reuses prior renders
         // until the timeline changes shape.
         const hash = stillHash(spec, frame);
-        const outPath = resolve('.montai/.cache/stills', `${hash}.png`);
-        // preparePublicDir is needed even on cache hit so that a follow-up
-        // previewFinalVideo (which also uses the bundle's public/) finds media.
-        preparePublicDir(spec);
+        const outPath = resolve('.montai/agent-stills', `${hash}.png`);
+        // The programmatic renderer has its own public directory so Agent
+        // previews cannot replace media in a concurrently running Studio.
+        preparePublicDir(spec, { publicDir: AGENT_PUBLIC_DIR });
         if (!existsSync(outPath)) {
           await renderStillFrame({ spec, frame, outPath });
         }
@@ -389,9 +389,9 @@ export function getStoryTools(ctx: StoryToolsContext) {
 
       let upload: Awaited<ReturnType<typeof uploadFileToGemini>>;
       try {
-        preparePreviewPublicDir(spec, previewFps);
+        prepareAgentPublicDir(spec, previewFps);
         const hash = previewHash(spec, startSeconds, endSeconds, previewFps);
-        const outPath = resolve('.montai/.cache/previews', `${hash}.mp4`);
+        const outPath = resolve('.montai/agent-previews', `${hash}.mp4`);
         if (!existsSync(outPath)) {
           await renderRange({ spec, startSeconds, endSeconds, fps: previewFps, outPath });
         }

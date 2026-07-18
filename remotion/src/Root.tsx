@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Composition, staticFile, watchStaticFile } from 'remotion';
+import { Composition, getRemotionEnvironment, staticFile, watchStaticFile } from 'remotion';
 import { MontaiVideo, calculateTotalFrames, type TimelineProps } from './MontaiVideo';
 
 function loadTimelinesSync(): TimelineProps[] {
@@ -20,6 +20,8 @@ export const RemotionRoot = () => {
   const [timelines, setTimelines] = useState(() => loadTimelinesSync());
 
   useEffect(() => {
+    if (!getRemotionEnvironment().isStudio) return;
+
     const { cancel } = watchStaticFile('timelines.json', () => {
       fetch(staticFile('timelines.json'))
         .then(r => r.json())

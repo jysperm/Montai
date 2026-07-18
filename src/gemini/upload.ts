@@ -47,7 +47,7 @@ async function uploadAndWait(filePath: string): Promise<string> {
 //   - .montai/transcoded/<id>-<n>fps.mp4   (source video)
 //   - musics/<file>                         (music asset, user-supplied)
 //   - voiceover/<file>                      (voiceover asset, user-supplied)
-//   - .montai/.cache/previews/<sha256>.mp4 (previewFinalVideo render)
+//   - .montai/agent-previews/<sha256>.mp4 (previewFinalVideo render)
 // Reuses an active+fresh upload for the same path; otherwise uploads and
 // upserts the row.
 export async function uploadFileToGemini(filePath: string): Promise<UploadResult> {

@@ -105,7 +105,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
 - **sessions** — Agent conversation sessions for `montai story`. Each `montai story` invocation creates a session; `--resume` restores one. Stores `currentStoryId` (nullable FK to stories) which is written immediately on every change. A session can span multiple stories via `/switch`.
 - **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
-- **gemini_files** — Cached Gemini File API references keyed by nullable `cacheKey` = the project-relative file path. Same scheme for every upload: source video transcodes (`.montai/transcoded/<id>-<n>fps.mp4`), music / voiceover assets (e.g. `musics/track1.mp3`), and previewFinalVideo renders (`.montai/.cache/previews/<sha256>.mp4`). The path encodes everything the cache needs to distinguish — `<id>-<n>fps.mp4` already encodes the videoId+fps, the preview filename encodes the spec hash. Legacy rows with `NULL` cache keys are ignored and naturally replaced on next upload.
+- **gemini_files** — Cached Gemini File API references keyed by nullable `cacheKey` = the project-relative file path. Same scheme for every upload: source video transcodes (`.montai/transcoded/<id>-<n>fps.mp4`), music / voiceover assets (e.g. `musics/track1.mp3`), and previewFinalVideo renders (`.montai/agent-previews/<sha256>.mp4`). The path encodes everything the cache needs to distinguish — `<id>-<n>fps.mp4` already encodes the videoId+fps, the preview filename encodes the spec hash. Legacy rows with `NULL` cache keys are ignored and naturally replaced on next upload.
 
 ## Pipeline
 
@@ -142,10 +142,10 @@ Uses an agent loop with tools:
 #### Preview implementation (previewFrame / previewFinalVideo)
 
 Both tools use the `@remotion/renderer` programmatic API instead of the CLI:
-- **Bundle reuse**: `bundle()` is called once per process (lazy on first preview tool call) and the result cached as a module-level promise. The output dir `.montai/.cache/remotion-bundle/` is reused across processes via webpack's caching layer. After bundle, `<bundleDir>/public` is replaced with a symlink to `.montai/public/` so newly hard-linked media is reachable without rebundling.
+- **Bundle reuse and media isolation**: `bundle()` is called once per process (lazy on first preview tool call) and the result cached as a module-level promise. The output dir `.montai/agent-bundle/` is reused across processes via webpack's caching layer. After bundle, `<bundleDir>/public` is replaced with a symlink to the Agent-only `.montai/agent-public/`, so newly hard-linked media is reachable without rebundling. Remotion Studio and formal renders keep using `.montai/preview-public/`; this separation prevents `previewFinalVideo` proxy links from changing media in a concurrently running Studio.
 - **Direct fps output (previewFinalVideo)**: instead of rendering at composition fps and dropping frames via ffmpeg, the spec's `fps` is overridden to the requested preview fps before passing to `selectComposition` / `renderMedia`. MontaiVideo derives all per-frame quantities from `seconds * fps`, so total frames and transition overlaps adjust automatically. Lower preview fps means fewer frames actually rendered (no waste) at the cost of animation sample density — `previewFrame` is preferred when only a single moment matters; `previewFinalVideo` at higher fps is the right choice when checking transitions / Ken Burns / overlay animations. Preview output is rendered at `scale=0.5` of the spec's native resolution to keep file size small without an extra ffmpeg pass.
 - **Browser-friendly preview media (previewFinalVideo)**: before rendering, the public media mapping reuses the smallest fresh `.montai/transcoded/<videoId>[-Nfps].mp4` whose fps is at least the requested preview fps. These full-duration 720p H.264 files preserve source timestamps and avoid expensive browser/`OffthreadVideo` decoding of camera originals. The public filename remains the original basename, so the resolved timeline is unchanged. Clips without an adequate fresh transcode fall back to their original source. This optimization is limited to the Agent's sampled final-video preview; Remotion Studio, formal `render`, and `previewFrame` continue to use original media.
-- **Cross-session caching**: PNG stills are stored at `.montai/.cache/stills/<sha256(spec, frame)>.png`. Preview videos are stored at `.montai/.cache/previews/<sha256(spec, range, fps)>.mp4` AND tracked in `gemini_files.cacheKey` (= the same relative path) so the corresponding Gemini File API URI is reused (subject to 48h expiry). Any change to the timeline shape changes the hash, so the cache invalidates naturally — and the same path-as-cacheKey mechanism is what gives source-video uploads their cross-session cache too.
+- **Cross-session caching**: PNG stills are stored at `.montai/agent-stills/<sha256(spec, frame)>.png`. Preview videos are stored at `.montai/agent-previews/<sha256(spec, range, fps)>.mp4` AND tracked in `gemini_files.cacheKey` (= the same relative path) so the corresponding Gemini File API URI is reused (subject to 48h expiry). Any change to the timeline shape changes the hash, so the cache invalidates naturally — and the same path-as-cacheKey mechanism is what gives source-video uploads their cross-session cache too.
 
 Gated by the `previewTools` feature flag (default `true`).
 
@@ -330,7 +330,7 @@ Montai includes a static Remotion project at `remotion/`. This project is **neve
 - **Dynamic Compositions**: Root.tsx fetches `timelines.json` from the public dir and registers one Composition per timeline (using the story name as id)
 - **Render mode**: Timeline passed via `--props=<path>`, composition targeted by story name, video files served via `--public-dir=<path>`
 - **Studio mode**: All stories appear in the Studio sidebar for switching, video files served via `--public-dir=<path>`
-- **Public dir**: `render`/`studio` commands create `.montai/public/` with hard links to source video files and a `timelines.json` index
+- **Public dir**: `render`/`studio` commands create `.montai/preview-public/` with hard links to source video files and a `timelines.json` index; Agent preview tools use an isolated `.montai/agent-public/`
 - **Dependencies**: Remotion, React, and transition packages are Montai's own dependencies — no separate install needed
 - **Spatial conform**: Each clip is wrapped in layers — outer sequence box (black, hides overflow), middle conformed rectangle (size derived from post-rotation source dims + fit mode), crop layer in rotated-frame coordinates, and the original source box rotated around its center. Fit defaults from sequence shape: landscape → `contain` (pillarbox a cross-oriented source), vertical/square → `cover` (zoom-fill a cross-oriented source). Rotation is a source-orientation fix and is applied before fit; crop is expressed in post-rotation source-space percentages.
 
@@ -436,10 +436,15 @@ my-vlog-project/
     track1.mp3
   .montai/                     # Cache directory (in project directory)
     transcoded/                 # Preprocessed video files
-    public/                     # Hard links to source video + audio files + timelines index
+    preview-public/             # Studio/render hard links to source media + timelines index
       timelines.json            # All timelines for Remotion Studio
       video1.mp4                # Hard link to source video
       track1.mp3                # Hard link to source audio
+    agent-public/               # Isolated Agent preview media (may use proxies)
+    agent-bundle/               # Reusable programmatic renderer bundle
+    agent-previews/             # previewFinalVideo MP4 cache
+    agent-stills/               # previewFrame PNG cache
+    specs/                      # Temporary props for montai render
     logs/                       # Gemini API request/response dumps written on error
   generated-music/               # AI-generated music files (WAV, keyed by prompt hash)
   generated-voiceover/           # AI-generated (TTS) narration files (WAV, keyed by text+voice+provider hash)
