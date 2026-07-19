@@ -296,7 +296,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const previewFrameTool = {
     name: 'previewFrame',
     label: 'Preview Frame',
-    description: `Render a single frame of the CURRENT EDITED timeline (with crop, rotation, overlays, and other post effects applied) and view it as an image. Use this to verify how an effect actually looks at a specific moment. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Render a single frame of the CURRENT EDITED timeline (with crop, rotation, overlays, and other post effects applied) and view it as an image. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
     parameters: Type.Object({
       clipIndex: Type.Number({ description: '0-based clip index in the current timeline.' }),
       timeOffset: Type.Number({ description: 'Seconds within the clip. >= 0 = from clip start, < 0 = from clip end (same convention as overlay startOffset).' }),
@@ -354,7 +354,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const previewFinalVideoTool = {
     name: 'previewFinalVideo',
     label: 'Preview Final Video',
-    description: `Render a time range of the CURRENT EDITED timeline as a video and view the final composition. Use this to get an overall, end-to-end preview of how the edit plays out. Defaults to the whole timeline at 1fps. Heavier than previewFrame — prefer previewFrame for single-moment checks. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Render a time range of the CURRENT EDITED timeline as a video and view the final composition. Defaults to the whole timeline at 1fps. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
     parameters: Type.Object({
       startSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline start, in seconds (default 0).' })),
       endSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline end, in seconds (default = end of timeline).' })),
@@ -522,7 +522,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const generateMusicTool = {
     name: 'generateMusic',
     label: 'Generate Music',
-    description: 'Generate instrumental background music via Lyria 2 AI. Produces a ~30 second WAV track. Prefer reusing existing music (from Music Library or previously generated) before generating new tracks. Prompt must be in English.',
+    description: 'Generate instrumental background music via Lyria 2 AI. Produces a ~30 second WAV track. Prompt must be in English.',
     parameters: Type.Object({
       prompt: Type.String({ description: 'English description of the desired music: mood, genre, instruments, tempo. E.g. "gentle acoustic guitar, warm and nostalgic, medium tempo, suitable for a travel montage"' }),
     }),
