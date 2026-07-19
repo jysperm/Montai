@@ -41,6 +41,11 @@ async function uploadAndWait(filePath: string): Promise<string> {
   return fileUri;
 }
 
+// Deduplicates concurrent uploads of the same file (keyed by cacheKey). Without
+// this, batched watchSegment calls on the same video all miss the DB cache at
+// once, upload redundantly, then collide on the cache_key UNIQUE constraint.
+const inFlight = new Map<string, Promise<UploadResult>>();
+
 // Single upload entry point for all Gemini File API uploads (source video
 // transcodes, music / voiceover assets, previewFinalVideo renders). The cache
 // key is the project-relative file path, which is unique across all use cases:
@@ -50,9 +55,21 @@ async function uploadAndWait(filePath: string): Promise<string> {
 //   - .montai/agent-previews/<sha256>.mp4 (previewFinalVideo render)
 // Reuses an active+fresh upload for the same path; otherwise uploads and
 // upserts the row.
-export async function uploadFileToGemini(filePath: string): Promise<UploadResult> {
-  const db = getDb();
+export function uploadFileToGemini(filePath: string): Promise<UploadResult> {
   const cacheKey = relative(process.cwd(), resolve(filePath));
+
+  const existing = inFlight.get(cacheKey);
+  if (existing) return existing;
+
+  const promise = doUpload(cacheKey, filePath).finally(() => {
+    inFlight.delete(cacheKey);
+  });
+  inFlight.set(cacheKey, promise);
+  return promise;
+}
+
+async function doUpload(cacheKey: string, filePath: string): Promise<UploadResult> {
+  const db = getDb();
 
   const cached = db
     .select()

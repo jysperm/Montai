@@ -196,7 +196,7 @@ export async function runAnalysisPipeline(
 
       const cacheRate = formatCacheRate(retryResult.lastResult.usage);
       const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';
-      logLine(chalk.green(`✓ Analyzed ${item.filename} (${formatDuration(Date.now() - t0)}, ${formatCost(retryResult.totalCost)}, ${config.models.analysis}${cacheRate ? `, ${cacheRate}` : ''}${attemptsTag})`));
+      logLine(chalk.green(`✓ Analyzed ${item.filename} (${formatDuration(Date.now() - t0)}, ${config.models.analysis}, ${formatCost(retryResult.totalCost)}${cacheRate ? `, ${cacheRate}` : ''}${attemptsTag})`));
     } catch (err) {
       logLine(chalk.red(`✗ Failed to analyze ${item.filename}: ${err instanceof Error ? err.message : err}`));
       failed++;
