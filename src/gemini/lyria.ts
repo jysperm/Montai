@@ -1,62 +1,38 @@
-import { GoogleAuth } from 'google-auth-library';
 import createDebug from 'debug';
+import { getGeminiClient } from './client.js';
 
-const LYRIA_MODEL = 'lyria-002';
+// Lyria 3 Clip via the Gemini Developer API (Interactions API). Returns ~30s
+// clips, authenticated by GEMINI_API_KEY alone. Same value as the
+// `models.musicGeneration` option that selects this provider.
+const LYRIA_MODEL = 'lyria-3-clip-preview';
+
+// Lyria 3 generates vocals/lyrics by default; this pins it to instrumental so
+// generated tracks stay usable as background music.
+const INSTRUMENTAL_DIRECTIVE = 'Instrumental only, no vocals.';
 
 const debugAgent = createDebug('montai:agent');
 const debugReq = createDebug('montai:req');
 const debugReqVerbose = createDebug('montai:req:verbose');
 const debugRes = createDebug('montai:res');
 
-interface LyriaPrediction {
-  bytesBase64Encoded?: string;
-  audioContent?: string;
-  mimeType?: string;
+export interface LyriaResult {
+  buffer: Buffer;
+  /** File extension implied by the returned audio's mime type (e.g. 'mp3'). */
+  extension: string;
+}
+
+function extensionForMime(mimeType: string | undefined): string {
+  if (mimeType?.includes('wav')) return 'wav';
+  if (mimeType?.includes('mp3') || mimeType?.includes('mpeg')) return 'mp3';
+  return 'mp3'; // Lyria 3 Clip returns MP3 by default
 }
 
 /**
- * Call the Lyria 2 music generation API on Vertex AI.
- * Returns a WAV buffer (~30s of instrumental music at 48kHz stereo).
- *
- * Requires:
- * - GOOGLE_CLOUD_PROJECT env var
- * - GOOGLE_CLOUD_REGION env var (defaults to us-central1)
- * - Application Default Credentials (gcloud auth application-default login)
+ * Generate an instrumental music clip via Lyria 3 (~30s).
+ * Requires GEMINI_API_KEY.
  */
-export async function callLyria(prompt: string): Promise<Buffer> {
-  const project = process.env.GOOGLE_CLOUD_PROJECT;
-  const location = process.env.GOOGLE_CLOUD_REGION ?? 'us-central1';
-
-  if (!project) {
-    throw new Error(
-      'GOOGLE_CLOUD_PROJECT environment variable is required for music generation.\n' +
-      'Set up Google Cloud credentials:\n' +
-      '  1. gcloud auth application-default login\n' +
-      '  2. export GOOGLE_CLOUD_PROJECT=your-project-id',
-    );
-  }
-
-  const auth = new GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  });
-
-  let accessToken: string | null | undefined;
-  try {
-    const client = await auth.getClient();
-    accessToken = (await client.getAccessToken()).token;
-  } catch (err) {
-    throw new Error(
-      `Failed to get Google Cloud credentials. Run: gcloud auth application-default login\n` +
-      `Original error: ${err instanceof Error ? err.message : err}`,
-    );
-  }
-
-  const url = `https://${location}-aiplatform.googleapis.com/v1/projects/${project}/locations/${location}/publishers/google/models/${LYRIA_MODEL}:predict`;
-
-  const body = {
-    instances: [{ prompt }],
-    parameters: {},
-  };
+export async function callLyria(prompt: string): Promise<LyriaResult> {
+  const input = `${prompt.trim()}\n\n${INSTRUMENTAL_DIRECTIVE}`;
 
   const trimmed = prompt.trim();
   const lines = trimmed.split('\n');
@@ -68,32 +44,25 @@ export async function callLyria(prompt: string): Promise<Buffer> {
   }
   const t0 = Date.now();
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+  const client = getGeminiClient();
+  const interaction = await client.interactions.create({
+    model: LYRIA_MODEL,
+    input,
   });
 
-  if (!response.ok) {
-    const text = await response.text();
-    throw new Error(`Lyria API error (${response.status}): ${text}`);
+  if (interaction.status !== 'completed') {
+    throw new Error(`Lyria interaction did not complete (status: ${interaction.status})`);
   }
 
-  const data = await response.json() as { predictions?: LyriaPrediction[] };
-  const prediction = data.predictions?.[0];
-  const base64Audio = prediction?.bytesBase64Encoded ?? prediction?.audioContent;
-
-  if (!base64Audio) {
-    throw new Error('Lyria API returned no audio content');
+  const audio = interaction.output_audio;
+  if (!audio?.data) {
+    throw new Error('Lyria interaction returned no audio content');
   }
 
-  const buf = Buffer.from(base64Audio, 'base64');
-  const sizeMB = (buf.length / 1024 / 1024).toFixed(1);
+  const buffer = Buffer.from(audio.data, 'base64');
+  const sizeMB = (buffer.length / 1024 / 1024).toFixed(1);
   debugAgent('[%s] %ds', LYRIA_MODEL, Math.round((Date.now() - t0) / 1000));
-  debugRes('[%s] %sMB audio', LYRIA_MODEL, sizeMB);
+  debugRes('[%s] %sMB audio (%s)', LYRIA_MODEL, sizeMB, audio.mime_type);
 
-  return buf;
+  return { buffer, extension: extensionForMime(audio.mime_type) };
 }

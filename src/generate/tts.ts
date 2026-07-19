@@ -17,7 +17,7 @@ import { readProjectFile } from '../utils/project.js';
 import { completeWithSchemaRetry } from '../analyzer/utils.js';
 import { VoiceoverAnalysisSchema } from '../schemas/analysis.js';
 
-export type VoiceoverProvider = 'gemini-2.5-flash-tts' | 'system';
+export type VoiceoverProvider = 'gemini-2.5-flash-preview-tts' | 'system';
 // Coarse voice descriptor. Only female/male today; extensible to styles like
 // 'elderly' or 'child' later without changing the surrounding plumbing.
 export type VoiceStyle = 'female' | 'male';

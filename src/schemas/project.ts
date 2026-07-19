@@ -36,8 +36,14 @@ export const OutputSchema = z.object({
 export const ModelsSchema = z.object({
   analysis: z.string().default('gemini-3.5-flash'),
   editing: z.string().default('gemini-3.5-flash'),
-  musicGeneration: z.enum(['lyria-002']).optional(),
-  voiceoverGeneration: z.enum(['gemini-2.5-flash-tts', 'system']).optional(),
+  // The old model names (`lyria-002`, `gemini-2.5-flash-tts`) are silently mapped
+  // to their current equivalents so existing project files keep working.
+  musicGeneration: z.enum(['lyria-3-clip-preview', 'lyria-002'])
+    .transform((v) => (v === 'lyria-002' ? 'lyria-3-clip-preview' as const : v))
+    .optional(),
+  voiceoverGeneration: z.enum(['gemini-2.5-flash-preview-tts', 'gemini-2.5-flash-tts', 'system'])
+    .transform((v) => (v === 'gemini-2.5-flash-tts' ? 'gemini-2.5-flash-preview-tts' as const : v))
+    .optional(),
 });
 
 export const EffectsSchema = z.object({

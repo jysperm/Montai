@@ -27,8 +27,7 @@ Prerequisites:
 
 - Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
-- [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
-- [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation (both are optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
+- [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing, [Lyria 3](https://ai.google.dev/gemini-api/docs/music-generation) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 
 ## Interactive Story Editing
 
@@ -73,15 +72,13 @@ output:
 models:
   analysis: gemini-3.5-flash
   editing: gemini-3.5-flash
-  musicGeneration: lyria-002 # Optional but recommended
+  musicGeneration: lyria-3-clip-preview # Optional but recommended
 ```
 
 2. Write your credentials to `~/.config/montai/env`:
 
 ```dotenv
 GEMINI_API_KEY=...
-GOOGLE_CLOUD_PROJECT=...
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
 ```
 
 3. Analyze the source media:

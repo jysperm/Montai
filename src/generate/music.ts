@@ -1,5 +1,5 @@
 import { createHash } from 'crypto';
-import { existsSync, mkdirSync, writeFileSync, renameSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, renameSync, readdirSync } from 'fs';
 import { resolve, basename } from 'path';
 import { eq } from 'drizzle-orm';
 import type { MontaiDb } from '../db/index.js';
@@ -14,7 +14,7 @@ function promptHash(prompt: string): string {
 }
 
 /**
- * Generate a music track via Lyria 2 (or return cached).
+ * Generate a music track via Lyria 3 (or return cached).
  * Inserts into the music table with type='generated'.
  */
 export async function generateMusicTrack(
@@ -36,11 +36,15 @@ export async function generateMusicTrack(
     };
   }
 
-  // Check file cache (file exists but DB row missing — e.g. after DB reset)
+  // Check file cache (file exists but DB row missing — e.g. after DB reset).
+  // The extension depends on what Lyria returned, so match on the hash prefix.
   const hash = promptHash(prompt);
-  const cachePath = resolve(GENERATED_MUSIC_DIR, `${hash}.wav`);
+  const cached = existsSync(GENERATED_MUSIC_DIR)
+    ? readdirSync(GENERATED_MUSIC_DIR).find((f) => f.startsWith(`${hash}.`) && !f.includes('.tmp.'))
+    : undefined;
 
-  if (existsSync(cachePath)) {
+  if (cached) {
+    const cachePath = resolve(GENERATED_MUSIC_DIR, cached);
     const meta = getAudioMetadata(cachePath);
     const row = db
       .insert(music)
@@ -59,13 +63,14 @@ export async function generateMusicTrack(
     return { musicId: row.id, path: cachePath, durationSeconds: meta.durationSeconds };
   }
 
-  // Generate via Lyria 2
+  // Generate via Lyria 3
   mkdirSync(GENERATED_MUSIC_DIR, { recursive: true });
-  const wavBuffer = await callLyria(prompt);
+  const { buffer, extension } = await callLyria(prompt);
+  const cachePath = resolve(GENERATED_MUSIC_DIR, `${hash}.${extension}`);
 
   // Atomic write
-  const tmpPath = cachePath.replace(/\.wav$/, '.tmp.wav');
-  writeFileSync(tmpPath, wavBuffer);
+  const tmpPath = resolve(GENERATED_MUSIC_DIR, `${hash}.tmp.${extension}`);
+  writeFileSync(tmpPath, buffer);
   renameSync(tmpPath, cachePath);
 
   // Probe metadata

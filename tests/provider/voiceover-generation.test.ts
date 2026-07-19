@@ -1,14 +1,14 @@
 /**
- * Test: verify that Gemini-TTS voiceover synthesis works via the Cloud
- * Text-to-Speech API. Calls the service directly (not through src/generate) so this
- * isolates the service + our credentials from our own code.
+ * Test: verify that Gemini-TTS voiceover synthesis works via the Gemini Developer
+ * API (`models.generateContent`) using only a GEMINI_API_KEY — no Google Cloud /
+ * ADC. Calls the SDK directly (not through src/generate) so this isolates the
+ * service + our credentials from our own code, and can sweep candidate voices.
  *
- * The three cases synthesize the same script so the outputs can be compared
- * side by side: plain text, text steered by a style prompt, and macOS `say`.
+ * The cases synthesize the same script so the outputs can be compared by ear:
+ * each candidate Gemini voice, plus macOS `say`.
  *
  * Requires:
- * - GOOGLE_CLOUD_PROJECT env var
- * - Application Default Credentials (gcloud auth application-default login)
+ * - GEMINI_API_KEY env var
  *
  * Run: npx vitest run tests/provider/voiceover-generation.test.ts
  */
@@ -18,66 +18,68 @@ import { readFileSync, writeFileSync } from 'fs';
 import { resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
-import { GoogleAuth } from 'google-auth-library';
+import { getGeminiClient } from '../../src/gemini/client.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-tts';
+const TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
 const TEXT = '这几天刚好赶上花市，走一圈下来，感觉整个春天都被搬到了这里。';
 
-// Gemini-TTS ignores audioConfig.speakingRate/pitch, so pacing is only steerable
-// through this prompt.
-const STYLE_PROMPT = 'Read the following in a natural, conversational tone, at a slightly faster pace.';
+// Gemini-TTS has no explicit pacing controls, so delivery is steered by prefixing
+// this instruction to the script.
+const STYLE_PROMPT = 'Read the following in a natural, conversational tone, at a slightly faster pace: ';
 
 // Candidate female voices, to be compared by ear. Aoede is the current default;
 // Kore, the previous one, reads as flat — Google labels it "Firm".
 const CANDIDATE_VOICES = ['Aoede', 'Kore', 'Sulafat', 'Leda', 'Laomedeia', 'Achernar'];
 
-async function synthesizeWithCloudTts(
-  input: { text: string; prompt?: string },
-  voiceName: string,
-): Promise<Buffer> {
-  const project = process.env.GOOGLE_CLOUD_PROJECT;
-  expect(project, 'GOOGLE_CLOUD_PROJECT must be set').toBeTruthy();
+/** Wrap raw little-endian PCM in a minimal WAV (RIFF) container. */
+function pcmToWav(pcm: Buffer, sampleRate: number, channels = 1, bitsPerSample = 16): Buffer {
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
 
-  const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
-  const client = await auth.getClient();
-  const accessToken = (await client.getAccessToken()).token;
-  expect(accessToken, 'failed to obtain an access token from ADC').toBeTruthy();
+function rateFromMime(mimeType: string | undefined): number {
+  const match = mimeType?.match(/rate=(\d+)/);
+  return match ? Number(match[1]) : 24000;
+}
 
-  const body = {
-    input,
-    voice: { languageCode: 'cmn-CN', name: voiceName, modelName: GEMINI_TTS_MODEL },
-    audioConfig: { audioEncoding: 'LINEAR16' },
-  };
-
-  const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'x-goog-user-project': project!,
+async function synthesizeWithGeminiTts(text: string, voiceName: string): Promise<Buffer> {
+  const response = await getGeminiClient().models.generateContent({
+    model: TTS_MODEL,
+    contents: STYLE_PROMPT + text,
+    config: {
+      responseModalities: ['AUDIO'],
+      speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName } } },
     },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Cloud TTS error (${response.status}): ${errText}`);
-  }
-
-  const data = (await response.json()) as { audioContent?: string };
-  expect(data.audioContent, 'response contained no audioContent').toBeTruthy();
-
-  return Buffer.from(data.audioContent!, 'base64');
+  const part = response.candidates?.[0]?.content?.parts?.[0];
+  const data = part?.inlineData?.data;
+  expect(data, 'response contained no inline audio data').toBeTruthy();
+  return pcmToWav(Buffer.from(data!, 'base64'), rateFromMime(part!.inlineData?.mimeType));
 }
 
 function reportWav(wavBuffer: Buffer, outPath: string): void {
   console.log(`\n--- Result ---`);
   console.log(`Buffer size: ${wavBuffer.length} bytes (${(wavBuffer.length / 1024).toFixed(0)} KB)`);
 
-  // LINEAR16 output is returned as a complete WAV, which starts with "RIFF".
   const header = wavBuffer.subarray(0, 4).toString('ascii');
   console.log(`File header: ${header}`);
 
@@ -88,15 +90,13 @@ function reportWav(wavBuffer: Buffer, outPath: string): void {
   console.log(`Written to: ${outPath}`);
 }
 
-describe.skip('Gemini-TTS voiceover synthesis via Cloud Text-to-Speech', () => {
+describe.skipIf(!process.env.GEMINI_API_KEY)('Gemini-TTS voiceover synthesis via Gemini API key', () => {
   it.each(CANDIDATE_VOICES)('synthesizes the script with the %s voice', async (voice) => {
     console.log(`\n--- Synthesizing voiceover (${voice}) ---`);
     console.log(`Text: "${TEXT}"`);
-    console.log(`Prompt: "${STYLE_PROMPT}"`);
-    console.log(`Model: ${GEMINI_TTS_MODEL}`);
-    console.log(`Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
+    console.log(`Model: ${TTS_MODEL}`);
 
-    const wavBuffer = await synthesizeWithCloudTts({ text: TEXT, prompt: STYLE_PROMPT }, voice);
+    const wavBuffer = await synthesizeWithGeminiTts(TEXT, voice);
     reportWav(wavBuffer, resolve(__dirname, `gemini-tts-${voice}.wav`));
   }, 120_000);
 

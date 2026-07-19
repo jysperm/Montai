@@ -1,18 +1,11 @@
-import { GoogleAuth } from 'google-auth-library';
 import createDebug from 'debug';
+import { getGeminiClient } from './client.js';
 import type { VoiceStyle } from '../generate/tts.js';
 
-// The GA Gemini-TTS model exposed through the Cloud Text-to-Speech API. Same
-// value as the `models.voiceoverGeneration` option that selects this provider.
-const GEMINI_TTS_MODEL = 'gemini-2.5-flash-tts';
-
-// Cloud TTS voice.languageCode by project language. Gemini-TTS also
-// auto-detects language from the script, but the API still requires a code.
-const GEMINI_LANGUAGE_CODES: Record<string, string> = {
-  zh: 'cmn-CN',
-  ja: 'ja-JP',
-  en: 'en-US',
-};
+// Gemini-TTS via the Gemini Developer API (models.generateContent), authenticated
+// by GEMINI_API_KEY alone. Same value as the `models.voiceoverGeneration` option
+// that selects this provider.
+const GEMINI_TTS_MODEL = 'gemini-2.5-flash-preview-tts';
 
 // Gemini-TTS prebuilt voices per style. Language-independent. Picked for a warm,
 // conversational delivery — the "Firm" voices read as flat newsreader narration.
@@ -21,17 +14,13 @@ const GEMINI_VOICES: Record<VoiceStyle, string> = {
   male: 'Puck',
 };
 
-// Gemini-TTS ignores audioConfig.speakingRate/pitch, so pacing and tone are only
-// steerable through this prompt. Its default delivery is slow and flat.
-const GEMINI_STYLE_PROMPT = 'Read the following in a natural, conversational tone, at a slightly faster pace.';
+// Gemini-TTS has no explicit pacing/tone controls, so delivery is only steerable
+// by prefixing this instruction to the script. Its default delivery is slow and flat.
+const GEMINI_STYLE_PROMPT = 'Read the following in a natural, conversational tone, at a slightly faster pace: ';
 
 const debugAgent = createDebug('montai:agent');
 const debugReq = createDebug('montai:req');
 const debugRes = createDebug('montai:res');
-
-interface GeminiTtsResponse {
-  audioContent?: string;
-}
 
 export interface GeminiTtsOptions {
   text: string;
@@ -46,76 +35,69 @@ export interface GeminiTtsOptions {
 export function geminiTtsSignature(opts: Omit<GeminiTtsOptions, 'text'>): string {
   return [
     GEMINI_TTS_MODEL,
-    GEMINI_LANGUAGE_CODES[opts.language] ?? 'en-US',
+    opts.language,
     GEMINI_VOICES[opts.voice],
     GEMINI_STYLE_PROMPT,
   ].join(':');
 }
 
+/** Wrap raw little-endian PCM in a minimal WAV (RIFF) container. */
+function pcmToWav(pcm: Buffer, sampleRate: number, channels = 1, bitsPerSample = 16): Buffer {
+  const byteRate = (sampleRate * channels * bitsPerSample) / 8;
+  const blockAlign = (channels * bitsPerSample) / 8;
+  const header = Buffer.alloc(44);
+  header.write('RIFF', 0);
+  header.writeUInt32LE(36 + pcm.length, 4);
+  header.write('WAVE', 8);
+  header.write('fmt ', 12);
+  header.writeUInt32LE(16, 16);
+  header.writeUInt16LE(1, 20); // PCM
+  header.writeUInt16LE(channels, 22);
+  header.writeUInt32LE(sampleRate, 24);
+  header.writeUInt32LE(byteRate, 28);
+  header.writeUInt16LE(blockAlign, 32);
+  header.writeUInt16LE(bitsPerSample, 34);
+  header.write('data', 36);
+  header.writeUInt32LE(pcm.length, 40);
+  return Buffer.concat([header, pcm]);
+}
+
+/** Pull the sample rate out of a mime type like "audio/L16;codec=pcm;rate=24000". */
+function rateFromMime(mimeType: string | undefined): number {
+  const match = mimeType?.match(/rate=(\d+)/);
+  return match ? Number(match[1]) : 24000;
+}
+
 /**
- * Google Gemini-TTS via the Cloud Text-to-Speech `:synthesize` endpoint.
- * Shares authentication with Lyria (GOOGLE_CLOUD_PROJECT + ADC); LINEAR16
- * output is returned as a complete WAV.
+ * Google Gemini-TTS via the Gemini Developer API. The API returns raw 24kHz mono
+ * 16-bit PCM, which this wraps into a complete WAV. Requires GEMINI_API_KEY.
  */
 export async function callGeminiTts(opts: GeminiTtsOptions): Promise<Buffer> {
-  const project = process.env.GOOGLE_CLOUD_PROJECT;
-  if (!project) {
-    throw new Error(
-      'GOOGLE_CLOUD_PROJECT environment variable is required for voiceover generation.\n' +
-      'Set up Google Cloud credentials:\n' +
-      '  1. gcloud auth application-default login\n' +
-      '  2. export GOOGLE_CLOUD_PROJECT=your-project-id',
-    );
-  }
-
-  const auth = new GoogleAuth({
-    scopes: ['https://www.googleapis.com/auth/cloud-platform'],
-  });
-
-  let accessToken: string | null | undefined;
-  try {
-    const client = await auth.getClient();
-    accessToken = (await client.getAccessToken()).token;
-  } catch (err) {
-    throw new Error(
-      `Failed to get Google Cloud credentials. Run: gcloud auth application-default login\n` +
-      `Original error: ${err instanceof Error ? err.message : err}`,
-    );
-  }
-
-  const languageCode = GEMINI_LANGUAGE_CODES[opts.language] ?? 'en-US';
   const voice = GEMINI_VOICES[opts.voice];
 
-  const body = {
-    input: { text: opts.text, prompt: GEMINI_STYLE_PROMPT },
-    voice: { languageCode, name: voice, modelName: GEMINI_TTS_MODEL },
-    audioConfig: { audioEncoding: 'LINEAR16' },
-  };
-
-  debugReq('[%s] voice=%s lang=%s %d chars', GEMINI_TTS_MODEL, voice, languageCode, opts.text.length);
+  debugReq('[%s] voice=%s lang=%s %d chars', GEMINI_TTS_MODEL, voice, opts.language, opts.text.length);
   const t0 = Date.now();
 
-  const response = await fetch('https://texttospeech.googleapis.com/v1/text:synthesize', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-      'x-goog-user-project': project,
+  const client = getGeminiClient();
+  const response = await client.models.generateContent({
+    model: GEMINI_TTS_MODEL,
+    contents: GEMINI_STYLE_PROMPT + opts.text,
+    config: {
+      responseModalities: ['AUDIO'],
+      speechConfig: {
+        voiceConfig: { prebuiltVoiceConfig: { voiceName: voice } },
+      },
     },
-    body: JSON.stringify(body),
   });
 
-  if (!response.ok) {
-    const errText = await response.text();
-    throw new Error(`Gemini-TTS API error (${response.status}): ${errText}`);
+  const part = response.candidates?.[0]?.content?.parts?.[0];
+  const data = part?.inlineData?.data;
+  if (!data) {
+    throw new Error('Gemini-TTS returned no audio content');
   }
 
-  const data = await response.json() as GeminiTtsResponse;
-  if (!data.audioContent) {
-    throw new Error('Gemini-TTS API returned no audio content');
-  }
-
-  const buf = Buffer.from(data.audioContent, 'base64');
+  const pcm = Buffer.from(data, 'base64');
+  const buf = pcmToWav(pcm, rateFromMime(part.inlineData?.mimeType));
   debugAgent('[%s] %ds', GEMINI_TTS_MODEL, Math.round((Date.now() - t0) / 1000));
   debugRes('[%s] %sKB audio', GEMINI_TTS_MODEL, (buf.length / 1024).toFixed(0));
   return buf;

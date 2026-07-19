@@ -1,10 +1,12 @@
 /**
- * Test: verify that Lyria 2 music generation works via Vertex AI.
+ * Test: verify that Lyria 3 music generation works via the Gemini Developer API
+ * (Interactions API) using only a GEMINI_API_KEY — no Google Cloud / ADC.
+ *
+ * Calls the production `callLyria` so this covers the real code path, including
+ * the instrumental-only constraint.
  *
  * Requires:
- * - GOOGLE_CLOUD_PROJECT env var
- * - GOOGLE_CLOUD_REGION env var (or defaults to us-central1)
- * - Application Default Credentials (gcloud auth application-default login)
+ * - GEMINI_API_KEY env var
  *
  * Run: npx vitest run tests/provider/music-generation.test.ts
  */
@@ -17,29 +19,23 @@ import { callLyria } from '../../src/gemini/lyria.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-describe.skip('Lyria 2 music generation via Vertex AI', () => {
-  it('generates a WAV audio buffer from a text prompt', async () => {
+describe.skipIf(!process.env.GEMINI_API_KEY)('Lyria 3 music generation via Gemini API key', () => {
+  it('generates an instrumental audio clip from a text prompt', async () => {
     const prompt = 'gentle acoustic guitar, warm and relaxed, medium tempo, suitable for a travel montage';
 
     console.log(`\n--- Generating music ---`);
     console.log(`Prompt: "${prompt}"`);
-    console.log(`Project: ${process.env.GOOGLE_CLOUD_PROJECT}`);
-    console.log(`Region: ${process.env.GOOGLE_CLOUD_REGION ?? 'us-central1'}`);
 
-    const wavBuffer = await callLyria(prompt);
+    const { buffer, extension } = await callLyria(prompt);
 
     console.log(`\n--- Result ---`);
-    console.log(`Buffer size: ${wavBuffer.length} bytes (${(wavBuffer.length / 1024 / 1024).toFixed(2)} MB)`);
+    console.log(`Extension: ${extension}`);
+    console.log(`Buffer size: ${buffer.length} bytes (${(buffer.length / 1024 / 1024).toFixed(2)} MB)`);
 
-    // WAV files start with "RIFF" header
-    const header = wavBuffer.subarray(0, 4).toString('ascii');
-    console.log(`File header: ${header}`);
+    expect(buffer.length).toBeGreaterThan(100_000);
 
-    expect(wavBuffer.length).toBeGreaterThan(100_000);
-    expect(header).toBe('RIFF');
-
-    const outPath = resolve(__dirname, 'lyria-output.wav');
-    writeFileSync(outPath, wavBuffer);
+    const outPath = resolve(__dirname, `lyria3-output.${extension}`);
+    writeFileSync(outPath, buffer);
     console.log(`Written to: ${outPath}`);
-  }, 120_000);
+  }, 180_000);
 });

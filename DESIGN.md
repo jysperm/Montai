@@ -34,8 +34,8 @@ output:
 models:
   analysis: gemini-3.5-flash             # Per-video analysis
   editing: gemini-3.5-flash              # Story agent loop
-  musicGeneration: lyria-002            # Optional: enables AI music generation
-  voiceoverGeneration: gemini-2.5-flash-tts  # Optional: enables AI (TTS) voiceover — gemini-2.5-flash-tts | system
+  musicGeneration: lyria-3-clip-preview      # Optional: enables AI music generation
+  voiceoverGeneration: gemini-2.5-flash-preview-tts  # Optional: enables AI (TTS) voiceover — gemini-2.5-flash-preview-tts | system
 effects:
   languages: [zh, en]           # Subtitle / caption languages
   voiceLanguage: zh             # Optional: spoken language for generated (TTS) voiceover; defaults to first of `languages`
@@ -64,7 +64,7 @@ The goal is a single switch per feature that controls both what the LLM is told 
 | Feature | Description | Controls | Default |
 |---------|-------------|----------|---------|
 | `music` | Background music selection from the library and/or generated tracks | `getMusicAnalysis` tool; music item format and editing guidance in `story-system`; music analyses (library + summaries) in `story-context` | Project has music files (`assets.music` non-empty) **or** `models.musicGeneration` is configured |
-| `musicGeneration` | AI-generated background music via Lyria 2 | `generateMusic` tool; "Using generateMusic" prompt section; generated-music list in `story-context` | `models.musicGeneration` is configured |
+| `musicGeneration` | AI-generated background music via Lyria 3 | `generateMusic` tool; "Using generateMusic" prompt section; generated-music list in `story-context` | `models.musicGeneration` is configured |
 | `voiceover` | Voiceover-driven editing with transcription-aware timeline placement | `getVoiceoverAnalysis` tool (also enabled by `voiceoverGeneration`); voiceover item format and editing guidance in `story-system`; voiceover analyses in `story-context` | Project has voiceover files (`assets.voiceover` non-empty) |
 | `voiceoverGeneration` | AI-generated (TTS) narration voiceover | `generateVoiceover` tool; "Using generateVoiceover" prompt section; also enables `getVoiceoverAnalysis` | `models.voiceoverGeneration` is configured (the `system` provider additionally requires macOS, else config resolution errors) |
 | `previewTools` | Agent self-preview of the edited timeline (renders a frame or short video and injects it back into the conversation) | `previewFrame` and `previewFinalVideo` tools; tool descriptions in `story-system` | `true` |
@@ -96,7 +96,7 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 
 - **videos** — Discovered video files (whether analyzed is determined by joining video_analyses)
 - **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
-- **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 2, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
+- **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 3, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
 - **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ResolvedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
@@ -133,7 +133,7 @@ Uses an agent loop with tools:
 - `previewFinalVideo(startSeconds?, endSeconds?, fps?)` — Render a range of the CURRENT edited timeline as a video, upload to Gemini File API, and inject as a video. Provides an end-to-end preview of the final composition. Defaults to the whole timeline at `fps=1`
 - `getVideoAnalysis(videoId)` — Retrieve stored analysis
 - `getVoiceoverAnalysis(voiceoverId)` — Retrieve stored transcription
-- `generateMusic(prompt)` — Generate instrumental background music via Lyria 2 (~30s WAV), returns musicId for use in music items
+- `generateMusic(prompt)` — Generate instrumental background music via Lyria 3 (~30s), returns musicId for use in music items
 - `generateVoiceover(text, gender?)` — Synthesize narration audio via TTS, transcribe it in place, and return a voiceoverId for use in voiceover items (see AI Voiceover Generation)
 - `listStories()` / `switchStory(name, new?)` — List and switch the active story when `multiStory` is enabled
 
@@ -393,18 +393,18 @@ Configurable per-stage via `models` in `montai.yaml`.
 |-------|------------|---------|-----------------|
 | analysis | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
 | editing | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
-| musicGeneration | No | N/A | lyria-002 |
-| voiceoverGeneration | No | N/A | gemini-2.5-flash-tts, system |
+| musicGeneration | No | N/A | lyria-3-clip-preview |
+| voiceoverGeneration | No | N/A | gemini-2.5-flash-preview-tts, system |
 
 Gemini file references are cached in the database with 48-hour expiry tracking.
 
-## Music Generation (Lyria 2)
+## Music Generation (Lyria 3)
 
-The `generateMusic` tool in the story agent generates instrumental background music via Google Lyria 2 on Vertex AI. Generated tracks are stored in the unified `music` table (type='generated') and can be referenced by `musicId` like any library track.
+The `generateMusic` tool in the story agent generates instrumental background music via Google Lyria 3 on the Gemini Developer API. Generated tracks are stored in the unified `music` table (type='generated') and can be referenced by `musicId` like any library track.
 
-- **API**: Vertex AI `lyria-002:predict` endpoint, authenticated via Application Default Credentials (`google-auth-library`)
-- **Environment variables**: `GOOGLE_CLOUD_PROJECT` (required), `GOOGLE_CLOUD_REGION` (optional, defaults to `us-central1`)
-- **Output**: ~30s instrumental WAV at 48kHz stereo, $0.06/clip
+- **API**: Gemini Interactions API (`client.interactions.create`, model `lyria-3-clip-preview`), authenticated by `GEMINI_API_KEY`. Lyria 3 generates vocals by default, so `callLyria` appends an "Instrumental only, no vocals." directive to keep tracks usable as background music.
+- **Environment variables**: `GEMINI_API_KEY` (same as analysis and editing)
+- **Output**: ~30s instrumental MP3 at 44.1kHz stereo
 - **Caching**: Generated files stored in `generated-music/` using SHA-256 hash of prompt. Same prompt reuses existing file + DB row.
 - **Reuse**: Previously generated music appears in the story context under "Generated Music" so the LLM can reference it without regenerating. The LLM is prompted to prefer existing tracks (library or generated) before generating new ones.
 - **Auto-loop**: When a music track (library or generated) is shorter than the music item's timeline span, `resolveTimeline()` automatically splits it into multiple `ResolvedAudio` entries that loop the track with a 1-second crossfade at loop boundaries. The `updateTimeline` tool reports this to the LLM as a correction.
@@ -414,9 +414,9 @@ The `generateMusic` tool in the story agent generates instrumental background mu
 
 The `generateVoiceover` tool in the story agent synthesizes narration audio from a script. TTS is not a new timeline type — it is a generation entry point for the existing voiceover capability, mirroring how `generateMusic` writes into the `music` table. Generated audio reuses the existing `voiceovers` table (`type='generated'`), `VoiceoverItem`, resolve, FCPXML, and Remotion paths unchanged. The difference from recorded voiceover is the editing direction: recorded voiceover is narration-driven (the recording drives the cut), while TTS voiceover is editing-driven (write the script, synthesize, then place it under the footage).
 
-- **Providers** (`models.voiceoverGeneration`): `gemini-2.5-flash-tts` (default, high quality) calls Google Gemini-TTS via the Cloud Text-to-Speech `:synthesize` endpoint, sharing Lyria's auth (`GOOGLE_CLOUD_PROJECT` + ADC, `cloud-platform` scope); `system` (free, offline, robotic) shells out to macOS `say -o out.aiff` then converts to WAV with ffmpeg (macOS only, enforced at config resolution).
+- **Providers** (`models.voiceoverGeneration`): `gemini-2.5-flash-preview-tts` (default, high quality) calls Google Gemini-TTS via the Gemini Developer API (`models.generateContent` with `responseModalities: ['AUDIO']`), authenticated by `GEMINI_API_KEY`; the API returns raw 24kHz mono PCM which `callGeminiTts` wraps into a WAV. `system` (free, offline, robotic) shells out to macOS `say -o out.aiff` then converts to WAV with ffmpeg (macOS only, enforced at config resolution).
 - **Voice**: the tool exposes a `gender` argument (`female` default / `male`) rather than a raw voice id. Each provider maps gender to a concrete voice: Gemini-TTS uses the prebuilt `Aoede` (female) / `Puck` (male), picked by ear for a conversational delivery — the voices Google labels "Firm" read as flat newsreader narration; `system` maps to macOS `say -v` voices per language, falling back to the female voice when a language has no reliable default male voice (e.g. Mandarin).
-- **Style prompt**: Gemini-TTS ignores `audioConfig.speakingRate`/`pitch`, so delivery is only steerable through `input.prompt` — a natural-language style instruction sent alongside the script. A fixed prompt (natural, conversational, slightly faster) counteracts the model's slow, flat default; it cuts a sample line from ~7s to ~5.5s. Not exposed to the agent today.
+- **Style prompt**: Gemini-TTS has no explicit pacing/pitch controls, so delivery is only steerable by prefixing a natural-language style instruction to the script. A fixed prompt (natural, conversational, slightly faster) counteracts the model's slow, flat default. Not exposed to the agent today.
 - **Language**: narration is spoken in `effects.voiceLanguage` (falling back to the first `effects.languages`, then `language`), which drives both the script-writing instruction in the prompt and the TTS voice/language selection.
 - **Implementation**: `src/generate/tts.ts` mirrors `src/generate/music.ts` — it dispatches to a provider (the Gemini-TTS client lives in `src/gemini/tts.ts`, `say` is local to the file), then handles caching, persistence, and in-place transcription.
 - **Caching**: Generated files stored in `generated-voiceover/` keyed by `SHA-256(text + synthesisSignature)`, where the signature covers everything besides the script that shapes the audio (provider, model, language code, concrete voice, style prompt) — so changing the voice or the prompt invalidates cached tracks instead of silently reusing them. An existing file or DB row (matched by md5 = hash) with a transcription is reused.

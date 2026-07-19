@@ -60,7 +60,7 @@ Prerequisites:
 - Node.js >= 22
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
-- [Lyria 2](https://docs.cloud.google.com/vertex-ai/generative-ai/docs/models/lyria/lyria-002) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation (both are optional) — set `GOOGLE_CLOUD_PROJECT` and `GOOGLE_APPLICATION_CREDENTIALS` from [Google Cloud Console](https://console.cloud.google.com/)
+- [Lyria 3](https://ai.google.dev/gemini-api/docs/music-generation) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation (both are optional) — no extra credentials, they use the same `GEMINI_API_KEY`
 
 ## Getting Started
 
@@ -80,15 +80,13 @@ output:
 models:
   analysis: gemini-3.5-flash
   editing: gemini-3.5-flash
-  musicGeneration: lyria-002 # Optional but recommended
+  musicGeneration: lyria-3-clip-preview # Optional but recommended
 ```
 
 2. Write your credentials to `~/.config/montai/env`:
 
 ```dotenv
 GEMINI_API_KEY=...
-GOOGLE_CLOUD_PROJECT=...
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
 ```
 
 3. Analyze the source media:
@@ -196,12 +194,12 @@ models:
   # Default: gemini-3.5-flash.
   editing: gemini-3.5-flash
   # Optional: specify a model to enable AI music generation.
-  # Accepted only: lyria-002.
-  musicGeneration: lyria-002
+  # Accepted only: lyria-3-clip-preview.
+  musicGeneration: lyria-3-clip-preview
   # Optional: specify a model to enable AI voiceover generation.
-  # Accepted: gemini-2.5-flash-tts, system.
+  # Accepted: gemini-2.5-flash-preview-tts, system.
   # `system` only supports macOS for now.
-  voiceoverGeneration: gemini-2.5-flash-tts
+  voiceoverGeneration: gemini-2.5-flash-preview-tts
 effects:
   # Languages used in text overlays (can be different from `language` which is used for internal text).
   # Specify multiple values for bilingual overlays.
@@ -267,13 +265,9 @@ Montai reads environment variables first, and also loads dotenv-compatible varia
 Montai reads the following environment variables:
 
 ```dotenv
-# Gemini LLM credentials, used for analysis and story editing.
+# Gemini API key, used for analysis, story editing, music generation (Lyria)
+# and voiceover generation (Gemini TTS).
 GEMINI_API_KEY=...
-# Google Cloud credentials, used for Music Generation (Lyria) and the Voiceover Generation (Gemini TTS).
-GOOGLE_CLOUD_PROJECT=...
-GOOGLE_APPLICATION_CREDENTIALS=/path/to/google-cloud-vertex-key.json
-# Optional, the Google Cloud region used for music generation. Default: us-central1.
-GOOGLE_CLOUD_REGION=us-central1
 ```
 
 ### Agent Instructions
@@ -549,7 +543,7 @@ To let the AI compose a track instead, enable Lyria:
 
 ```yaml
 models:
-  musicGeneration: lyria-002
+  musicGeneration: lyria-3-clip-preview
 ```
 
 Generated tracks are saved in `generated-music/`, and the agent works with them just like library tracks.
@@ -586,7 +580,7 @@ Enable a provider:
 
 ```yaml
 models:
-  voiceoverGeneration: gemini-2.5-flash-tts
+  voiceoverGeneration: gemini-2.5-flash-preview-tts
 effects:
   voiceLanguage: en
 ```
@@ -595,7 +589,7 @@ Supported providers:
 
 | Provider | Notes | Requirements |
 |----------|-------|--------------|
-| `gemini-2.5-flash-tts` | Recommended, Google Gemini-TTS via the Cloud Text-to-Speech API. | `GOOGLE_CLOUD_PROJECT` + `GOOGLE_APPLICATION_CREDENTIALS`, the same Google Cloud credentials as `musicGeneration`, no extra key. |
+| `gemini-2.5-flash-preview-tts` | Recommended, Google Gemini-TTS via the Gemini Developer API. | `GEMINI_API_KEY`, no extra credentials. |
 | `system` | Free and offline but robotic. Uses macOS's built-in `say`. | macOS only for now. No credentials needed. |
 
 Then ask in `montai story`:

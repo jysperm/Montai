@@ -1,6 +1,7 @@
 .envrc
 tests/provider/*.wav
 tests/provider/*.aiff
+tests/provider/*.mp3
 tests/fixtures/output/
 tests/fcpxml/output/
 tests/fcpxml/.preview-public/

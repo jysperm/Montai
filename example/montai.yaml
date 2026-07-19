@@ -8,6 +8,6 @@ output:
 models:
   analysis: gemini-3.5-flash
   editing: gemini-3.5-flash
-  musicGeneration: lyria-002
+  musicGeneration: lyria-3-clip-preview
 effects:
   languages: [en]

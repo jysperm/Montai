@@ -522,7 +522,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const generateMusicTool = {
     name: 'generateMusic',
     label: 'Generate Music',
-    description: 'Generate instrumental background music via Lyria 2 AI. Produces a ~30 second WAV track. Prompt must be in English.',
+    description: 'Generate instrumental background music via Lyria 3 AI. Produces a ~30 second track. Prompt must be in English.',
     parameters: Type.Object({
       prompt: Type.String({ description: 'English description of the desired music: mood, genre, instruments, tempo. E.g. "gentle acoustic guitar, warm and nostalgic, medium tempo, suitable for a travel montage"' }),
     }),

@@ -30,7 +30,7 @@ export function resolveFeatureFlags(
 
   // The `system` provider shells out to macOS's built-in `say`, so it only works on darwin.
   if (features.voiceoverGeneration && config.models.voiceoverGeneration === 'system' && process.platform !== 'darwin') {
-    throw new Error('models.voiceoverGeneration: "system" requires macOS. Use "gemini-2.5-flash-tts" on this platform.');
+    throw new Error('models.voiceoverGeneration: "system" requires macOS. Use "gemini-2.5-flash-preview-tts" on this platform.');
   }
   return features;
 }
