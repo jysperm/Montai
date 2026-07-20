@@ -47,7 +47,13 @@ export function formatUserInput(text: string, isSlash = false): string {
   }).join('\n');
 }
 
-type SlashCommands = Record<string, { description: string }>;
+export type SlashCommands = Record<string, { description: string; args?: string[] }>;
+
+function uniqueMatch(candidates: string[], partial: string): string | null {
+  const hits = candidates.filter((c) => c.startsWith(partial.toLowerCase()));
+  return hits.length === 1 ? hits[0] : null;
+}
+
 const PROMPT_WIDTH = 2;
 
 export class StoryInput {
@@ -90,9 +96,7 @@ export class StoryInput {
           readline.clearScreenDown(process.stdout);
         }
 
-        const hint = state.slashMode
-          ? (state.text.startsWith('switch ') ? this.formatSwitchHint(state.text.slice('switch '.length)) : this.formatSlashHint(state.text))
-          : '';
+        const hint = state.slashMode ? this.formatHint(state.text) : '';
         process.stdout.write((hint ? hint + '\n' : '') + this.formatInput(state.text, state.slashMode));
 
         const hintRows = hint ? this.getTerminalRows(hint) : 0;
@@ -181,17 +185,49 @@ export class StoryInput {
     return { row: row + rowOffset, col };
   }
 
+  // Completes in three stages, like a shell: partial name -> full name ->
+  // trailing space -> argument. Only a unique match completes; while several
+  // candidates remain, the hint line above the prompt narrows them instead.
   private completeSlashInput(line: string): string | null {
-    if (line === 'switch') return 'switch ';
-    if (line.startsWith('switch ')) {
-      const partial = line.slice('switch '.length).toLowerCase();
-      const allStoryNames = this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
-      const hit = allStoryNames.find((n) => n.startsWith(partial));
-      return hit ? `switch ${hit}` : null;
+    const spaceAt = line.indexOf(' ');
+    if (spaceAt >= 0) {
+      const name = line.slice(0, spaceAt);
+      const hit = uniqueMatch(this.slashArgCandidates(name) ?? [], line.slice(spaceAt + 1));
+      return hit ? `${name} ${hit}` : null;
     }
+
     const partial = line.toLowerCase();
-    if (this.slashCommandNames.includes(partial)) return null;
-    return this.slashCommandNames.find((c) => c.startsWith(partial)) ?? null;
+    if (this.slashCommandNames.includes(partial)) {
+      return this.slashArgCandidates(partial) ? `${partial} ` : null;
+    }
+    return uniqueMatch(this.slashCommandNames, partial);
+  }
+
+  // Null for commands that take no argument, or whose argument is free-form.
+  private slashArgCandidates(name: string): string[] | null {
+    if (name === 'switch') {
+      return this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
+    }
+    return this.slashCommands[name]?.args ?? null;
+  }
+
+  private formatHint(line: string): string {
+    const spaceAt = line.indexOf(' ');
+    if (spaceAt >= 0) {
+      const name = line.slice(0, spaceAt);
+      const filter = line.slice(spaceAt + 1);
+      if (name === 'switch') return this.formatSwitchHint(filter);
+      const args = this.slashCommands[name]?.args;
+      if (args) return this.formatArgHint(args, filter);
+    }
+    return this.formatSlashHint(line);
+  }
+
+  private formatArgHint(args: string[], filter: string): string {
+    return chalk.dim('[tab] ') + args.map((arg) => {
+      const matched = !filter || arg.startsWith(filter.toLowerCase());
+      return matched ? chalk.cyan(arg) : chalk.dim(arg);
+    }).join('  ');
   }
 
   private formatSlashHint(filter: string): string {

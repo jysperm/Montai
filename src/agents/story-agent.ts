@@ -22,7 +22,7 @@ import { getStoryTools, type StoryToolsContext } from './story-tools.js';
 import { formatGeneratedMusicPrompt, renderTimeline } from '../utils/render-timeline.js';
 import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
-import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive } from './story-ui.js';
+import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive, type SlashCommands } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
 import { resolveResolution, sequenceShape, resolveVoiceLanguage } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
@@ -86,6 +86,7 @@ export class StoryAgent {
 
   private totalCost = 0;
   private autoExport = false;
+  private exportTarget: 'fcp' | 'davinci' = 'fcp';
   private autoPreview = false;
   private previewChild: ChildProcess | null = null;
   private linkedMedia = new Set<string>();
@@ -107,11 +108,11 @@ export class StoryAgent {
 
   private prevTimelineVersion = 0;
 
-  private slashCommands: Record<string, { description: string }> = {
+  private slashCommands: SlashCommands = {
     switch: { description: 'to another story' },
     mark: { description: 'current timeline as checkpoint' },
     marks: { description: 'restore from marks' },
-    export: { description: 'toggle .fcpxml auto-export' },
+    export: { description: 'toggle .fcpxml auto-export', args: ['fcp', 'davinci'] },
     preview: { description: 'start Remotion Studio' },
   };
   private slashCommandNames = Object.keys(this.slashCommands);
@@ -645,9 +646,20 @@ export class StoryAgent {
     this.dbMessageCount = this.agent.state.messages.length;
   }
 
-  private handleSlashExport() {
-    this.autoExport = !this.autoExport;
-    console.log(chalk.blue(`Auto export: ${this.autoExport ? 'on' : 'off'}`));
+  private handleSlashExport(arg: string) {
+    if (arg) {
+      if (arg !== 'fcp' && arg !== 'davinci') {
+        console.log(chalk.red(`Unknown export target: ${arg}. Use 'fcp' or 'davinci'.`));
+        return;
+      }
+      // An explicit target always turns auto-export on, so switching editors
+      // while it's already on doesn't toggle it off.
+      this.exportTarget = arg;
+      this.autoExport = true;
+    } else {
+      this.autoExport = !this.autoExport;
+    }
+    console.log(chalk.blue(this.autoExport ? `Auto export (${this.exportTarget}): on` : 'Auto export: off'));
     if (this.autoExport) {
       const storyName = this.toolsCtx.currentStoryName;
       if (storyName) {
@@ -655,7 +667,7 @@ export class StoryAgent {
         if (result.errors.length > 0) {
           console.log(chalk.yellow(`FCPXML failed: ${result.errors.join('; ')}`));
         } else if (result.timelines.length > 0) {
-          exportFcpxmlFiles(result.timelines, this.db);
+          exportFcpxmlFiles(result.timelines, this.db, this.exportTarget);
           let msg = 'FCPXML exported';
           if (result.correctionCount > 0) {
             msg += ` with ${result.correctionCount} correction${result.correctionCount !== 1 ? 's' : ''}`;
@@ -736,8 +748,8 @@ export class StoryAgent {
     } else if (cmd === 'marks') {
       await this.handleSlashMarks();
       return true;
-    } else if (cmd === 'export') {
-      this.handleSlashExport();
+    } else if (cmd === 'export' || cmd.startsWith('export ')) {
+      this.handleSlashExport(cmd.slice('export'.length).trim());
       return true;
     } else if (cmd === 'preview') {
       this.handleSlashPreview();
@@ -785,7 +797,7 @@ export class StoryAgent {
       }
 
       if (this.autoExport) {
-        exportFcpxmlFiles(result.timelines, this.db);
+        exportFcpxmlFiles(result.timelines, this.db, this.exportTarget);
         parts.push('FCPXML');
       }
 

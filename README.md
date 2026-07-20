@@ -101,7 +101,7 @@ Auto preview: on
 Remotion Studio: http://localhost:3000
 
 > /export
-Auto export: on
+Auto export (fcp): on
 FCPXML exported
 ```
 

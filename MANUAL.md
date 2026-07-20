@@ -109,7 +109,7 @@ Auto preview: on
 Remotion Studio: http://localhost:3000
 
 > /export
-Auto export: on
+Auto export (fcp): on
 FCPXML exported
 ```
 
@@ -415,7 +415,7 @@ Slash commands are typed at an empty prompt by starting with `/`. Press Tab to c
 | Command | Description | See Also |
 |---------|-------------|---------|
 | `/preview` | Toggle background live preview (Remotion Studio) | [Live Preview](#live-preview) |
-| `/export` | Toggle automatic FCPXML export after timeline changes | [Export FCPXML](#export-fcpxml) |
+| `/export [fcp\|davinci]` | Toggle automatic FCPXML export after timeline changes, default to `fcp` | [Export FCPXML](#export-fcpxml) |
 | `/switch <name>` | Switch to an existing story or start a new story with that kebab-case name | [Stories](#stories) |
 | `/mark [name]` | Save the current timeline as a checkpoint | [Timeline Marks](#timeline-marks) |
 | `/marks` | Open a picker to restore or delete timeline marks | [Timeline Marks](#timeline-marks) |
