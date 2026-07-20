@@ -33,7 +33,7 @@ Prerequisites:
 
 The `montai story` command opens an interactive session where you chat with AI to craft your storyline and timeline. You can use any language to iteratively refine the edit — adjust pacing, reorder scenes, add or remove clips, and tweak transitions — all through natural conversation.
 
-![montai story demo](example/demo.gif)
+![montai story demo](docs/assets/demo.gif)
 
 ### Editing Capabilities
 
@@ -141,7 +141,7 @@ DEBUG=montai:* montai story                      # including full message conten
 
 First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
 
-![Imported to Final Cut Pro](example/fcp-timeline.png)
+![Imported to Final Cut Pro](docs/assets/fcp-timeline.png)
 
 <details>
 <summary><h3>DaVinci Resolve</h3></summary>

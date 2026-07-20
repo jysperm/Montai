@@ -390,7 +390,7 @@ Once you finish the analysis, you can start a new story:
 montai story --new
 ```
 
-![montai story demo](example/demo.gif)
+![montai story demo](docs/assets/demo.gif)
 
 Inside interactive mode, the agent can update the storyline, inspect source footage, choose or generate music, and edit the timeline, you can describe edits naturally, like:
 
@@ -432,7 +432,7 @@ Auto preview: on — Remotion Studio starting in background
   Remotion Studio: http://localhost:3000
 ```
 
-![Remotion Live Preview](example/remotion-preview.jpg)
+![Remotion Live Preview](docs/assets/remotion-preview.jpg)
 
 Leave the page open, and it refreshes on its own every time the agent changes the timeline. Type `/preview` again to turn it off.
 
@@ -653,7 +653,7 @@ First import your video files into Final Cut Pro, then use File → Import → X
 
 If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
 
-![Imported to Final Cut Pro](example/fcp-timeline.png)
+![Imported to Final Cut Pro](docs/assets/fcp-timeline.png)
 
 Known Issues:
 
