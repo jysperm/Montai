@@ -50,7 +50,8 @@ export function formatUserInput(text: string, isSlash = false): string {
 export type SlashCommands = Record<string, { description: string; args?: string[] }>;
 
 function uniqueMatch(candidates: string[], partial: string): string | null {
-  const hits = candidates.filter((c) => c.startsWith(partial.toLowerCase()));
+  const normalized = partial.toLowerCase();
+  const hits = candidates.filter((candidate) => candidate.toLowerCase().startsWith(normalized));
   return hits.length === 1 ? hits[0] : null;
 }
 
@@ -205,16 +206,17 @@ export class StoryInput {
 
   // Null for commands that take no argument, or whose argument is free-form.
   private slashArgCandidates(name: string): string[] | null {
-    if (name === 'switch') {
+    const commandName = name.toLowerCase();
+    if (commandName === 'switch') {
       return this.db.select({ name: stories.name }).from(stories).all().map((s) => s.name);
     }
-    return this.slashCommands[name]?.args ?? null;
+    return this.slashCommands[commandName]?.args ?? null;
   }
 
   private formatHint(line: string): string {
     const spaceAt = line.indexOf(' ');
     if (spaceAt >= 0) {
-      const name = line.slice(0, spaceAt);
+      const name = line.slice(0, spaceAt).toLowerCase();
       const filter = line.slice(spaceAt + 1);
       if (name === 'switch') return this.formatSwitchHint(filter);
       const args = this.slashCommands[name]?.args;
@@ -225,7 +227,7 @@ export class StoryInput {
 
   private formatArgHint(args: string[], filter: string): string {
     return chalk.dim('[tab] ') + args.map((arg) => {
-      const matched = !filter || arg.startsWith(filter.toLowerCase());
+      const matched = !filter || arg.toLowerCase().startsWith(filter.toLowerCase());
       return matched ? chalk.cyan(arg) : chalk.dim(arg);
     }).join('  ');
   }
@@ -362,6 +364,16 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
         return;
       } else {
         if (textDisplay) error = `${textDisplay}: ${error}`;
+        break;
+      }
+    }
+    case 'loadSkill': {
+      const skillName = typeof args.name === 'string' ? args.name : undefined;
+      if (!error) {
+        console.log(`  ${check} ${label}${skillName ? `: ${chalk.cyan(skillName)}` : ''}`);
+        return;
+      } else {
+        if (skillName) error = `${skillName}: ${error}`;
         break;
       }
     }

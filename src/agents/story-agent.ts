@@ -26,12 +26,13 @@ import { StoryInput, formatUserInput, formatAssistantText, printToolCall, select
 import type { ProjectConfig } from '../schemas/project.js';
 import { resolveResolution, sequenceShape, resolveVoiceLanguage } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
+import { formatSkillInstruction, loadedSkillNames, type Skill } from '../skills.js';
 
 type StoryRow = typeof stories.$inferSelect;
 
 const AUTO_BACKUP_MARK_NAME = 'last-overwritten';
 const INTRO_EXISTING_STORY_INSTRUCTION = 'Briefly introduce the current storyline and timeline state, then wait for my direction.';
-const INTRO_NEW_STORY_INSTRUCTION = 'Briefly summarize these source videos, then propose one editing direction and wait for my feedback.';
+const INTRO_NEW_STORY_INSTRUCTION = 'Briefly summarize these source videos, then propose one provisional, high-level editing direction as a starting point for discussion. Do not make detailed editing decisions yet; wait for my feedback.';
 
 function getUserMessageText(message: Message): string | null {
   if (message.role !== 'user') return null;
@@ -53,6 +54,7 @@ export interface StoryAgentOptions {
   db: MontaiDb;
   config: ProjectConfig;
   features: FeatureFlags;
+  skills: Skill[];
   agentInstructions: string | null;
   story: StoryRow | undefined;
   toolsCtx: StoryToolsContext;
@@ -73,6 +75,7 @@ export class StoryAgent {
   private db: MontaiDb;
   private config: ProjectConfig;
   private features: FeatureFlags;
+  private skills: Skill[];
   private agentInstructions: string | null;
   private toolsCtx: StoryToolsContext;
   private hint?: string;
@@ -114,6 +117,7 @@ export class StoryAgent {
     marks: { description: 'restore from marks' },
     export: { description: 'toggle .fcpxml auto-export', args: ['fcp', 'davinci'] },
     preview: { description: 'start Remotion Studio' },
+    skill: { description: 'load skill manually' },
   };
   private slashCommandNames = Object.keys(this.slashCommands);
   private storyInput!: StoryInput;
@@ -122,7 +126,9 @@ export class StoryAgent {
     this.db = opts.db;
     this.config = opts.config;
     this.features = opts.features;
+    this.skills = opts.skills;
     this.agentInstructions = opts.agentInstructions;
+    this.slashCommands.skill.args = this.skills.map((skill) => skill.name);
     this.toolsCtx = opts.toolsCtx;
     this.storyInput = new StoryInput({ db: this.db, slashCommands: this.slashCommands });
     this.hint = opts.hint;
@@ -167,6 +173,7 @@ export class StoryAgent {
           voiceLanguage: resolveVoiceLanguage(this.config),
           agentInstructions: this.agentInstructions ?? null,
           features: this.features,
+          skills: this.skills,
           ...(() => {
             const { width, height } = resolveResolution(this.config.output.resolution);
             const shape = sequenceShape(width, height);
@@ -424,6 +431,7 @@ export class StoryAgent {
       if (m.role === 'user') {
         hadReplayToolOutput = false;
         const text = getUserMessageText(m);
+        if (text && loadedSkillNames([{ role: 'user', content: text }]).size > 0) continue;
         if (text) {
           console.log(formatUserInput(text));
           console.log('');
@@ -509,6 +517,31 @@ export class StoryAgent {
 
     this.printTimeline();
     this.toolsCtx.timelineVersion++;
+  }
+
+  private handleSlashSkill(name: string) {
+    if (!name) {
+      console.log(chalk.red('Usage: /skill <name>'));
+      return;
+    }
+    const skill = this.skills.find((candidate) => candidate.name === name);
+    if (!skill) {
+      console.log(chalk.red(`Skill "${name}" is not available. Available: ${this.skills.map((candidate) => candidate.name).join(', ')}`));
+      return;
+    }
+    if (this.toolsCtx.loadedSkills.has(skill.name)) {
+      console.log(chalk.dim(`Skill ${skill.name} is already loaded.`));
+      return;
+    }
+
+    this.toolsCtx.loadedSkills.add(skill.name);
+    const message = { role: 'user' as const, content: formatSkillInstruction(skill), timestamp: Date.now() };
+    this.agent.state.messages = [...this.agent.state.messages, message];
+    this.db.insert(sessionMessages)
+      .values({ sessionId: this.currentSessionId, content: JSON.stringify(message) })
+      .run();
+    this.dbMessageCount = this.agent.state.messages.length;
+    console.log(chalk.green(`Loaded skill ${skill.name}.`));
   }
 
   private generateMarkTimestamp(): string {
@@ -737,22 +770,25 @@ export class StoryAgent {
   }
 
   private async handleSlashCommand(cmd: string): Promise<boolean> {
-    if (cmd === 'switch' || cmd.startsWith('switch ')) {
-      const targetName = cmd.slice('switch'.length).trim();
-      await this.handleSlashSwitch(targetName);
+    const commandName = cmd.split(/\s/, 1)[0].toLowerCase();
+    const commandArg = cmd.slice(commandName.length).trim();
+    if (commandName === 'switch') {
+      await this.handleSlashSwitch(commandArg);
       return true;
-    } else if (cmd === 'mark' || cmd.startsWith('mark ')) {
-      const name = cmd.slice('mark'.length).trim();
-      this.handleSlashMark(name);
+    } else if (commandName === 'mark') {
+      this.handleSlashMark(commandArg);
       return true;
-    } else if (cmd === 'marks') {
+    } else if (commandName === 'marks' && !commandArg) {
       await this.handleSlashMarks();
       return true;
-    } else if (cmd === 'export' || cmd.startsWith('export ')) {
-      this.handleSlashExport(cmd.slice('export'.length).trim());
+    } else if (commandName === 'export') {
+      this.handleSlashExport(commandArg);
       return true;
-    } else if (cmd === 'preview') {
+    } else if (commandName === 'preview' && !commandArg) {
       this.handleSlashPreview();
+      return true;
+    } else if (commandName === 'skill') {
+      this.handleSlashSkill(commandArg);
       return true;
     }
 
@@ -829,8 +865,7 @@ export class StoryAgent {
         this.storyInput.remember(submittedText, userInput.slashMode);
 
         if (userInput.slashMode) {
-          const cmd = trimmed.toLowerCase();
-          await this.handleSlashCommand(cmd);
+          await this.handleSlashCommand(trimmed);
         } else {
           if (['exit', 'quit', 'q'].includes(trimmed.toLowerCase())) break;
 
@@ -914,6 +949,7 @@ export class StoryAgent {
 
     if (this.isResuming) {
       this.agent.state.messages = this.resumedMessages;
+      for (const name of loadedSkillNames(this.resumedMessages)) this.toolsCtx.loadedSkills.add(name);
       this.replayResumedMessages();
       this.printTimeline();
     } else {

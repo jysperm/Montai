@@ -23,6 +23,7 @@ import { loadResolvedTimelines } from '../utils/project.js';
 import { AGENT_PUBLIC_DIR, prepareAgentPublicDir, preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
+import { formatSkillInstruction, type Skill } from '../skills.js';
 
 // Shared per-turn cap across all tools that inject media (videos/images) into
 // the model context — Gemini limits how many file refs a single request can
@@ -47,6 +48,8 @@ export interface StoryToolsContext {
   agent: Agent | null;
   timelineVersion: number;
   sessionId: number;
+  skills: Skill[];
+  loadedSkills: Set<string>;
 }
 
 export function getStoryTools(ctx: StoryToolsContext) {
@@ -143,6 +146,36 @@ export function getStoryTools(ctx: StoryToolsContext) {
       const textContent: TextContent = {
         type: 'text' as const,
         text: `Storyline saved: "${savedTitle}" (${name})`,
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
+  const loadSkillTool = {
+    name: 'loadSkill',
+    label: 'Load Skill',
+    description: 'Load a skill to get its specialized instructions. Available skills are listed in the system prompt.',
+    parameters: Type.Object({
+      name: Type.String({ description: 'The name of the skill to load.' }),
+    }),
+    async execute(_toolCallId: string, params: { name: string }) {
+      const skill = ctx.skills.find((candidate) => candidate.name === params.name);
+      if (!skill) {
+        throw new Error(`Skill "${params.name}" is not available. Choose a name from the available-skills list.`);
+      }
+
+      if (!ctx.loadedSkills.has(skill.name)) {
+        ctx.loadedSkills.add(skill.name);
+        ctx.agent?.steer({
+          role: 'user' as const,
+          content: formatSkillInstruction(skill),
+          timestamp: Date.now(),
+        });
+      }
+
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: `Skill "${skill.name}" is loaded and its instructions now apply.`,
       };
       return { content: [textContent], details: {} };
     },
@@ -721,7 +754,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool];
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, loadSkillTool];
   if (ctx.features.multiStory) {
     tools.push(listStoriesTool, switchStoryTool);
   }

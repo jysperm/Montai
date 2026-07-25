@@ -35,6 +35,8 @@ function createContext(db: MontaiDb, videoId: number, storyName: string): StoryT
     features: { music: false, musicGeneration: false, voiceover: false, voiceoverGeneration: false, previewTools: true, multiStory: true },
     timelineVersion: 0,
     sessionId: 0,
+    skills: [],
+    loadedSkills: new Set(),
   };
 }
 

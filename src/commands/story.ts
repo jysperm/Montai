@@ -13,6 +13,7 @@ import { resolveFeatureFlags } from '../feature-flags.js';
 import { selectStoryInteractive } from '../agents/story-ui.js';
 import { StoryAgent } from '../agents/story-agent.js';
 import type { Message } from '@mariozechner/pi-ai';
+import { activeSkills, discoverSkills } from '../skills.js';
 
 export async function storyCommand(
   name?: string,
@@ -251,6 +252,7 @@ export async function storyCommand(
     hasMusic: allMusic.length > 0,
     hasVoiceovers: allVoiceoversData.length > 0,
   });
+  const skills = activeSkills(discoverSkills(features));
 
   // Restore raw items from stored timeline
   let currentItems: TimelineItem[] = [];
@@ -280,12 +282,15 @@ export async function storyCommand(
     agent: null as import('@mariozechner/pi-agent-core').Agent | null,
     timelineVersion: 0,
     sessionId: 0,
+    skills,
+    loadedSkills: new Set<string>(),
   };
 
   const agent = new StoryAgent({
     db,
     config,
     features,
+    skills,
     agentInstructions,
     story,
     toolsCtx,

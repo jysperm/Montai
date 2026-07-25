@@ -32,6 +32,7 @@
   "files": [
     "bin",
     "src",
+    "skills",
     "remotion",
     "patches",
     "tsconfig.json"

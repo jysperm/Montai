@@ -114,6 +114,7 @@ FCPXML exported
 | `montai analyze --list` | List media analysis status | [Analyze Media](MANUAL.md#analyze-media) |
 | `montai analyze --show <file>` | Show one stored media analysis | [Analyze Media](MANUAL.md#analyze-media) |
 | `montai project` | Show project overview and stats | [Project Overview](MANUAL.md#project-overview) |
+| `montai skills` | List story-agent skills, sources, overrides, and availability | [Skills](MANUAL.md#skills) |
 | `montai story` | Open an interactive story editing session (create new or open existing one) | [Interactive Story Editing](MANUAL.md#interactive-story-editing) |
 | `montai story --list` | List stories | [Stories](MANUAL.md#stories) |
 | `montai story --sessions` | List saved editing sessions | [Sessions](MANUAL.md#sessions) |

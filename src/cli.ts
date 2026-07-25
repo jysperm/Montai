@@ -11,6 +11,7 @@ import { exportCommand } from './commands/export.js';
 import { archiveCommand } from './commands/archive.js';
 import { projectCommand } from './commands/project.js';
 import { cleanCommand } from './commands/clean.js';
+import { skillsCommand } from './commands/skills.js';
 
 loadGlobalEnv();
 
@@ -83,6 +84,11 @@ program
   .command('project')
   .description('Show project overview and stats')
   .action(projectCommand);
+
+program
+  .command('skills')
+  .description('List story-agent skills and their sources')
+  .action(skillsCommand);
 
 program
   .command('story [name]')

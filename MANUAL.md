@@ -14,6 +14,7 @@ Montai is a CLI tool for turning unscripted footage into edited vlog-style video
   - [Models](#models)
   - [Environment Variables](#environment-variables)
   - [Agent Instructions](#agent-instructions)
+  - [Skills](#skills)
 - [Media Analysis](#media-analysis)
   - [Analyze Media](#analyze-media)
   - [Project Overview](#project-overview)
@@ -122,6 +123,7 @@ FCPXML exported
 | `montai analyze --list` | List media analysis status | [Analyze Media](#analyze-media) |
 | `montai analyze --show <file>` | Show one stored media analysis | [Analyze Media](#analyze-media) |
 | `montai project` | Show project overview and stats | [Project Overview](#project-overview) |
+| `montai skills` | List story-agent skills, sources, overrides, and availability | [Skills](#skills) |
 | `montai story` | Open an interactive story editing session (create new or open existing one) | [Interactive Story Editing](#interactive-story-editing) |
 | `montai story --list` | List stories | [Stories](#stories) |
 | `montai story --sessions` | List saved editing sessions | [Sessions](#sessions) |
@@ -156,6 +158,7 @@ my-vlog-project/
   montai.db
   montai.yaml
   AGENTS.md             # optional editing instructions
+  skills/               # optional project-specific story-agent skills
 ```
 
 `montai.db`, `.montai/`, `generated-music/`, `generated-voiceover/`, `fcpxml/`, `output/`, and `archived/` will be automatically created relative to the project directory.
@@ -291,6 +294,31 @@ Montai passes `AGENTS.md` to:
 - project overview generation
 - story editing
 
+### Skills
+
+Skills are reusable, situational instructions for the story agent. Unlike `AGENTS.md`, their full text is not present in every conversation: the agent sees each skill's name and trigger description, then loads the body only when it is relevant.
+
+Montai merges three directories by skill filename, with later entries overriding earlier ones:
+
+1. Built-in skills shipped with Montai
+2. `~/.config/montai/skills/` for your reusable customizations
+3. `<project>/skills/` for project-specific customizations
+
+Each skill is a Markdown file with YAML frontmatter:
+
+```markdown
+---
+description: Read when this particular editing situation occurs.
+gatedBy: [multiStory]
+---
+
+Instructions for the agent go here.
+```
+
+The filename is the skill name: `my-editing-skill.md` becomes `my-editing-skill`. It cannot contain whitespace or path separators. Hyphens, underscores, dots, and uppercase letters are allowed.
+
+`gatedBy` is optional. If any named feature flag is off, that skill is unavailable in the current project. Use `montai skills` to see all three source groups, including empty groups, overrides, and unavailable flags. Empty user and project groups show where their skill files can be created. Inside `montai story`, `/skill <name>` manually loads a skill when automatic selection misses it. Loading the same skill more than once in a session has no additional effect.
+
 ## Media Analysis
 
 ### Analyze Media
@@ -416,6 +444,7 @@ Slash commands are typed at an empty prompt by starting with `/`. Press Tab to c
 |---------|-------------|---------|
 | `/preview` | Toggle background live preview (Remotion Studio) | [Live Preview](#live-preview) |
 | `/export [fcp\|davinci]` | Toggle automatic FCPXML export after timeline changes, default to `fcp` | [Export FCPXML](#export-fcpxml) |
+| `/skill <name>` | Manually load an available editing skill | [Skills](#skills) |
 | `/switch <name>` | Switch to an existing story or start a new story with that kebab-case name | [Stories](#stories) |
 | `/mark [name]` | Save the current timeline as a checkpoint | [Timeline Marks](#timeline-marks) |
 | `/marks` | Open a picker to restore or delete timeline marks | [Timeline Marks](#timeline-marks) |
@@ -469,7 +498,7 @@ chiang-mai-flower-festival  Chiang Mai Flower Festival  [1m24s, 16 clips, 2 over
 morning-market  Morning Market  [empty]  2 days ago
 ```
 
-Two options for starting a new story: `--hint` gives the agent an initial direction, and `--no-intro` skips the summary of your footage that it opens with.
+When starting a new story, the agent summarizes the footage and offers one provisional, high-level direction for discussion without committing to detailed editing decisions. The `--hint` option gives it an initial direction, while `--no-intro` skips this introduction.
 
 ```bash
 montai story --new --hint "Make a 60-second upbeat travel recap." --no-intro

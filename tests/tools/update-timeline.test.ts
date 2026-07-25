@@ -55,6 +55,8 @@ function createContext(db: ReturnType<typeof createTestDb>): StoryToolsContext {
     languageName: 'English',
     overlayLanguageNames: 'English',
     features: { music: true, musicGeneration: false, voiceover: false, voiceoverGeneration: false, previewTools: true, multiStory: true },
+    skills: [],
+    loadedSkills: new Set(),
   };
 }
 
@@ -104,6 +106,35 @@ describe('updateStoryline tool', () => {
       name: 'new-story',
       brief: 'new brief',
     })).rejects.toThrow(/title is required/);
+  });
+});
+
+describe('loadSkill tool', () => {
+  it('is always registered', () => {
+    const ctx = createContext(createTestDb());
+    expect(getStoryTools(ctx).tools.some((tool) => tool.name === 'loadSkill')).toBe(true);
+  });
+
+  it('injects a user instruction once and remains idempotent', async () => {
+    const ctx = createContext(createTestDb());
+    ctx.skills = [{
+      name: 'test-skill',
+      description: 'Read for tests.',
+      gatedBy: [],
+      body: 'Follow this instruction.',
+      path: '/skills/test-skill.md',
+      source: 'builtin',
+    }];
+    const steered: unknown[] = [];
+    ctx.agent = { steer: (message: unknown) => steered.push(message) } as any;
+    const loadSkill = getStoryTools(ctx).tools.find((tool) => tool.name === 'loadSkill')!;
+
+    await loadSkill.execute('call-1', { name: 'test-skill' });
+    await loadSkill.execute('call-2', { name: 'test-skill' });
+
+    expect(steered).toHaveLength(1);
+    expect(steered[0]).toMatchObject({ role: 'user', content: expect.stringContaining('Follow this instruction.') });
+    expect(ctx.loadedSkills).toEqual(new Set(['test-skill']));
   });
 });
 

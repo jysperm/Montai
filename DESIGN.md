@@ -88,6 +88,20 @@ featureFlags:
 
 An unset override leaves the default in place. Overrides only affect flag resolution — they do not add missing capabilities (e.g. setting `musicGeneration: true` without configuring `models.musicGeneration` will fail at tool-call time).
 
+## Story Agent Skills
+
+Skills hold narrow, situational editing instructions that do not need to occupy the story agent's system prompt on every turn. A skill's name is its `.md` filename without the extension, avoiding a duplicated name in frontmatter. Filenames cannot contain whitespace or path separators, but may use uppercase letters and punctuation such as hyphens, underscores, and dots. Frontmatter contains a trigger-oriented `description` and an optional `gatedBy` list of feature flag names. `gatedBy` is validated only as a string array rather than against a duplicated feature-name registry; names absent from the resolved feature flags naturally evaluate as disabled. The body is loaded only when the agent calls `loadSkill(name)` or the user runs `/skill <name>`.
+
+Skills are merged by filename in increasing precedence:
+
+1. `skills/` in the Montai package (built in)
+2. `~/.config/montai/skills/` (user-wide)
+3. `<project>/skills/` (project-specific)
+
+A higher layer replaces the same name from lower layers. A winning skill is excluded from the agent's list when any flag in `gatedBy` is false. `montai skills` always shows the built-in, user, and project source groups, including empty groups, with one line per skill showing whether it is active, overridden, or unavailable. An empty user or project group directly shows its skill creation directory. There is intentionally no `skills:` config section and no always-load option; persistent project instructions continue to belong in `AGENTS.md`.
+
+The story system prompt contains only the active `name — description` list. `loadSkill` injects the skill body as a user message through the agent's steering queue, while its tool result returns only a confirmation. The injected message is persisted in session history but hidden by the TUI. A set of loaded names makes loading idempotent, including after session resume. v1 skills are Markdown-only and do not include resource files.
+
 ## Database Design
 
 SQLite database (`montai.db`) in the project directory. Schema managed via Drizzle ORM with `pushSQLiteSchema` (auto-sync at runtime).
@@ -126,6 +140,7 @@ Supports resume: skips assets that already have an analysis row on re-run. Each 
 Interactive session that merges storyline generation and timeline editing into a single conversational flow. The user can iteratively refine both the storyline and timeline with the LLM.
 
 Uses an agent loop with tools:
+- `loadSkill(name)` — Load one available situational editing skill into the conversation as a hidden user message
 - `updateStoryline(name?, title?, brief)` — Save/update the storyline. `brief` contains the storyline content: user requirements, creative direction, and current edit structure. `name` and `title` are required when creating a story, but omitted on existing stories to preserve the current identifier/title.
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startTime, endTime, fps?)` — Watch a source video segment. `startTime`/`endTime` are source timestamps in `MM:SS` or `MM:SS.s`. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
@@ -151,13 +166,13 @@ Gated by the `previewTools` feature flag (default `true`).
 
 The timeline uses a unified items array with clip-anchored positioning (startClip/endClip) instead of absolute times for overlays. Items are expanded into `ResolvedTimeline` format for downstream consumption.
 
-Stories can be resumed: `montai story <name>` restores the current storyline and timeline state. Running `montai story` with no name shows an interactive arrow-key picker listing existing stories (plus a "new story" option); `--new` forces a fresh story. Use `--no-intro` to skip the initial LLM summary and go straight to input.
+Stories can be resumed: `montai story <name>` restores the current storyline and timeline state. Running `montai story` with no name shows an interactive arrow-key picker listing existing stories (plus a "new story" option); `--new` forces a fresh story. A new story's intro summarizes the footage and offers one provisional, high-level direction for discussion without committing to detailed editing decisions. The intro deliberately does not load skills: active skill names and descriptions remain visible in the system prompt, but all tool calls are suppressed, so no skill body enters the conversation. After the user confirms a direction, the agent loads relevant skills before making concrete editing decisions. Use `--no-intro` to skip the introduction and go straight to input.
 
 Agent conversation sessions are persisted to the database. Each `montai story` invocation creates a new session; messages are appended at each `turn_end`. Use `--resume` to restore a previous session with full conversation history (interactive picker, or `--resume <id>` for a specific session). Use `--sessions` to list historical sessions. On resume, the system prompt is re-rendered from current config; context/hint injection is skipped since the history already contains them. Expired Gemini File API references (>48h) are automatically replaced with text placeholders before sending to the LLM.
 
 After each agent response, a TUI timeline visualization is printed showing clips as `[ vN ]` blocks (proportional to duration), transitions as `~`, and overlays as `‹arrow style arrow›` on lanes above the clip track. Music lanes show library track basenames or a generated music prompt preview truncated at a word boundary. When clip blocks are narrow, internal label padding is compressed before the clip label is truncated. Overlays that overlap in time are placed on separate lanes, with lanes ordered bottom-up (closest to clips first). Arrow characters indicate overlay position (e.g. `↙` for bottom-left, `─` for center).
 
-The TUI input supports multi-line prompts: Enter submits, while Shift-Enter inserts a newline when the terminal reports modified Enter keys. It keeps a readline-like editing subset for common cursor, word, deletion, history, and escape-key behavior. It also provides slash commands: `/switch <name>` switches stories, `/mark [name]` snapshots the current timeline as a checkpoint (auto-named with a timestamp if no name given), `/marks` opens an interactive picker to restore or delete marks for the current story, and `/export [fcp|davinci]` and `/preview` are toggles for auto mode. When `/export` is on, FCPXML is regenerated after each LLM turn that modifies the timeline. `/export` takes an optional editor target (default `fcp`) matching the `montai export` flags; passing one switches the target and always turns auto-export on, so changing editors mid-session doesn't toggle it off. When `/preview` is on, Remotion Studio runs in the background and `timelines.json` is updated after each timeline change (full `preparePublicDir` only runs when new media files appear). A single status line is printed after the auto operations (e.g. "Remotion and FCPXML updated with 2 corrections").
+The TUI input supports multi-line prompts: Enter submits, while Shift-Enter inserts a newline when the terminal reports modified Enter keys. It keeps a readline-like editing subset for common cursor, word, deletion, history, and escape-key behavior. It also provides slash commands: `/skill <name>` manually loads an available skill, `/switch <name>` switches stories, `/mark [name]` snapshots the current timeline as a checkpoint (auto-named with a timestamp if no name given), `/marks` opens an interactive picker to restore or delete marks for the current story, and `/export [fcp|davinci]` and `/preview` are toggles for auto mode. When `/export` is on, FCPXML is regenerated after each LLM turn that modifies the timeline. `/export` takes an optional editor target (default `fcp`) matching the `montai export` flags; passing one switches the target and always turns auto-export on, so changing editors mid-session doesn't toggle it off. When `/preview` is on, Remotion Studio runs in the background and `timelines.json` is updated after each timeline change (full `preparePublicDir` only runs when new media files appear). A single status line is printed after the auto operations (e.g. "Remotion and FCPXML updated with 2 corrections").
 
 ### 3. Render (`montai render [name]`)
 
