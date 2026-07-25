@@ -310,6 +310,7 @@ Each skill is a Markdown file with YAML frontmatter:
 ---
 description: Read when this particular editing situation occurs.
 gatedBy: [multiStory]
+unlockTools: [listStories, switchStory]
 ---
 
 Instructions for the agent go here.
@@ -317,7 +318,13 @@ Instructions for the agent go here.
 
 The filename is the skill name: `my-editing-skill.md` becomes `my-editing-skill`. It cannot contain whitespace or path separators. Hyphens, underscores, dots, and uppercase letters are allowed.
 
-`gatedBy` is optional. If any named feature flag is off, that skill is unavailable in the current project. Use `montai skills` to see all three source groups, including empty groups, overrides, and unavailable flags. Empty user and project groups show where their skill files can be created. Inside `montai story`, `/skill <name>` manually loads a skill when automatic selection misses it. Loading the same skill more than once in a session has no additional effect.
+| Frontmatter field | Required | Description |
+|---|---|---|
+| `description` | Yes | Tells the agent when and why to load the skill. |
+| `gatedBy` | No | Feature flags that must all be enabled for the skill to be available. |
+| `unlockTools` | No | Story-agent tools that remain unavailable until the skill instructions have entered the conversation. |
+
+Use `montai skills` to see all three source groups, including empty groups, overrides, and unavailable flags. Empty user and project groups show where their skill files can be created. Inside `montai story`, `/skill <name>` manually loads a skill when automatic selection misses it. Loading the same skill more than once in a session has no additional effect.
 
 ## Media Analysis
 

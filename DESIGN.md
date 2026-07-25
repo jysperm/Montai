@@ -90,7 +90,7 @@ An unset override leaves the default in place. Overrides only affect flag resolu
 
 ## Story Agent Skills
 
-Skills hold narrow, situational editing instructions that do not need to occupy the story agent's system prompt on every turn. A skill's name is its `.md` filename without the extension, avoiding a duplicated name in frontmatter. Filenames cannot contain whitespace or path separators, but may use uppercase letters and punctuation such as hyphens, underscores, and dots. Frontmatter contains a trigger-oriented `description` and an optional `gatedBy` list of feature flag names. `gatedBy` is validated only as a string array rather than against a duplicated feature-name registry; names absent from the resolved feature flags naturally evaluate as disabled. The body is loaded only when the agent calls `loadSkill(name)` or the user runs `/skill <name>`.
+Skills hold narrow, situational editing instructions that do not need to occupy the story agent's system prompt on every turn. A skill's name is its `.md` filename without the extension, avoiding a duplicated name in frontmatter. Filenames cannot contain whitespace or path separators, but may use uppercase letters and punctuation such as hyphens, underscores, and dots. Frontmatter contains a trigger-oriented `description`, an optional `gatedBy` list of feature flag names, and an optional `unlockTools` list of story-agent tool names. `gatedBy` is validated only as a string array rather than against a duplicated feature-name registry; names absent from the resolved feature flags naturally evaluate as disabled. The body is loaded only when the agent calls `loadSkill(name)` or the user runs `/skill <name>`.
 
 Skills are merged by filename in increasing precedence:
 
@@ -101,6 +101,8 @@ Skills are merged by filename in increasing precedence:
 A higher layer replaces the same name from lower layers. A winning skill is excluded from the agent's list when any flag in `gatedBy` is false. `montai skills` always shows the built-in, user, and project source groups, including empty groups, with one line per skill showing whether it is active, overridden, or unavailable. An empty user or project group directly shows its skill creation directory. There is intentionally no `skills:` config section and no always-load option; persistent project instructions continue to belong in `AGENTS.md`.
 
 The story system prompt contains only the active `name — description` list. `loadSkill` injects the skill body as a user message through the agent's steering queue, while its tool result returns only a confirmation. The injected message is persisted in session history but hidden by the TUI. A set of loaded names makes loading idempotent, including after session resume. v1 skills are Markdown-only and do not include resource files.
+
+An active skill's `unlockTools` entries make that skill a prerequisite for those tools. The requirement is added to each affected tool's description, and a premature call fails with an instruction to use `loadSkill` first. A tool is unlocked only after the injected skill message is present in the agent's conversation history, not merely queued during the same turn; this ensures the agent has received the skill body before it can use the tool. If multiple active skills name the same tool, all of them are required. Overridden and feature-gated skills impose no requirements.
 
 ## Database Design
 

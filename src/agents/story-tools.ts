@@ -23,7 +23,7 @@ import { loadResolvedTimelines } from '../utils/project.js';
 import { AGENT_PUBLIC_DIR, prepareAgentPublicDir, preparePublicDir } from '../remotion/public-dir.js';
 import { resolveStartFrame, totalTimelineSeconds, renderStillFrame, renderRange, previewHash, stillHash } from '../utils/preview-render.js';
 import { parseTimestamp, secondsToTimestamp } from '../utils/time.js';
-import { formatSkillInstruction, type Skill } from '../skills.js';
+import { formatSkillInstruction, loadedSkillNames, type Skill } from '../skills.js';
 
 // Shared per-turn cap across all tools that inject media (videos/images) into
 // the model context — Gemini limits how many file refs a single request can
@@ -776,8 +776,46 @@ export function getStoryTools(ctx: StoryToolsContext) {
     tools.push(generateVoiceoverTool);
   }
 
+  const requiredSkillsByTool = new Map<string, Skill[]>();
+  for (const skill of ctx.skills) {
+    for (const toolName of skill.unlockTools) {
+      const requiredSkills = requiredSkillsByTool.get(toolName) ?? [];
+      requiredSkills.push(skill);
+      requiredSkillsByTool.set(toolName, requiredSkills);
+    }
+  }
+
+  const guardedTools = tools.map((tool) => {
+    const requiredSkills = requiredSkillsByTool.get(tool.name);
+    if (!requiredSkills?.length || tool.name === 'loadSkill') return tool;
+
+    const names = requiredSkills.map((skill) => JSON.stringify(skill.name));
+    const skillLabel = requiredSkills.length === 1 ? `skill ${names[0]}` : `skills ${names.join(', ')}`;
+    const execute = tool.execute.bind(tool);
+    return {
+      ...tool,
+      description: `${tool.description} Requires loading ${skillLabel} with loadSkill before use.`,
+      async execute(...args: unknown[]) {
+        const loaded = loadedSkillNames(ctx.agent?.state.messages ?? []);
+        const missing = requiredSkills.filter((skill) => !loaded.has(skill.name));
+        if (missing.length > 0) {
+          const missingNames = missing.map((skill) => JSON.stringify(skill.name));
+          const missingLabel = missing.length === 1
+            ? `skill ${missingNames[0]}`
+            : `skills ${missingNames.join(', ')}`;
+          throw new Error(
+            `Tool ${JSON.stringify(tool.name)} requires ${missingLabel}. `
+            + `Call loadSkill for ${missing.length === 1 ? 'this skill' : 'these skills'} first, `
+            + 'then retry after the instructions have been added to the conversation.',
+          );
+        }
+        return execute(...args);
+      },
+    };
+  });
+
   return {
-    tools,
+    tools: guardedTools,
     resetWatchCount() {
       mediaCountThisTurn = 0;
     },

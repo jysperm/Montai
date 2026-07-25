@@ -39,16 +39,17 @@ describe('skills', () => {
 
   it('filters a winning skill when any gated feature is disabled', () => {
     const root = mkdtempSync(resolve(tmpdir(), 'montai-skills-'));
-    writeSkill(root, 'voice.md', 'description: Voice\ngatedBy: [voiceoverGeneration]');
+    writeSkill(root, 'voice.md', 'description: Voice\ngatedBy: [voiceoverGeneration]\nunlockTools: [generateVoiceover]');
     const skills = discoverSkills(features, { builtin: root, user: resolve(root, 'none-1'), project: resolve(root, 'none-2') });
 
     expect(activeSkills(skills)).toEqual([]);
     expect(skills[0].unavailableFlags).toEqual(['voiceoverGeneration']);
+    expect(skills[0].unlockTools).toEqual(['generateVoiceover']);
   });
 
   it('marks injected skill messages as loaded', () => {
     const skill = {
-      name: 'framing', description: 'Framing', gatedBy: [], body: 'Instructions',
+      name: 'framing', description: 'Framing', gatedBy: [], unlockTools: [], body: 'Instructions',
       path: '/skills/framing.md', source: 'builtin' as const,
     };
     const content = formatSkillInstruction(skill);

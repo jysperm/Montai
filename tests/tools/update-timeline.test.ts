@@ -121,12 +121,13 @@ describe('loadSkill tool', () => {
       name: 'test-skill',
       description: 'Read for tests.',
       gatedBy: [],
+      unlockTools: [],
       body: 'Follow this instruction.',
       path: '/skills/test-skill.md',
       source: 'builtin',
     }];
     const steered: unknown[] = [];
-    ctx.agent = { steer: (message: unknown) => steered.push(message) } as any;
+    ctx.agent = { state: { messages: [] }, steer: (message: unknown) => steered.push(message) } as any;
     const loadSkill = getStoryTools(ctx).tools.find((tool) => tool.name === 'loadSkill')!;
 
     await loadSkill.execute('call-1', { name: 'test-skill' });
@@ -135,6 +136,41 @@ describe('loadSkill tool', () => {
     expect(steered).toHaveLength(1);
     expect(steered[0]).toMatchObject({ role: 'user', content: expect.stringContaining('Follow this instruction.') });
     expect(ctx.loadedSkills).toEqual(new Set(['test-skill']));
+  });
+
+  it('requires the skill instructions to enter conversation history before unlocking a tool', async () => {
+    const ctx = createContext(createTestDb());
+    seedStory(ctx);
+    ctx.skills = [{
+      name: 'story-structure',
+      description: 'Guide story structure.',
+      gatedBy: [],
+      unlockTools: ['updateStoryline'],
+      body: 'Structure the story carefully.',
+      path: '/skills/story-structure.md',
+      source: 'project',
+    }];
+    const steered: any[] = [];
+    ctx.agent = {
+      state: { messages: [] },
+      steer: (message: unknown) => steered.push(message),
+    } as any;
+    const { tools } = getStoryTools(ctx);
+    const loadSkill = tools.find((tool) => tool.name === 'loadSkill')!;
+    const updateStoryline = tools.find((tool) => tool.name === 'updateStoryline')!;
+
+    expect(updateStoryline.description).toContain('Requires loading skill "story-structure" with loadSkill');
+    await expect(updateStoryline.execute('call-1', { brief: 'Blocked' }))
+      .rejects.toThrow('Call loadSkill for this skill first');
+
+    await loadSkill.execute('call-2', { name: 'story-structure' });
+    await expect(updateStoryline.execute('call-3', { brief: 'Still blocked' }))
+      .rejects.toThrow('after the instructions have been added to the conversation');
+
+    ctx.agent!.state.messages.push(steered[0]);
+    await updateStoryline.execute('call-4', { brief: 'Unlocked' });
+    const row = (ctx.db as any).select().from(schema.stories).get();
+    expect(row.storyline).toBe('Unlocked');
   });
 });
 

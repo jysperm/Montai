@@ -11,6 +11,7 @@ export interface Skill {
   name: string;
   description: string;
   gatedBy: string[];
+  unlockTools: string[];
   body: string;
   path: string;
   source: SkillSource;
@@ -46,6 +47,7 @@ function parseSkill(path: string, source: SkillSource): Skill {
   const name = basename(path, '.md');
   const description = metadata?.description;
   const gatedBy = metadata?.gatedBy ?? [];
+  const unlockTools = metadata?.unlockTools ?? [];
 
   if (!name || /[\s/\\]/.test(name)) {
     throw new Error(`Skill ${path} must have a non-empty name without whitespace or path separators.`);
@@ -56,11 +58,15 @@ function parseSkill(path: string, source: SkillSource): Skill {
   if (!Array.isArray(gatedBy) || gatedBy.some((flag) => typeof flag !== 'string')) {
     throw new Error(`Skill ${path} gatedBy must be an array of strings.`);
   }
+  if (!Array.isArray(unlockTools) || unlockTools.some((tool) => typeof tool !== 'string')) {
+    throw new Error(`Skill ${path} unlockTools must be an array of strings.`);
+  }
 
   return {
     name,
     description: description.trim().replace(/\s+/g, ' '),
     gatedBy,
+    unlockTools,
     body: match[2].trim(),
     path,
     source,
