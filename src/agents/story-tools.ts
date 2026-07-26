@@ -52,6 +52,8 @@ export interface StoryToolsContext {
   loadedSkills: Set<string>;
 }
 
+// A tool's `description` and parameter docs cover HOW to use it: arguments, behavior, constraints, and what it returns.
+// WHEN to use it belongs in the Tools section of story-system.prompt, or in a skill when that guidance is situational.
 export function getStoryTools(ctx: StoryToolsContext) {
   let mediaCountThisTurn = 0;
 
