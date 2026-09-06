@@ -9,6 +9,7 @@ import { fileMd5 } from '../utils/hash.js';
 import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { AnalyzeItem } from './pipeline.js';
+import { isStale, type SyncOptions } from './provenance.js';
 import { formatDuration as formatDurationHuman } from '../utils/format.js';
 
 export function parseTimeToSeconds(time: string): number {
@@ -146,7 +147,7 @@ export function listVideos(db: MontaiDb): void {
 export async function syncVideos(
   db: MontaiDb,
   config: ProjectConfig,
-  options?: { reRun?: string; reRunAll?: boolean },
+  options?: SyncOptions,
 ): Promise<AnalyzeItem[]> {
   const videoFiles = resolveVideoFiles(config);
   if (videoFiles.length === 0) {
@@ -238,22 +239,22 @@ export async function syncVideos(
   // Get videos to analyze
   let videosToAnalyze;
 
-  if (options?.reRunAll) {
+  if (options?.all) {
     videosToAnalyze = db
       .select()
       .from(videos)
       .orderBy(asc(videos.filename))
       .all();
-  } else if (options?.reRun) {
+  } else if (options?.file) {
     // First try matching by filename (basename)
     videosToAnalyze = db
       .select()
       .from(videos)
-      .where(eq(videos.filename, basename(options.reRun)))
+      .where(eq(videos.filename, basename(options.file)))
       .all();
     // If no match, try resolving as a path
     if (videosToAnalyze.length === 0) {
-      const resolvedPath = resolve(options.reRun);
+      const resolvedPath = resolve(options.file);
       videosToAnalyze = db
         .select()
         .from(videos)
@@ -261,8 +262,22 @@ export async function syncVideos(
         .all();
     }
     if (videosToAnalyze.length === 0) {
-      console.log(chalk.red(`Video "${options.reRun}" not found.`));
+      console.log(chalk.red(`Video "${options.file}" not found.`));
       return [];
+    }
+  } else if (options?.stale) {
+    const signature = options.stale;
+    const rows = db
+      .select({ id: videos.id, filename: videos.filename, path: videos.path, analysisId: videoAnalyses.id, model: videoAnalyses.model, promptHash: videoAnalyses.promptHash })
+      .from(videos)
+      .leftJoin(videoAnalyses, eq(videos.id, videoAnalyses.videoId))
+      .orderBy(asc(videos.filename))
+      .all();
+    videosToAnalyze = rows.filter((row) => row.analysisId === null || isStale(row, signature));
+    const stale = videosToAnalyze.filter((row) => row.analysisId !== null);
+    if (stale.length > 0) {
+      const analyzed = rows.filter((row) => row.analysisId !== null).length;
+      console.log(chalk.yellow(`${stale.length} of ${analyzed} video analyses are stale`));
     }
   } else {
     videosToAnalyze = db
@@ -275,7 +290,7 @@ export async function syncVideos(
   }
 
   if (videosToAnalyze.length === 0) {
-    console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
+    console.log(chalk.green(`All videos already analyzed. Use ${chalk.bold('--refresh [filename]')} to re-analyze.`));
     return [];
   }
 

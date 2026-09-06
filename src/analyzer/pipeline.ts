@@ -9,8 +9,7 @@ import type { MontaiDb } from '../db/index.js';
 import { videoAnalyses, musicAnalyses, voiceoverAnalyses, projectContext } from '../db/schema.js';
 import { uploadFileToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
-import { renderPrompt } from '../prompts/index.js';
-import { readProjectFile } from '../utils/project.js';
+import { analysisSignature, provenanceFor, renderAnalysisPrompt, type AnalysisProvenance } from './provenance.js';
 import { formatFileSize } from '../utils/format.js';
 import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
@@ -61,7 +60,7 @@ interface KindHandler {
   mimeType: (item: AnalyzeItem) => string;
   promptName: string;
   schema: ZodType;
-  persist: (db: MontaiDb, item: AnalyzeItem, parsed: Record<string, unknown>) => void;
+  persist: (db: MontaiDb, item: AnalyzeItem, parsed: Record<string, unknown>, provenance: AnalysisProvenance) => void;
 }
 
 const handlers: Record<AnalyzeKind, KindHandler> = {
@@ -70,7 +69,7 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
     mimeType: () => 'video/mp4',
     promptName: 'analyze-video',
     schema: VideoAnalysisSchema,
-    persist: (db, item, parsed) => {
+    persist: (db, item, parsed, provenance) => {
       const fields = {
         overview: String(parsed.overview ?? ''),
         location: parsed.location ? String(parsed.location) : null,
@@ -78,6 +77,7 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
         segments: JSON.stringify(parsed.segments ?? []),
         highlights: JSON.stringify(parsed.highlights ?? []),
         technicalNotes: parsed.technicalNotes ? String(parsed.technicalNotes) : null,
+        ...provenance,
       };
       const existing = db.select().from(videoAnalyses).where(eq(videoAnalyses.videoId, item.id)).get();
       if (existing) {
@@ -96,11 +96,12 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
     mimeType: audioMimeType,
     promptName: 'analyze-music',
     schema: MusicAnalysisSchema,
-    persist: (db, item, parsed) => {
+    persist: (db, item, parsed, provenance) => {
       db.insert(musicAnalyses).values({
         musicId: item.id,
         overview: String(parsed.overview ?? ''),
         segments: JSON.stringify(parsed.segments ?? []),
+        ...provenance,
       }).run();
     },
   },
@@ -109,11 +110,12 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
     mimeType: audioMimeType,
     promptName: 'analyze-voiceover',
     schema: VoiceoverAnalysisSchema,
-    persist: (db, item, parsed) => {
+    persist: (db, item, parsed, provenance) => {
       db.insert(voiceoverAnalyses).values({
         voiceoverId: item.id,
         overview: String(parsed.overview ?? ''),
         transcription: JSON.stringify(parsed.transcription ?? []),
+        ...provenance,
       }).run();
     },
   },
@@ -129,7 +131,6 @@ export async function runAnalysisPipeline(
 ): Promise<{ totalCost: number }> {
   if (items.length === 0) return { totalCost: 0 };
 
-  const agentInstructions = readProjectFile('AGENTS.md');
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
   const concurrency = resolveConcurrency(config);
@@ -171,7 +172,7 @@ export async function runAnalysisPipeline(
 
     try {
       const fileContent: FileContent = { type: 'file', uri: fileUri, mimeType: handler.mimeType(item) };
-      const prompt = renderPrompt(handler.promptName, { language: config.language, agentInstructions: agentInstructions ?? null });
+      const prompt = renderAnalysisPrompt(config, item.kind);
       const messages: Message[] = [
         { role: 'user', content: [fileContent, { type: 'text', text: prompt }], timestamp: Date.now() },
       ];
@@ -192,7 +193,7 @@ export async function runAnalysisPipeline(
         throw new Error(`schema validation failed after ${retryResult.attempts} attempts: ${retryResult.finalError}`);
       }
 
-      handler.persist(db, item, retryResult.raw);
+      handler.persist(db, item, retryResult.raw, provenanceFor(analysisSignature(config, item.kind, model.id)));
 
       const cacheRate = formatCacheRate(retryResult.lastResult.usage);
       const attemptsTag = retryResult.attempts > 1 ? `, ${retryResult.attempts} attempts` : '';

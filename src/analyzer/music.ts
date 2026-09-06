@@ -9,6 +9,7 @@ import { fileMd5 } from '../utils/hash.js';
 import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { AnalyzeItem } from './pipeline.js';
+import { isStale, type SyncOptions } from './provenance.js';
 
 export function showMusicAnalysis(db: MontaiDb, filename: string): boolean {
   // First try matching by filename (basename)
@@ -94,7 +95,7 @@ export function listMusic(db: MontaiDb): void {
 export async function syncMusic(
   db: MontaiDb,
   config: ProjectConfig,
-  options?: { reRun?: string; reRunAll?: boolean },
+  options?: SyncOptions,
 ): Promise<AnalyzeItem[]> {
   const musicFiles = resolveMusicFiles(config);
   if (musicFiles.length === 0) {
@@ -151,7 +152,7 @@ export async function syncMusic(
 
   let musicToAnalyze;
 
-  if (options?.reRunAll) {
+  if (options?.all) {
     musicToAnalyze = db
       .select({ id: music.id, filename: music.filename, path: music.path })
       .from(music)
@@ -161,16 +162,16 @@ export async function syncMusic(
     for (const track of musicToAnalyze) {
       db.delete(musicAnalyses).where(eq(musicAnalyses.musicId, track.id)).run();
     }
-  } else if (options?.reRun) {
+  } else if (options?.file) {
     // First try matching by filename (basename)
     musicToAnalyze = db
       .select({ id: music.id, filename: music.filename, path: music.path })
       .from(music)
-      .where(eq(music.filename, basename(options.reRun)))
+      .where(eq(music.filename, basename(options.file)))
       .all();
     // If no match, try resolving as a path
     if (musicToAnalyze.length === 0) {
-      const resolvedPath = resolve(options.reRun);
+      const resolvedPath = resolve(options.file);
       musicToAnalyze = db
         .select({ id: music.id, filename: music.filename, path: music.path })
         .from(music)
@@ -178,12 +179,29 @@ export async function syncMusic(
         .all();
     }
     if (musicToAnalyze.length === 0) {
-      console.log(chalk.red(`Music "${options.reRun}" not found.`));
+      console.log(chalk.red(`Music "${options.file}" not found.`));
       return [];
     }
     // Delete existing analyses so they get re-analyzed
     for (const track of musicToAnalyze) {
       db.delete(musicAnalyses).where(eq(musicAnalyses.musicId, track.id)).run();
+    }
+  } else if (options?.stale) {
+    const signature = options.stale;
+    const rows = db
+      .select({ id: music.id, filename: music.filename, path: music.path, analysisId: musicAnalyses.id, model: musicAnalyses.model, promptHash: musicAnalyses.promptHash })
+      .from(music)
+      .leftJoin(musicAnalyses, eq(music.id, musicAnalyses.musicId))
+      .orderBy(asc(music.filename))
+      .all();
+    musicToAnalyze = rows.filter((row) => row.analysisId === null || isStale(row, signature));
+    const stale = musicToAnalyze.filter((row) => row.analysisId !== null);
+    if (stale.length > 0) {
+      const analyzed = rows.filter((row) => row.analysisId !== null).length;
+      console.log(chalk.yellow(`${stale.length} of ${analyzed} music analyses are stale`));
+    }
+    for (const row of stale) {
+      db.delete(musicAnalyses).where(eq(musicAnalyses.musicId, row.id)).run();
     }
   } else {
     musicToAnalyze = db
@@ -199,7 +217,7 @@ export async function syncMusic(
   }
 
   if (musicToAnalyze.length === 0) {
-    console.log(chalk.green(`All music files already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
+    console.log(chalk.green(`All music files already analyzed. Use ${chalk.bold('--refresh [filename]')} to re-analyze.`));
     return [];
   }
 

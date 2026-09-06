@@ -111,17 +111,29 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 ### Tables
 
 - **videos** — Discovered video files (whether analyzed is determined by joining video_analyses)
-- **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes)
+- **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes), plus the provenance columns below
 - **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 3, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
-- **music_analyses** — Per-music LLM analysis results (overview, segments JSON)
+- **music_analyses** — Per-music LLM analysis results (overview, segments JSON), plus the provenance columns below
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.
 - **stories** — Interactive story sessions (`montai story`), storing both the storyline and raw `TimelineItem[]` JSON. Each has a unique `name`. The `storyline` and `timeline` fields are nullable and filled progressively during the interactive session. The raw items are expanded into `ResolvedTimeline` format (with video paths, fps, resolution) at consumption time by export/render/preview commands.
 - **story_marks** — TUI-local timeline checkpoints created via `/mark` in the story TUI. Each row stores a `TimelineItem[]` JSON snapshot for a specific story (`storyId` FK). `name` is unique within a story. Storyline is intentionally not captured; restore overwrites the current timeline only.
 - **voiceovers** — Voiceover audio files: both user-provided recordings and AI-generated (TTS) narration. `type` distinguishes 'recording' (user-provided) from 'generated' (synthesized via `generateVoiceover`, `generationText` stores the script). Shared ID space — `voiceoverId` in timeline items references both types.
-- **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text)
+- **voiceover_analyses** — Per-voiceover transcription results (voiceoverId FK, transcription JSON `[{ startTime, endTime, text, skip }]`, overview text), plus the provenance columns below
 - **sessions** — Agent conversation sessions for `montai story`. Each `montai story` invocation creates a session; `--resume` restores one. Stores `currentStoryId` (nullable FK to stories) which is written immediately on every change. A session can span multiple stories via `/switch`.
 - **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
 - **gemini_files** — Cached Gemini File API references keyed by nullable `cacheKey` = the project-relative file path. Same scheme for every upload: source video transcodes (`.montai/transcoded/<id>-<n>fps.mp4`), music / voiceover assets (e.g. `musics/track1.mp3`), and previewFinalVideo renders (`.montai/agent-previews/<sha256>.mp4`). The path encodes everything the cache needs to distinguish — `<id>-<n>fps.mp4` already encodes the videoId+fps, the preview filename encodes the spec hash. Legacy rows with `NULL` cache keys are ignored and naturally replaced on next upload.
+
+### Analysis Provenance
+
+The three `*_analyses` tables each carry `analyzed_at` (ISO 8601), `montai_version`, `model` and `prompt_hash`, written by `runAnalysisPipeline` and by `transcribeGeneratedVoiceover` via `provenanceFor()` (`src/analyzer/provenance.ts`). Source files are otherwise only invalidated by their md5 changing, so a project accumulates rows produced by different models and prompts; these columns are what makes an existing row attributable, and what `montai analyze --refresh` compares against.
+
+`model` and `prompt_hash` together form the **analysis signature** (`analysisSignature()`): a stored row is stale when either differs from the current one. `prompt_hash` is `sha256` (first 12 hex chars) of the *rendered* prompt, so it moves when the template, the project's `AGENTS.md`, or `language` changes. Since the Zod schema is never sent to the API — `completeWithSchemaRetry` only validates locally — the prompt is also where the model's output contract lives, so a schema change is covered as long as the prompt describes it.
+
+Two things are deliberately outside the signature. `montai_version` is recorded but never triggers staleness: most releases don't touch analysis, and in a development checkout the version changes on every commit, which would mark the whole library stale continuously. `featureFlags.transcodeFps` is not recorded at all: analyze uploads the transcoded file but passes no `videoMetadata`, so Gemini samples it at its default 1fps and the transcode rate cannot change the result.
+
+All four columns are nullable — rows written before the columns existed cannot be attributed retroactively (and read as stale, which is the right default), and `pushSQLiteSchema` needs them nullable to add them to a populated table.
+
+`montaiVersion()` (`src/utils/version.ts`) reports `0.6.0` for an installed release and `0.6.0+5.g3871658.dirty` for a development checkout: the `package.json` version, plus SemVer build metadata carrying `git describe`'s commit distance, short SHA and dirty marker. A development checkout is identified by `.git` existing at the package root — npm never ships it, and testing for the directory rather than for git succeeding avoids an installed copy under a user's `node_modules` reporting that user's tags. The distance segment is absent when no `v*` tag is reachable (shallow clones).
 
 ## Pipeline
 
@@ -135,7 +147,9 @@ Per-type behavior is encapsulated in a handler table (mime type, prompt name, sc
 2. **Upload** — Upload the (transcoded video or raw audio) file to the LLM File API, or reuse a cached ref if still active in `gemini_files`.
 3. **Analyze** — Send file + prompt to get structured JSON, stored in `video_analyses` / `music_analyses` / `voiceover_analyses`. Voiceover analysis is transcription-focused (per-sentence timestamps with skip markers for unusable content). If `AGENTS.md` exists in the project directory, its contents are injected into every analysis prompt as user-provided context.
 
-Supports resume: skips assets that already have an analysis row on re-run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
+Supports resume: skips assets that already have an analysis row on a repeat run. Each stage has its own caching, so interrupted runs resume efficiently — completed transcodes and uploads are reused.
+
+What gets analyzed is chosen by `SyncOptions` (`src/analyzer/provenance.ts`), which the three sync functions share: bare `montai analyze` takes only assets with no analysis row; `--refresh` adds those whose stored signature no longer matches (see [Analysis Provenance](#analysis-provenance)) and reports how many were stale; `--refresh --all` takes everything after a confirmation (`-f` skips it); `--refresh <file>` takes that one file unconditionally, since naming a file is already an explicit request. Staleness is evaluated in JS (`isStale()`) rather than as a where-clause so the comparison is written once for all three media types, and because the stale-count message needs the never-analyzed and outdated rows partitioned anyway.
 
 ### 2. Story (`montai story [name]`)
 

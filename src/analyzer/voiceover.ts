@@ -9,6 +9,7 @@ import { fileMd5 } from '../utils/hash.js';
 import { resolve, basename } from 'path';
 import type { ProjectConfig } from '../schemas/project.js';
 import type { AnalyzeItem } from './pipeline.js';
+import { isStale, type SyncOptions } from './provenance.js';
 
 export function showVoiceoverAnalysis(db: MontaiDb, filename: string): boolean {
   let track = db
@@ -93,7 +94,7 @@ export function listVoiceovers(db: MontaiDb): void {
 export async function syncVoiceovers(
   db: MontaiDb,
   config: ProjectConfig,
-  options?: { reRun?: string; reRunAll?: boolean },
+  options?: SyncOptions,
 ): Promise<AnalyzeItem[]> {
   const voiceoverFiles = resolveVoiceoverFiles(config);
   if (voiceoverFiles.length === 0) {
@@ -150,7 +151,7 @@ export async function syncVoiceovers(
 
   let voiceoversToAnalyze;
 
-  if (options?.reRunAll) {
+  if (options?.all) {
     voiceoversToAnalyze = db
       .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
       .from(voiceovers)
@@ -159,14 +160,14 @@ export async function syncVoiceovers(
     for (const track of voiceoversToAnalyze) {
       db.delete(voiceoverAnalyses).where(eq(voiceoverAnalyses.voiceoverId, track.id)).run();
     }
-  } else if (options?.reRun) {
+  } else if (options?.file) {
     voiceoversToAnalyze = db
       .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
       .from(voiceovers)
-      .where(eq(voiceovers.filename, basename(options.reRun)))
+      .where(eq(voiceovers.filename, basename(options.file)))
       .all();
     if (voiceoversToAnalyze.length === 0) {
-      const resolvedPath = resolve(options.reRun);
+      const resolvedPath = resolve(options.file);
       voiceoversToAnalyze = db
         .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
         .from(voiceovers)
@@ -179,6 +180,23 @@ export async function syncVoiceovers(
     for (const track of voiceoversToAnalyze) {
       db.delete(voiceoverAnalyses).where(eq(voiceoverAnalyses.voiceoverId, track.id)).run();
     }
+  } else if (options?.stale) {
+    const signature = options.stale;
+    const rows = db
+      .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path, analysisId: voiceoverAnalyses.id, model: voiceoverAnalyses.model, promptHash: voiceoverAnalyses.promptHash })
+      .from(voiceovers)
+      .leftJoin(voiceoverAnalyses, eq(voiceovers.id, voiceoverAnalyses.voiceoverId))
+      .orderBy(asc(voiceovers.filename))
+      .all();
+    voiceoversToAnalyze = rows.filter((row) => row.analysisId === null || isStale(row, signature));
+    const stale = voiceoversToAnalyze.filter((row) => row.analysisId !== null);
+    if (stale.length > 0) {
+      const analyzed = rows.filter((row) => row.analysisId !== null).length;
+      console.log(chalk.yellow(`${stale.length} of ${analyzed} voiceover analyses are stale`));
+    }
+    for (const row of stale) {
+      db.delete(voiceoverAnalyses).where(eq(voiceoverAnalyses.voiceoverId, row.id)).run();
+    }
   } else {
     voiceoversToAnalyze = db
       .select({ id: voiceovers.id, filename: voiceovers.filename, path: voiceovers.path })
@@ -190,7 +208,7 @@ export async function syncVoiceovers(
   }
 
   if (voiceoversToAnalyze.length === 0) {
-    console.log(chalk.green(`All voiceover files already analyzed. Use ${chalk.bold('--re-run [filename]')} to re-analyze.`));
+    console.log(chalk.green(`All voiceover files already analyzed. Use ${chalk.bold('--refresh [filename]')} to re-analyze.`));
     return [];
   }
 

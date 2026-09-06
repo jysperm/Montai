@@ -29,6 +29,10 @@ export const videoAnalyses = sqliteTable('video_analyses', {
   segments: text('segments').notNull(), // JSON array
   highlights: text('highlights').notNull(), // JSON array
   technicalNotes: text('technical_notes'),
+  analyzedAt: text('analyzed_at'),
+  montaiVersion: text('montai_version'),
+  model: text('model'),
+  promptHash: text('prompt_hash'),
 });
 
 export const projectContext = sqliteTable('project_context', {
@@ -76,6 +80,10 @@ export const musicAnalyses = sqliteTable('music_analyses', {
   musicId: integer('music_id').notNull().references(() => music.id),
   overview: text('overview').notNull(),
   segments: text('segments').notNull(), // JSON array
+  analyzedAt: text('analyzed_at'),
+  montaiVersion: text('montai_version'),
+  model: text('model'),
+  promptHash: text('prompt_hash'),
 });
 
 export const voiceovers = sqliteTable('voiceovers', {
@@ -95,6 +103,10 @@ export const voiceoverAnalyses = sqliteTable('voiceover_analyses', {
   voiceoverId: integer('voiceover_id').notNull().references(() => voiceovers.id),
   transcription: text('transcription').notNull(), // JSON array
   overview: text('overview').notNull(),
+  analyzedAt: text('analyzed_at'),
+  montaiVersion: text('montai_version'),
+  model: text('model'),
+  promptHash: text('prompt_hash'),
 });
 
 export const sessions = sqliteTable('sessions', {

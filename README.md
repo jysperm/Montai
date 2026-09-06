@@ -110,7 +110,7 @@ FCPXML exported
 | Command | Description | See Also |
 |---------|-------------|---------|
 | `montai analyze` | Transcode, upload, and analyze videos, music, and voiceovers | [Analyze Media](MANUAL.md#analyze-media) |
-| `montai analyze --re-run [file]` | Re-analyze media file (omit for all) | [Analyze Media](MANUAL.md#analyze-media) |
+| `montai analyze --refresh [file]` | Re-analyze a file, or every out-of-date analysis when omitted | [Analyze Media](MANUAL.md#analyze-media) |
 | `montai analyze --list` | List media analysis status | [Analyze Media](MANUAL.md#analyze-media) |
 | `montai analyze --show <file>` | Show one stored media analysis | [Analyze Media](MANUAL.md#analyze-media) |
 | `montai project` | Show project overview and stats | [Project Overview](MANUAL.md#project-overview) |

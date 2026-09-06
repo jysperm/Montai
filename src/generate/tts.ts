@@ -6,6 +6,7 @@ import { basename, join, resolve } from 'path';
 import { eq } from 'drizzle-orm';
 import type { FileContent, Message } from '@mariozechner/pi-ai';
 import { getGeminiModel } from '../gemini/models.js';
+import { analysisSignature, provenanceFor, renderAnalysisPrompt } from '../analyzer/provenance.js';
 import createDebug from 'debug';
 import type { MontaiDb } from '../db/index.js';
 import { voiceovers, voiceoverAnalyses } from '../db/schema.js';
@@ -13,8 +14,6 @@ import { resolveVoiceLanguage, type ProjectConfig } from '../schemas/project.js'
 import { getAudioMetadata } from '../utils/ffprobe.js';
 import { callGeminiTts, geminiTtsSignature } from '../gemini/tts.js';
 import { uploadFileToGemini } from '../gemini/upload.js';
-import { renderPrompt } from '../prompts/index.js';
-import { readProjectFile } from '../utils/project.js';
 import { completeWithSchemaRetry } from '../analyzer/utils.js';
 import { VoiceoverAnalysisSchema } from '../schemas/analysis.js';
 
@@ -181,11 +180,10 @@ async function transcribeGeneratedVoiceover(
 ): Promise<typeof voiceoverAnalyses.$inferSelect> {
   const model = getGeminiModel(config.models.analysis);
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
-  const agentInstructions = readProjectFile('AGENTS.md');
 
   const uploaded = await uploadFileToGemini(path);
   const fileContent: FileContent = { type: 'file', uri: uploaded.fileUri, mimeType: 'audio/wav' };
-  const prompt = renderPrompt('analyze-voiceover', { language: config.language, agentInstructions: agentInstructions ?? null });
+  const prompt = renderAnalysisPrompt(config, 'voiceover');
   const messages: Message[] = [
     { role: 'user', content: [fileContent, { type: 'text', text: prompt }], timestamp: Date.now() },
   ];
@@ -204,6 +202,7 @@ async function transcribeGeneratedVoiceover(
   const fields = {
     overview: String(result.raw.overview ?? ''),
     transcription: JSON.stringify(result.raw.transcription ?? []),
+    ...provenanceFor(analysisSignature(config, 'voiceover', model.id)),
   };
 
   const existing = db.select().from(voiceoverAnalyses).where(eq(voiceoverAnalyses.voiceoverId, voiceoverId)).get();

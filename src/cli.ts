@@ -4,6 +4,7 @@ import { Command } from 'commander';
 import updateNotifier from 'update-notifier';
 import { loadGlobalEnv } from './utils/global-env.js';
 import { analyzeCommand } from './commands/analyze.js';
+import { montaiVersion } from './utils/version.js';
 import { storyCommand } from './commands/story.js';
 import { renderCommand } from './commands/render.js';
 import { previewCommand } from './commands/preview.js';
@@ -27,14 +28,7 @@ function printFullHelp(program: Command) {
         .join(' ');
       const usage = args ? `${cmd.name()} ${args}` : cmd.name();
       console.log(`${pad}${chalk.cyan(usage)}  ${cmd.description()}`);
-      for (let i = 0; i < cmd.options.length; i++) {
-        const opt = cmd.options[i];
-        const next = cmd.options[i + 1];
-        if (opt.long === '--re-run' && next && next.long === '--force') {
-          console.log(`${pad}  ${chalk.dim(`${opt.flags}, ${next.flags}`)}  ${opt.description}`);
-          i++;
-          continue;
-        }
+      for (const opt of cmd.options) {
         console.log(`${pad}  ${chalk.dim(opt.flags)}  ${opt.description}`);
       }
       const subs = cmd.commands.filter((c) => c.name() !== 'help');
@@ -65,7 +59,7 @@ const program = new Command();
 program
   .name('montai')
   .description('AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs')
-  .version(pkg.version)
+  .version(montaiVersion())
   .addHelpCommand(false)
   .helpOption(false);
 
@@ -74,8 +68,9 @@ program
   .description(
     'Transcode, upload and analyze videos'
   )
-  .option('--re-run [filename]', 'Re-analyze a specific file by filename, or all files when filename is omitted')
-  .option('-f, --force', 'Skip the confirmation prompt when re-running all files')
+  .option('--refresh [filename]', 'Re-analyze the named file, or every analysis whose model or prompt no longer matches the current one')
+  .option('--all', 'With --refresh, re-analyze everything rather than only outdated analyses')
+  .option('-f, --force', 'Skip the confirmation prompt for --refresh --all')
   .option('--show <filename>', 'Show the stored summary for a video or music file')
   .option('--list', 'List all videos and music files with analysis status')
   .action(analyzeCommand);

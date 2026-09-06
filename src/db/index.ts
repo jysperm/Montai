@@ -54,17 +54,20 @@ export async function initDb(dbPath = './montai.db') {
     // drizzle-kit may generate CREATE INDEX without IF NOT EXISTS after column renames
     statement = statement.replace(/^CREATE (UNIQUE )?INDEX (?!IF)/g, 'CREATE $1INDEX IF NOT EXISTS ');
 
-    try {
-      instance.run(sql.raw(statement));
-    } catch (err: any) {
-      // drizzle-kit bug: INSERT INTO __new_* SELECT may reference columns not yet in source table
-      const colMatch = err?.cause?.code === 'SQLITE_ERROR' && err?.cause?.message?.match(/no such column: "(\w+)"/);
-      const tableMatch = statement.match(/^INSERT INTO `__new_\w+`\(.+\)\s*SELECT\s+.+\s+FROM `(\w+)`/);
-      if (colMatch && tableMatch) {
-        instance.run(sql.raw(`ALTER TABLE \`${tableMatch[1]}\` ADD COLUMN \`${colMatch[1]}\``));
+    // drizzle-kit bug: INSERT INTO __new_* SELECT may reference columns not yet in
+    // source table. Each attempt reports only the first missing column, so retry
+    // until none are left — adding several columns at once needs more than one pass.
+    const added = new Set<string>();
+    for (;;) {
+      try {
         instance.run(sql.raw(statement));
-      } else {
-        throw err;
+        break;
+      } catch (err: any) {
+        const colMatch = err?.cause?.code === 'SQLITE_ERROR' && err?.cause?.message?.match(/no such column: "(\w+)"/);
+        const tableMatch = statement.match(/^INSERT INTO `__new_\w+`\(.+\)\s*SELECT\s+.+\s+FROM `(\w+)`/);
+        if (!colMatch || !tableMatch || added.has(colMatch[1])) throw err;
+        added.add(colMatch[1]);
+        instance.run(sql.raw(`ALTER TABLE \`${tableMatch[1]}\` ADD COLUMN \`${colMatch[1]}\``));
       }
     }
   }

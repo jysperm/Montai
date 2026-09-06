@@ -119,7 +119,7 @@ FCPXML exported
 | Command | Description | See Also |
 |---------|-------------|---------|
 | `montai analyze` | Transcode, upload, and analyze videos, music, and voiceovers | [Analyze Media](#analyze-media) |
-| `montai analyze --re-run [file]` | Re-analyze media file (omit for all) | [Analyze Media](#analyze-media) |
+| `montai analyze --refresh [file]` | Re-analyze a file, or every out-of-date analysis when omitted | [Analyze Media](#analyze-media) |
 | `montai analyze --list` | List media analysis status | [Analyze Media](#analyze-media) |
 | `montai analyze --show <file>` | Show one stored media analysis | [Analyze Media](#analyze-media) |
 | `montai project` | Show project overview and stats | [Project Overview](#project-overview) |
@@ -349,17 +349,26 @@ montai analyze --show ./footage/DJI_0001.MP4
 montai analyze --show narration.wav
 ```
 
-Or re-run analysis on a specific file:
+Or re-analyze a specific file, which always runs regardless of whether anything changed:
 
 ```bash
-montai analyze --re-run DJI_0001.MP4
+montai analyze --refresh DJI_0001.MP4
 ```
 
-Omit the filename to re-run analysis on all files:
+Omit the filename to re-analyze every asset whose stored analysis is out of date — one produced by a different `models.analysis`, or under a different analysis prompt (which `AGENTS.md` and `language` feed into). Assets that have never been analyzed are picked up too:
 
 ```bash
-montai analyze --re-run
+montai analyze --refresh
 ```
+
+Add `--all` to re-analyze everything rather than only the out-of-date ones. This re-runs the whole library at full cost, so it asks for confirmation first; `-f` skips the prompt:
+
+```bash
+montai analyze --refresh --all
+montai analyze --refresh --all -f
+```
+
+Each analysis records the model, the prompt hash, the Montai version and a timestamp, which is what makes "out of date" answerable. Montai's version is recorded for traceability but deliberately does not mark anything stale — most releases don't touch analysis.
 
 ### Project Overview
 
