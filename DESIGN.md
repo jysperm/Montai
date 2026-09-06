@@ -168,7 +168,7 @@ Uses an agent loop with tools:
 - `generateVoiceover(text, gender?)` — Synthesize narration audio via TTS, transcribe it in place, and return a voiceoverId for use in voiceover items (see AI Voiceover Generation)
 - `listStories()` / `switchStory(name, new?)` — List and switch the active story when `multiStory` is enabled
 
-`watchSegment`, `previewFrame`, and `previewFinalVideo` share a single 10-per-turn media budget (Gemini's per-request file-ref limit).
+`watchSegment`, `previewFrame`, and `previewFinalVideo` share a single 10-per-turn media budget (Gemini's per-request file-ref limit). `turn_start` fires before every LLM request rather than once per user message, so the counter resets for each new assistant message and the budget is a batch size: the agent can watch 10 segments, summarize them, and watch 10 more. `limitVideoFilesInContext` keeps only the 10 newest file refs across the whole conversation, replacing older ones with a placeholder — since a batch is evicted only after the agent has already seen it, the two limits line up and nothing is dropped unseen.
 
 #### Preview implementation (previewFrame / previewFinalVideo)
 

@@ -263,7 +263,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const watchSegmentTool = {
     name: 'watchSegment',
     label: 'Watch Segment',
-    description: `Watch a specific segment of a SOURCE video. startTime and endTime use MM:SS or MM:SS.s timestamps matching the video analysis. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Watch a specific segment of a SOURCE video. startTime and endTime use MM:SS or MM:SS.s timestamps matching the video analysis. At most ${MAX_MEDIA_PER_TURN} media items per turn, shared across watchSegment, previewFrame and previewFinalVideo; the count resets for each new assistant message.`,
     parameters: Type.Object({
       videoId: Type.Number({ description: 'The video ID' }),
       startTime: Type.String({ description: 'Segment start timestamp' }),
@@ -276,7 +276,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
+        throw new Error(`Error: this turn already has ${MAX_MEDIA_PER_TURN} media items (shared across watchSegment, previewFrame and previewFinalVideo). The count resets for your next assistant message.`);
       }
 
       const video = ctx.allVideos.find((v) => v.id === params.videoId);
@@ -331,7 +331,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const previewFrameTool = {
     name: 'previewFrame',
     label: 'Preview Frame',
-    description: `Render a single frame of the CURRENT EDITED timeline (with crop, rotation, overlays, and other post effects applied) and view it as an image. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Render a single frame of the CURRENT EDITED timeline (with crop, rotation, overlays, and other post effects applied) and view it as an image. At most ${MAX_MEDIA_PER_TURN} media items per turn, shared across watchSegment, previewFrame and previewFinalVideo; the count resets for each new assistant message.`,
     parameters: Type.Object({
       clipIndex: Type.Number({ description: '0-based clip index in the current timeline.' }),
       timeOffset: Type.Number({ description: 'Seconds within the clip. >= 0 = from clip start, < 0 = from clip end (same convention as overlay startOffset).' }),
@@ -342,7 +342,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
+        throw new Error(`Error: this turn already has ${MAX_MEDIA_PER_TURN} media items (shared across watchSegment, previewFrame and previewFinalVideo). The count resets for your next assistant message.`);
       }
 
       const loaded = loadCurrentResolved();
@@ -389,7 +389,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   const previewFinalVideoTool = {
     name: 'previewFinalVideo',
     label: 'Preview Final Video',
-    description: `Render a time range of the CURRENT EDITED timeline as a video and view the final composition. Defaults to the whole timeline at 1fps. Counts against the ${MAX_MEDIA_PER_TURN} media-per-turn budget.`,
+    description: `Render a time range of the CURRENT EDITED timeline as a video and view the final composition. Defaults to the whole timeline at 1fps. At most ${MAX_MEDIA_PER_TURN} media items per turn, shared across watchSegment, previewFrame and previewFinalVideo; the count resets for each new assistant message.`,
     parameters: Type.Object({
       startSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline start, in seconds (default 0).' })),
       endSeconds: Type.Optional(Type.Number({ description: 'Absolute timeline end, in seconds (default = end of timeline).' })),
@@ -401,7 +401,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     ) {
       mediaCountThisTurn++;
       if (mediaCountThisTurn > MAX_MEDIA_PER_TURN) {
-        throw new Error(`Error: already injected ${MAX_MEDIA_PER_TURN} media items this turn (shared budget across watchSegment, previewFrame, previewFinalVideo). Wait for the next turn.`);
+        throw new Error(`Error: this turn already has ${MAX_MEDIA_PER_TURN} media items (shared across watchSegment, previewFrame and previewFinalVideo). The count resets for your next assistant message.`);
       }
 
       const loaded = loadCurrentResolved();

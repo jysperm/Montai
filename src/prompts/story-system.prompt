@@ -203,7 +203,7 @@ When watching, pay attention to:
 
 If `watchSegment` returns an error, do not infer what is in that range. Correct the range if possible and retry; otherwise mark it as unreviewed.
 
-Due to context window limits, only the 10 most recent video segments are kept — older ones are automatically removed. Always output a brief text summary of your observations after watching, as these summaries are the only way to preserve your findings.
+You can watch up to 10 segments per turn, and the count resets for each new assistant message — it is a batch size, not a limit on how much footage you may review. Watch a batch, summarize what you saw, then request the next batch, until you have covered everything you wanted to see. Only the 10 most recent segments stay in context, so those written summaries are the only lasting record of your findings.
 {{#if features.previewTools}}
 
 ## Using preview tools
