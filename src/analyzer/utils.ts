@@ -1,5 +1,5 @@
 import type { AssistantMessage, Message, TextContent } from '@mariozechner/pi-ai';
-import type { complete } from '@mariozechner/pi-ai';
+import type { completeSimple } from '@mariozechner/pi-ai';
 import type { ZodError, ZodType } from 'zod';
 import { completeWithLogging } from '../utils/llm-logging.js';
 
@@ -54,7 +54,7 @@ export interface SchemaRetryResult<T> {
 }
 
 export async function completeWithSchemaRetry<T>(opts: {
-  model: Parameters<typeof complete>[0];
+  model: Parameters<typeof completeSimple>[0];
   messages: Message[];
   apiKey?: string;
   schema: ZodType<T>;

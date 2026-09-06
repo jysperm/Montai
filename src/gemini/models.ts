@@ -30,7 +30,6 @@ function geminiModel(id: string, name: string, cost: Omit<Model<GeminiApi>['cost
     baseUrl: 'https://generativelanguage.googleapis.com/v1beta',
     reasoning: true,
     input: ['text', 'image'],
-    // The Gemini Developer API bills implicit caching on read only.
     cost: { ...cost, cacheWrite: 0 },
     contextWindow: 1048576,
     maxTokens: 65536,

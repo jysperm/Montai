@@ -1,5 +1,5 @@
 import createDebug from 'debug';
-import { complete as piComplete } from '@mariozechner/pi-ai';
+import { completeSimple } from '@mariozechner/pi-ai';
 import type { AssistantMessage, Message, UserMessage, TextContent, ImageContent, FileContent } from '@mariozechner/pi-ai';
 
 const debugAgent = createDebug('montai:agent');
@@ -153,15 +153,15 @@ export function logToolCall(toolName: string, args: Record<string, unknown>, res
 }
 
 /**
- * Wrapper around `complete()` that adds logging.
+ * Wrapper around `completeSimple()` that adds logging.
  */
 export async function completeWithLogging(
-  ...args: Parameters<typeof piComplete>
-): ReturnType<typeof piComplete> {
+  ...args: Parameters<typeof completeSimple>
+): ReturnType<typeof completeSimple> {
   const [, context] = args;
   logRequest(context.messages, context.systemPrompt);
   const t0 = Date.now();
-  const result = await piComplete(...args);
+  const result = await completeSimple(...args);
   logStep({ model: result.model, usage: result.usage, durationMs: Date.now() - t0 });
   logResponse(result);
   return result;

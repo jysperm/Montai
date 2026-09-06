@@ -397,13 +397,18 @@ Audio lane assignment in FCPXML reuses lanes for non-overlapping music groups an
 
 ## Gemini Integration
 
-Uses Gemini 3 models (default `gemini-3.8-flash`) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
+Uses Gemini 3 models (default `gemini-3.8-flash`) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (both patched via patch-package).
 
-- **pi-ai**: Unified LLM abstraction, patched to support `FileContent` type for Gemini File API references (`fileData` + `videoMetadata`)
+- **pi-ai**: Unified LLM abstraction, patched for the `FileContent` type carrying Gemini File API references (`fileData` + `videoMetadata`), for reporting Gemini's raw `finishReason` on errors, and for three things its `streamSimple` layer otherwise gets wrong for Montai: dropping `toolChoice`, forcing a thinking level, and clamping output tokens to 32000
 - **pi-agent-core**: Agent loop orchestration for the `story` command, with tool execution and automatic conversation management
 - **@google/genai**: Used directly for File API upload/polling only
 
 pi-ai's bundled model registry trails Google's releases by months, so `src/gemini/models.ts` holds Montai's own descriptors for the models it accepts and `getGeminiModel()` resolves them, keeping new Gemini releases out of the patch.
+
+Both LLM entry points go through pi-ai's normalized layer — `completeSimple()` for `analyze`, `streamSimple()` (as the agent's `streamFn`) for `story` — so a future provider is a pi-ai provider rather than a branch in Montai. Two of that layer's defaults are patched out:
+
+- **Thinking level**: with no level requested it asked for the lowest level a model accepts — `MINIMAL` for a Gemini 3 Flash, which `gemini-3.8-flash` rejects with a 400. The patch sends no `thinkingConfig` at all instead, leaving each model at its own default. Setting `Agent.state.thinkingLevel` still selects a level through pi-ai's normal mapping.
+- **Output cap**: it clamped `maxOutputTokens` to 32000. The patch uses the model's documented limit (65536 for every model in the table).
 
 ### Video Processing
 

@@ -99,7 +99,7 @@ index 1bc51fa..a7eb28d 100644
      }
      return contents;
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/google.js b/node_modules/@mariozechner/pi-ai/dist/providers/google.js
-index ffbd238..2ab4709 100644
+index ffbd238..16b3e6a 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/google.js
 +++ b/node_modules/@mariozechner/pi-ai/dist/providers/google.js
 @@ -152,6 +152,12 @@ export const streamGoogle = (model, context, options) => {
@@ -126,7 +126,7 @@ index ffbd238..2ab4709 100644
              }
              stream.push({ type: "done", reason: output.stopReason, message: output });
              stream.end();
-@@ -218,7 +226,12 @@ export const streamSimpleGoogle = (model, context, options) => {
+@@ -218,9 +226,15 @@ export const streamSimpleGoogle = (model, context, options) => {
      if (!apiKey) {
          throw new Error(`No API key for provider: ${model.provider}`);
      }
@@ -138,8 +138,12 @@ index ffbd238..2ab4709 100644
 +        toolChoice: options?.toolChoice,
 +    };
      if (!options?.reasoning) {
-         return streamGoogle(model, context, { ...base, thinking: { enabled: false } });
+-        return streamGoogle(model, context, { ...base, thinking: { enabled: false } });
++        // Sending no thinkingConfig leaves the model at its own default; "disabled" thinking would instead ask a Gemini 3 Flash for MINIMAL, which gemini-3.8-flash rejects.
++        return streamGoogle(model, context, base);
      }
+     const effort = clampReasoning(options.reasoning);
+     const googleModel = model;
 diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js b/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
 index fdc4439..8510672 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/providers/openai-completions.js
@@ -166,6 +170,19 @@ index 3081455..183e6a5 100644
                      if (item.type === "text") {
                          return {
                              type: "input_text",
+diff --git a/node_modules/@mariozechner/pi-ai/dist/providers/simple-options.js b/node_modules/@mariozechner/pi-ai/dist/providers/simple-options.js
+index d69e2b6..8002819 100644
+--- a/node_modules/@mariozechner/pi-ai/dist/providers/simple-options.js
++++ b/node_modules/@mariozechner/pi-ai/dist/providers/simple-options.js
+@@ -1,7 +1,7 @@
+ export function buildBaseOptions(model, options, apiKey) {
+     return {
+         temperature: options?.temperature,
+-        maxTokens: options?.maxTokens ?? (model.maxTokens > 0 ? Math.min(model.maxTokens, 32000) : undefined),
++        maxTokens: options?.maxTokens ?? (model.maxTokens > 0 ? model.maxTokens : undefined),
+         signal: options?.signal,
+         apiKey: apiKey || options?.apiKey,
+         cacheRetention: options?.cacheRetention,
 diff --git a/node_modules/@mariozechner/pi-ai/dist/types.d.ts b/node_modules/@mariozechner/pi-ai/dist/types.d.ts
 index df45596..0b1ae15 100644
 --- a/node_modules/@mariozechner/pi-ai/dist/types.d.ts

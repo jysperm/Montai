@@ -11,7 +11,7 @@ import { uploadFileToGemini } from '../gemini/upload.js';
 import { transcodeForUpload } from '../utils/transcode.js';
 import { analysisSignature, provenanceFor, renderAnalysisPrompt, type AnalysisProvenance } from './provenance.js';
 import { formatFileSize } from '../utils/format.js';
-import { complete, type FileContent, type Message } from '@mariozechner/pi-ai';
+import { type completeSimple, type FileContent, type Message } from '@mariozechner/pi-ai';
 import type { ProjectConfig } from '../schemas/project.js';
 import { AsyncQueue, completeWithSchemaRetry, formatDuration, formatCost } from './utils.js';
 import { VideoAnalysisSchema, MusicAnalysisSchema, VoiceoverAnalysisSchema } from '../schemas/analysis.js';
@@ -126,7 +126,7 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
 export async function runAnalysisPipeline(
   db: MontaiDb,
   config: ProjectConfig,
-  model: Parameters<typeof complete>[0],
+  model: Parameters<typeof completeSimple>[0],
   items: AnalyzeItem[],
 ): Promise<{ totalCost: number }> {
   if (items.length === 0) return { totalCost: 0 };
