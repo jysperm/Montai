@@ -8,7 +8,8 @@
 
 import { describe, it, expect } from 'vitest';
 import { Agent } from '@mariozechner/pi-agent-core';
-import { getModel, type FileContent, type TextContent } from '@mariozechner/pi-ai';
+import type { FileContent, TextContent } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../../src/gemini/models.js';
 import { Type } from 'typebox';
 import { GoogleGenAI } from '@google/genai';
 
@@ -35,7 +36,7 @@ describe.skip('video FileContent in agent context', () => {
   it('model can describe video content returned by a tool', async () => {
     const fileUri = await uploadVideo(VIDEO_PATH);
 
-    const model = getModel('google', 'gemini-3.5-flash' as Parameters<typeof getModel>[1]);
+    const model = getGeminiModel('gemini-3.8-flash');
 
     const watchTool = {
       name: 'watch_video',

@@ -5,7 +5,8 @@ import { parse } from 'path';
 import { fileURLToPath } from 'url';
 import { eq, desc, and } from 'drizzle-orm';
 import { Agent } from '@mariozechner/pi-agent-core';
-import { getModel, type AssistantMessage, type Message } from '@mariozechner/pi-ai';
+import type { AssistantMessage, Message } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../gemini/models.js';
 import type { MontaiDb } from '../db/index.js';
 import { stories, sessions, sessionMessages, storyMarks } from '../db/schema.js';
 import { loadResolvedTimelines } from '../utils/project.js';
@@ -163,7 +164,7 @@ export class StoryAgent {
   }
 
   private setupAgent() {
-    const model = getModel('google', this.config.models.editing as Parameters<typeof getModel>[1]);
+    const model = getGeminiModel(this.config.models.editing);
 
     this.agent = new Agent({
       initialState: {

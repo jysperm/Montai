@@ -34,8 +34,8 @@ export const OutputSchema = z.object({
 });
 
 export const ModelsSchema = z.object({
-  analysis: z.string().default('gemini-3.5-flash'),
-  editing: z.string().default('gemini-3.5-flash'),
+  analysis: z.string().default('gemini-3.8-flash'),
+  editing: z.string().default('gemini-3.8-flash'),
   // The old model names (`lyria-002`, `gemini-2.5-flash-tts`) are silently mapped
   // to their current equivalents so existing project files keep working.
   musicGeneration: z.enum(['lyria-3-clip-preview', 'lyria-002'])

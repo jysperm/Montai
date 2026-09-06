@@ -24,8 +24,8 @@ output:
   resolution: 1080p
   fps: 50
 models:
-  analysis: gemini-3.5-flash
-  editing: gemini-3.5-flash
+  analysis: gemini-3.8-flash
+  editing: gemini-3.8-flash
 effects:
   languages: [zh, en]
 `;

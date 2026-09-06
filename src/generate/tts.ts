@@ -4,7 +4,8 @@ import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, w
 import { tmpdir } from 'os';
 import { basename, join, resolve } from 'path';
 import { eq } from 'drizzle-orm';
-import { getModel, type FileContent, type Message } from '@mariozechner/pi-ai';
+import type { FileContent, Message } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../gemini/models.js';
 import createDebug from 'debug';
 import type { MontaiDb } from '../db/index.js';
 import { voiceovers, voiceoverAnalyses } from '../db/schema.js';
@@ -178,7 +179,7 @@ async function transcribeGeneratedVoiceover(
   voiceoverId: number,
   path: string,
 ): Promise<typeof voiceoverAnalyses.$inferSelect> {
-  const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
+  const model = getGeminiModel(config.models.analysis);
   const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
   const agentInstructions = readProjectFile('AGENTS.md');
 

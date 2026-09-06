@@ -32,8 +32,8 @@ output:
   resolution: 1080p             # landscape 720p|1080p|1440p|2160p|4k; vertical 720v|1080v|1440v; square 720s|1080s|1440s
   fps: 50
 models:
-  analysis: gemini-3.5-flash             # Per-video analysis
-  editing: gemini-3.5-flash              # Story agent loop
+  analysis: gemini-3.8-flash             # Per-video analysis
+  editing: gemini-3.8-flash              # Story agent loop
   musicGeneration: lyria-3-clip-preview      # Optional: enables AI music generation
   voiceoverGeneration: gemini-2.5-flash-preview-tts  # Optional: enables AI (TTS) voiceover — gemini-2.5-flash-preview-tts | system
 effects:
@@ -383,11 +383,13 @@ Audio lane assignment in FCPXML reuses lanes for non-overlapping music groups an
 
 ## Gemini Integration
 
-Uses Gemini 3 models (default `gemini-3.5-flash`) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support and local model registry updates when needed).
+Uses Gemini 3 models (default `gemini-3.8-flash`) via `@mariozechner/pi-ai` and `@mariozechner/pi-agent-core` (with patch-package for FileContent support).
 
 - **pi-ai**: Unified LLM abstraction, patched to support `FileContent` type for Gemini File API references (`fileData` + `videoMetadata`)
 - **pi-agent-core**: Agent loop orchestration for the `story` command, with tool execution and automatic conversation management
 - **@google/genai**: Used directly for File API upload/polling only
+
+pi-ai's bundled model registry trails Google's releases by months, so `src/gemini/models.ts` holds Montai's own descriptors for the models it accepts and `getGeminiModel()` resolves them, keeping new Gemini releases out of the patch.
 
 ### Video Processing
 
@@ -408,8 +410,8 @@ Configurable per-stage via `models` in `montai.yaml`.
 
 | Stage | Video Input | Default | Supported Models |
 |-------|------------|---------|-----------------|
-| analysis | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
-| editing | Yes | gemini-3.5-flash | gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
+| analysis | Yes | gemini-3.8-flash | gemini-3.8-flash, gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
+| editing | Yes | gemini-3.8-flash | gemini-3.8-flash, gemini-3.5-flash, gemini-3-flash-preview, gemini-3.1-pro-preview |
 | musicGeneration | No | N/A | lyria-3-clip-preview |
 | voiceoverGeneration | No | N/A | gemini-2.5-flash-preview-tts, system |
 

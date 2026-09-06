@@ -10,7 +10,8 @@
 import { dirname, resolve } from 'path';
 import { fileURLToPath } from 'url';
 import { describe, it, expect } from 'vitest';
-import { getModel, complete, type FileContent, type TextContent, type Message } from '@mariozechner/pi-ai';
+import { complete, type FileContent, type TextContent, type Message } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../../src/gemini/models.js';
 import { GoogleGenAI } from '@google/genai';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -38,7 +39,7 @@ describe.skip('audio FileContent analysis via pi-ai complete()', () => {
   it('Gemini can analyze music mood and structure from audio file', async () => {
     const fileUri = await uploadAudio(AUDIO_PATH);
 
-    const model = getModel('google', 'gemini-3.5-flash' as Parameters<typeof getModel>[1]);
+    const model = getGeminiModel('gemini-3.8-flash');
     const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
 
     const fileContent: FileContent = {

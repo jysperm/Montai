@@ -7,7 +7,7 @@ import { initDb } from '../db/index.js';
 import { videos, videoAnalyses, music, voiceovers, stories, projectContext } from '../db/schema.js';
 import { loadProjectConfig, readProjectFile } from '../utils/project.js';
 import { renderPrompt } from '../prompts/index.js';
-import { getModel } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../gemini/models.js';
 import { assertComplete, getTextContent } from '../analyzer/utils.js';
 import { completeWithLogging } from '../utils/llm-logging.js';
 import { formatDuration, formatTimeAgo, formatFileSize, formatStoryLine } from '../utils/format.js';
@@ -87,7 +87,7 @@ export async function projectCommand(_options: Record<string, never> = {}) {
       console.log(chalk.yellow(`No video analyses yet — run ${chalk.bold('montai analyze')} to generate overview.`));
     } else {
       const prompt = renderPrompt('project-overview', { agentInstructions: agentInstructions ?? null, videoAnalyses: allAnalyses, language: config.language });
-      const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
+      const model = getGeminiModel(config.models.analysis);
       const apiKey = process.env.GEMINI_API_KEY ?? process.env.GOOGLE_GENERATIVE_AI_API_KEY;
       const spinner = ora('Generating overview...').start();
 

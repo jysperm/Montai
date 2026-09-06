@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import * as readline from 'readline';
 import { initDb, type MontaiDb } from '../db/index.js';
 import { ensureProjectConfig, loadProjectConfig } from '../utils/project.js';
-import { getModel } from '@mariozechner/pi-ai';
+import { getGeminiModel } from '../gemini/models.js';
 import { syncVideos, showVideoAnalysis, listVideos } from '../analyzer/video.js';
 import { syncMusic, showMusicAnalysis, listMusic } from '../analyzer/music.js';
 import { syncVoiceovers, showVoiceoverAnalysis, listVoiceovers } from '../analyzer/voiceover.js';
@@ -59,7 +59,7 @@ export async function analyzeCommand(options: { reRun?: string | boolean; force?
     reRunFile = options.reRun;
   }
 
-  const model = getModel('google', config.models.analysis as Parameters<typeof getModel>[1]);
+  const model = getGeminiModel(config.models.analysis);
 
   // Discover and register all media types, then run them through one shared pipeline.
   const items = [

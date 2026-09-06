@@ -16,7 +16,7 @@ function createContext(db: MontaiDb, videoId: number, storyName: string): StoryT
       assets: { videos: ['.'], music: [], voiceover: [] },
       language: 'en',
       output: { resolution: '720p', fps: 10 },
-      models: { analysis: 'gemini-3.5-flash', editing: 'gemini-3.5-flash' },
+      models: { analysis: 'gemini-3.8-flash', editing: 'gemini-3.8-flash' },
       effects: { languages: ['en'] },
       featureFlags: {},
     },

@@ -79,8 +79,8 @@ output:
   resolution: 1080p
   fps: 50
 models:
-  analysis: gemini-3.5-flash
-  editing: gemini-3.5-flash
+  analysis: gemini-3.8-flash
+  editing: gemini-3.8-flash
   musicGeneration: lyria-3-clip-preview # Optional but recommended
 ```
 
@@ -191,11 +191,11 @@ output:
   fps: 50
 models:
   # Used by `montai analyze` and `montai project`.
-  # Default: gemini-3.5-flash.
-  analysis: gemini-3.5-flash
+  # Default: gemini-3.8-flash.
+  analysis: gemini-3.8-flash
   # Used by `montai story`.
-  # Default: gemini-3.5-flash.
-  editing: gemini-3.5-flash
+  # Default: gemini-3.8-flash.
+  editing: gemini-3.8-flash
   # Optional: specify a model to enable AI music generation.
   # Accepted only: lyria-3-clip-preview.
   musicGeneration: lyria-3-clip-preview
@@ -255,7 +255,8 @@ If `montai.yaml` is missing, `montai analyze` can create a minimal default confi
 
 | Model | Notes |
 |-------|-------|
-| `gemini-3.5-flash` | Default and recommended, the best balance of quality, speed, and cost. |
+| `gemini-3.8-flash` | Default and recommended, the best balance of quality, speed, and cost. |
+| `gemini-3.5-flash` | The previous default. Superseded by `gemini-3.8-flash`, which is both cheaper and newer. |
 | `gemini-3-flash-preview` | A cheaper option. |
 | `gemini-3.1-pro-preview` | Much more expensive, with only a small gain in quality. |
 
@@ -388,7 +389,7 @@ Music
 
 Settings
   Output: 1080p 50fps
-  Models: analysis=gemini-3.5-flash, editing=gemini-3.5-flash
+  Models: analysis=gemini-3.8-flash, editing=gemini-3.8-flash
   Language: en, effects: en
 ```
 
