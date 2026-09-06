@@ -25,7 +25,7 @@ import { exportFcpxmlFiles } from '../commands/export.js';
 import { preparePublicDir, collectMediaFiles, writeTimelinesJson } from '../remotion/public-dir.js';
 import { StoryInput, formatUserInput, formatAssistantText, printToolCall, selectMarkInteractive, type SlashCommands } from './story-ui.js';
 import type { ProjectConfig } from '../schemas/project.js';
-import { resolveResolution, sequenceShape, resolveVoiceLanguage } from '../schemas/project.js';
+import { resolveResolution, sequenceShape } from '../schemas/project.js';
 import type { FeatureFlags } from '../feature-flags.js';
 import { formatSkillInstruction, loadedSkillNames, type Skill } from '../skills.js';
 
@@ -171,14 +171,12 @@ export class StoryAgent {
         systemPrompt: renderPrompt('story-system', {
           language: this.config.language,
           overlayLanguages: this.config.effects.languages,
-          voiceLanguage: resolveVoiceLanguage(this.config),
           agentInstructions: this.agentInstructions ?? null,
           features: this.features,
           skills: this.skills,
           ...(() => {
             const { width, height } = resolveResolution(this.config.output.resolution);
-            const shape = sequenceShape(width, height);
-            return { outputShape: shape, isLandscape: shape === 'landscape' };
+            return { outputShape: sequenceShape(width, height) };
           })(),
         }),
         model,
