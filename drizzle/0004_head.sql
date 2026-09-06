@@ -1,0 +1,1 @@
+ALTER TABLE `video_analyses` DROP COLUMN `highlights`;

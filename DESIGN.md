@@ -18,6 +18,8 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 
 Earlier versions had separate `storyline` and `edit` commands — `storyline` generated a narrative in a single LLM call, and `edit` ran a non-interactive agent loop to produce a timeline from that storyline. These were replaced by the unified interactive `story` command which handles both storyline and timeline in a single conversational session.
 
+Video analysis also returned a `highlights` array marking the most noteworthy moments. Since each video is analyzed on its own, highlights could only be ranked within a video, so every video got a comparable share of them regardless of how good its footage was, and the story agent treated them as the candidate pool instead of surveying the footage itself. It was removed — the agent watches segments broadly and picks its own.
+
 ## Project Configuration
 
 Users create a `montai.yaml` in their project directory:
@@ -111,7 +113,7 @@ SQLite database (`montai.db`) in the project directory. Schema defined with Driz
 ### Tables
 
 - **videos** — Discovered video files (whether analyzed is determined by joining video_analyses)
-- **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, highlights, technicalNotes), plus the provenance columns below
+- **video_analyses** — Per-video LLM analysis results, fields flattened as columns (overview, location, timeOfDay, segments, technicalNotes), plus the provenance columns below
 - **music** — Music files: both user-provided library tracks and AI-generated tracks. `type` column distinguishes 'library' (user-provided, analyzed by Gemini) from 'generated' (created via Lyria 3, `generationPrompt` stores the prompt). Shared ID space — `musicId` in timeline items references both types.
 - **music_analyses** — Per-music LLM analysis results (overview, segments JSON), plus the provenance columns below
 - **project_context** — Cached AI-generated project overview (`overview`) synthesizing all video analyses and the project's `AGENTS.md`, viewable via `montai project`. Auto-invalidated (`overview_stale`) when video analyses change, and on hash mismatch (`agents_hash`) when `AGENTS.md` changes.

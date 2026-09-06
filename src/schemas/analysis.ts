@@ -23,13 +23,6 @@ export const VideoAnalysisSchema = z.object({
   location: z.string().optional(),
   timeOfDay: z.string().optional(),
   segments: z.array(VideoSegmentSchema),
-  highlights: z.array(
-    z.object({
-      startTime: TimestampSchema,
-      endTime: TimestampSchema,
-      reason: z.string(),
-    })
-  ),
   technicalNotes: z.string().optional(),
 });
 

@@ -29,7 +29,6 @@ export const videoAnalyses = sqliteTable('video_analyses', {
   location: text('location'),
   timeOfDay: text('time_of_day'),
   segments: text('segments').notNull(), // JSON array
-  highlights: text('highlights').notNull(), // JSON array
   technicalNotes: text('technical_notes'),
   analyzedAt: text('analyzed_at'),
   montaiVersion: text('montai_version'),

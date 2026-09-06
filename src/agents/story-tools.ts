@@ -480,7 +480,6 @@ export function getStoryTools(ctx: StoryToolsContext) {
               location: analysis.location,
               timeOfDay: analysis.timeOfDay,
               segments: JSON.parse(analysis.segments),
-              highlights: JSON.parse(analysis.highlights),
               technicalNotes: analysis.technicalNotes,
             } satisfies VideoAnalysisData).trim()}`
           : `No analysis found for video ${params.videoId}`,

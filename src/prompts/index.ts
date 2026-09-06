@@ -46,7 +46,6 @@ export interface VideoAnalysisData {
   location?: string | null;
   timeOfDay?: string | null;
   segments: { startTime: string; endTime: string; description: string; qualityNotes?: string; speechContent?: string }[];
-  highlights: { startTime: string; endTime: string; reason: string }[];
   technicalNotes?: string | null;
 }
 

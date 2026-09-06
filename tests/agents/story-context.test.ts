@@ -10,7 +10,6 @@ describe('story context prompt', () => {
         duration: '02:05',
         overview: 'A clip.',
         segments: [{ startTime: '00:10', endTime: '00:20', description: 'A usable moment.' }],
-        highlights: [{ startTime: '00:12', endTime: '00:15', reason: 'Strong visual.' }],
       }],
       summaryVideoAnalyses: [{
         videoId: 2,
@@ -59,8 +58,6 @@ describe('story context prompt', () => {
       Overview: A clip.
       Segments:
       - 00:10-00:20: A usable moment.
-      Highlights:
-      - 00:12-00:15: Strong visual.
 
       ### Other Videos (summary only)
 

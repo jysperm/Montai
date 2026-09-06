@@ -388,7 +388,7 @@ Stories
   chiang-mai-flower-festival  Chiang Mai Flower Festival  [1m18s, 18 clips, 6 overlays]  2 hours ago
 
 Videos
-  34 files, 1h 12m, 28.4 GB, 18% highlights
+  34 files, 1h 12m, 28.4 GB
   28× 4K 50p HDR
    6× 1080p 50p
 

@@ -90,7 +90,6 @@ export async function storyCommand(
       location: s.location,
       timeOfDay: s.timeOfDay,
       segments: JSON.parse(s.segments),
-      highlights: JSON.parse(s.highlights),
       technicalNotes: s.technicalNotes,
     };
   });

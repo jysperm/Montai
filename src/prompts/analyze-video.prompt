@@ -18,13 +18,6 @@ Return a JSON object with this exact structure:
       "speechContent": "Speech content or notable ambient sound. If only one or two short lines are spoken, include them directly; if there is more speech, summarize the main topic or meaning in one or two concise sentences. Empty string if none."
     }
   ],
-  "highlights": [
-    {
-      "startTime": "MM:SS",
-      "endTime": "MM:SS",
-      "reason": "Why this moment is noteworthy"
-    }
-  ],
   "technicalNotes": "Any notable technical issues affecting the entire video"
 }
 
@@ -39,7 +32,7 @@ Rules:
 - Write only in the specified language. Do not add translations or annotations in other languages.
 - technicalNotes is strictly for technical issues. Do not include subjective impressions.
 
-Be precise with timestamps. Identify all distinct segments, even brief ones. Mark highlights that would make good cuts for an edited vlog.
+Be precise with timestamps. Identify all distinct segments, even brief ones.
 {{#if agentInstructions}}
 
 The following are instructions and knowledge provided by the user about this project. Use them to inform your analysis.

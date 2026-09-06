@@ -75,14 +75,6 @@ export function showVideoAnalysis(db: MontaiDb, filename: string): boolean {
     }
   }
 
-  const highlights = JSON.parse(analysis.highlights) as Array<Record<string, string>>;
-  if (highlights.length > 0) {
-    console.log(`\n${chalk.bold('Highlights')}`);
-    for (const hl of highlights) {
-      console.log(chalk.green(`  ${hl.startTime}–${hl.endTime}`) + `  ${hl.reason}`);
-    }
-  }
-
   if (analysis.technicalNotes) {
     console.log(`\n${chalk.bold('Technical Notes')}`);
     console.log(`  ${analysis.technicalNotes}`);
@@ -122,18 +114,6 @@ export function listVideos(db: MontaiDb): void {
     const tags: string[] = [];
 
     if (analysis.timeOfDay) tags.push(analysis.timeOfDay);
-
-    if (video.durationSeconds) {
-      const highlights = JSON.parse(analysis.highlights) as Array<{ startTime: string; endTime: string }>;
-      if (highlights.length > 0) {
-        let highlightSeconds = 0;
-        for (const hl of highlights) {
-          highlightSeconds += parseTimeToSeconds(hl.endTime) - parseTimeToSeconds(hl.startTime);
-        }
-        const pct = Math.round((highlightSeconds / video.durationSeconds) * 100);
-        tags.push(`highlights: ${pct}%`);
-      }
-    }
 
     if (tags.length > 0) {
       console.log(`   ${tags.join(chalk.dim(' | '))}`);

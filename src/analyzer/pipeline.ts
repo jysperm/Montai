@@ -75,7 +75,6 @@ const handlers: Record<AnalyzeKind, KindHandler> = {
         location: parsed.location ? String(parsed.location) : null,
         timeOfDay: parsed.timeOfDay ? String(parsed.timeOfDay) : null,
         segments: JSON.stringify(parsed.segments ?? []),
-        highlights: JSON.stringify(parsed.highlights ?? []),
         technicalNotes: parsed.technicalNotes ? String(parsed.technicalNotes) : null,
         ...provenance,
       };

@@ -17,12 +17,6 @@ Segments:
 {{/if}}
 {{/each}}
 {{/if}}
-{{#if highlights}}
-Highlights:
-{{#each highlights}}
-- {{this.startTime}}-{{this.endTime}}: {{this.reason}}
-{{/each}}
-{{/if}}
 {{#if technicalNotes}}
 Technical: {{{technicalNotes}}}
 {{/if}}
