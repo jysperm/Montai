@@ -1,5 +1,7 @@
 import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
+// Changing this file needs a migration: run `npm run db:generate`, which writes one to `drizzle/`.
+
 export const videos = sqliteTable('videos', {
   id: integer('id').primaryKey({ autoIncrement: true }),
   filename: text('filename').notNull(),

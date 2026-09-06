@@ -16,6 +16,14 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
   exit 1
 fi
 
+echo "Squashing migrations..."
+npx tsx contrib/squash-migrations.ts
+
+if [ -n "$(git status --porcelain)" ]; then
+  echo "Error: drizzle/ was not up to date, review and commit the change above" >&2
+  exit 1
+fi
+
 echo "Publishing montai@$VERSION to npm..."
 npm publish
 

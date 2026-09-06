@@ -31,6 +31,7 @@
   },
   "files": [
     "bin",
+    "drizzle",
     "src",
     "skills",
     "remotion",
@@ -40,6 +41,8 @@
   "scripts": {
     "postinstall": "patch-package --error-on-fail",
     "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate --name head",
+    "db:squash": "tsx contrib/squash-migrations.ts",
     "prepublishOnly": "tsc --noEmit"
   },
   "dependencies": {

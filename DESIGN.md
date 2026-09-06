@@ -9,7 +9,7 @@ Montai is a local TypeScript CLI tool, it operates on a user project directory c
 ### Key Design Decisions
 
 - **YAML config**: User create the `montai.yaml` file to describe the project
-- **SQLite stored per project**: All intermediate data stored locally, use `pushSQLiteSchema` at runtime to auto-sync schema
+- **SQLite stored per project**: All intermediate data stored locally, schema kept current by migrations applied at runtime
 - **Dual output**: `export` generates FCPXML, `render`/`studio` use a static Remotion project bundled inside Montai
 - **Static Remotion project**: The Remotion project lives in the package's top-level `remotion/` directory as real TSX files, never modified at runtime. All dynamic data flows through CLI flags (`--props`, `--public-dir`)
 - **Less structured LLM outputs**: Prompts prefer free-form prose or Markdown over rigid JSON schemas for intermediate text (e.g. storylines). Only outputs that are consumed programmatically (e.g. VideoAnalysis, Timeline) use structured JSON. This gives the LLM more flexibility and produces more natural text. Use examples in prompts to guide the expected content rather than prescribing exact schemas.
@@ -106,7 +106,7 @@ An active skill's `unlockTools` entries make that skill a prerequisite for those
 
 ## Database Design
 
-SQLite database (`montai.db`) in the project directory. Schema managed via Drizzle ORM with `pushSQLiteSchema` (auto-sync at runtime).
+SQLite database (`montai.db`) in the project directory. Schema defined with Drizzle ORM in `src/db/schema.ts` and applied by the migrations in `drizzle/`.
 
 ### Tables
 
@@ -123,6 +123,18 @@ SQLite database (`montai.db`) in the project directory. Schema managed via Drizz
 - **session_messages** — Individual messages (pi-ai `Message` as JSON) belonging to a session. Appended at `turn_end` via count-based diff against `agent.state.messages`. Order determined by autoincrement `id`.
 - **gemini_files** — Cached Gemini File API references keyed by nullable `cacheKey` = the project-relative file path. Same scheme for every upload: source video transcodes (`.montai/transcoded/<id>-<n>fps.mp4`), music / voiceover assets (e.g. `musics/track1.mp3`), and previewFinalVideo renders (`.montai/agent-previews/<sha256>.mp4`). The path encodes everything the cache needs to distinguish — `<id>-<n>fps.mp4` already encodes the videoId+fps, the preview filename encodes the spec hash. Legacy rows with `NULL` cache keys are ignored and naturally replaced on next upload.
 
+### Schema Migrations
+
+Migrations live in `drizzle/` and ship in the npm package; `initDb` applies the pending ones (`src/db/migrate.ts`) on every command, so a database is brought up to date by whichever release opens it rather than by a separate step.
+
+Each release ships exactly one migration, named after it (`0002_v0.6.0.sql`). Its snapshot in `drizzle/meta/` therefore describes what a database of that release looks like, which is how a database predating migrations is placed: it is matched against the snapshots, falling back to `pushSQLiteSchema` when it matches none. That fallback is the only remaining runtime use of drizzle-kit, and the only path that can still prompt for a rename.
+
+Workflow:
+
+1. After changing `src/db/schema.ts`, run `npm run db:generate`. Each change becomes its own migration named `head`, so the databases being tested against upgrade normally.
+2. Before a release, bump the version in `package.json` and run `npm run db:squash`: it collapses everything unreleased into the single migration the release ships, named after that version.
+3. Commit, then run `contrib/release.sh`, which reruns the squash and aborts if it changed anything.
+
 ### Analysis Provenance
 
 The three `*_analyses` tables each carry `analyzed_at` (ISO 8601), `montai_version`, `model` and `prompt_hash`, written by `runAnalysisPipeline` and by `transcribeGeneratedVoiceover` via `provenanceFor()` (`src/analyzer/provenance.ts`). Source files are otherwise only invalidated by their md5 changing, so a project accumulates rows produced by different models and prompts; these columns are what makes an existing row attributable, and what `montai analyze --refresh` compares against.
@@ -131,7 +143,7 @@ The three `*_analyses` tables each carry `analyzed_at` (ISO 8601), `montai_versi
 
 Two things are deliberately outside the signature. `montai_version` is recorded but never triggers staleness: most releases don't touch analysis, and in a development checkout the version changes on every commit, which would mark the whole library stale continuously. `featureFlags.transcodeFps` is not recorded at all: analyze uploads the transcoded file but passes no `videoMetadata`, so Gemini samples it at its default 1fps and the transcode rate cannot change the result.
 
-All four columns are nullable — rows written before the columns existed cannot be attributed retroactively (and read as stale, which is the right default), and `pushSQLiteSchema` needs them nullable to add them to a populated table.
+All four columns are nullable — rows written before the columns existed cannot be attributed retroactively (and read as stale, which is the right default), and a migration can only add nullable columns to a populated table.
 
 `montaiVersion()` (`src/utils/version.ts`) reports `0.6.0` for an installed release and `0.6.0+5.g3871658.dirty` for a development checkout: the `package.json` version, plus SemVer build metadata carrying `git describe`'s commit distance, short SHA and dirty marker. A development checkout is identified by `.git` existing at the package root — npm never ships it, and testing for the directory rather than for git succeeding avoids an installed copy under a user's `node_modules` reporting that user's tags. The distance segment is absent when no `v*` tag is reachable (shallow clones).
 

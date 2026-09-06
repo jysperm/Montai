@@ -1,6 +1,6 @@
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
-import { getDb } from '../db/index.js';
+import { initDb } from '../db/index.js';
 import { loadProjectConfig, loadResolvedTimelines } from '../utils/project.js';
 import { preparePublicDir } from '../remotion/public-dir.js';
 import { remapToArchived } from '../utils/archived-videos.js';
@@ -8,7 +8,7 @@ import { spawnInherit } from '../utils/spawn-inherit.js';
 
 export async function previewCommand(name?: string, options?: { fromArchived?: boolean }) {
   const config = loadProjectConfig();
-  const db = getDb();
+  const db = await initDb();
 
   let { timelines: specs } = loadResolvedTimelines(db, config, name);
   if (specs.length === 0) return;

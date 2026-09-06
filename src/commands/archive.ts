@@ -2,7 +2,7 @@ import chalk from 'chalk';
 import { spawn, execFileSync, execSync } from 'child_process';
 import { existsSync, mkdirSync, renameSync, unlinkSync } from 'fs';
 import { resolve, basename, extname, join } from 'path';
-import { getDb } from '../db/index.js';
+import { initDb } from '../db/index.js';
 import { videos } from '../db/schema.js';
 import { loadProjectConfig, loadResolvedTimelines } from '../utils/project.js';
 import { formatArchiveTime } from '../utils/archived-videos.js';
@@ -125,7 +125,7 @@ export async function archiveCommand(
   options?: { encode?: string | boolean; handles?: string | number },
 ) {
   const config = loadProjectConfig();
-  const db = getDb();
+  const db = await initDb();
 
   const handles = options?.handles === undefined
     ? DEFAULT_HANDLES_SECONDS
