@@ -10,6 +10,18 @@ import { AGENT_PUBLIC_DIR } from '../remotion/public-dir.js';
 const REMOTION_DIR = fileURLToPath(new URL('../../remotion', import.meta.url));
 const BUNDLE_OUT = resolve('.montai/agent-bundle');
 
+// Agent previews run behind the story TUI's spinner, so Remotion's routine
+// browser setup progress and recoverable media fallback warnings only clutter
+// the conversation. Actual renderer/browser errors still pass through and the
+// rejected render is surfaced by the preview tool.
+const QUIET_PREVIEW_OPTIONS = {
+  logLevel: 'error' as const,
+  onBrowserDownload: () => ({
+    onProgress: () => undefined,
+    version: null,
+  }),
+};
+
 function clipDurationFrames(clip: ResolvedClip, fps: number): number {
   const seconds = (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate;
   return Math.round(seconds * fps);
@@ -114,6 +126,7 @@ export async function renderStillFrame({ spec, frame, outPath }: RenderStillOpts
     serveUrl,
     id: spec.name,
     inputProps: spec as unknown as Record<string, unknown>,
+    ...QUIET_PREVIEW_OPTIONS,
   });
   mkdirSync(dirname(outPath), { recursive: true });
   await renderStill({
@@ -122,6 +135,7 @@ export async function renderStillFrame({ spec, frame, outPath }: RenderStillOpts
     output: outPath,
     frame,
     inputProps: spec as unknown as Record<string, unknown>,
+    ...QUIET_PREVIEW_OPTIONS,
   });
 }
 
@@ -142,6 +156,7 @@ export async function renderRange({ spec, startSeconds, endSeconds, fps, outPath
     serveUrl,
     id: previewSpec.name,
     inputProps: previewSpec as unknown as Record<string, unknown>,
+    ...QUIET_PREVIEW_OPTIONS,
   });
 
   const startFrame = Math.max(0, Math.floor(startSeconds * fps));
@@ -161,6 +176,7 @@ export async function renderRange({ spec, startSeconds, endSeconds, fps, outPath
     // Cap output at 720p (scale relative to the spec's native height). For
     // already-≤720p compositions we don't scale up.
     scale: Math.min(1, 720 / previewSpec.height),
+    ...QUIET_PREVIEW_OPTIONS,
   });
 }
 
