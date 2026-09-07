@@ -171,7 +171,7 @@ Interactive session that merges storyline generation and timeline editing into a
 
 Uses an agent loop with tools:
 - `loadSkill(name)` — Load one available situational editing skill into the conversation as a hidden user message
-- `updateStoryline(name?, title?, brief)` — Save/update the storyline. `brief` contains the storyline content: user requirements, creative direction, and current edit structure. `name` and `title` are required when creating a story, but omitted on existing stories to preserve the current identifier/title.
+- `updateStoryline(name?, title?, brief)` — Save/update the storyline. `brief` contains the storyline content: user requirements, creative direction, and the narrative structure — what each part covers and in what order. Which shots the edit uses, where they come from, and how long they run live in the timeline rather than the brief, unless the user asked for those details. `name` and `title` are required when creating a story, but omitted on existing stories to preserve the current identifier/title.
 - `updateTimeline(index, deleteCount, items)` — Update timeline using splice semantics
 - `watchSegment(videoId, startTime, endTime, fps?)` — Watch a source video segment. `startTime`/`endTime` are source timestamps in `MM:SS` or `MM:SS.s`. `fps` (default 1) controls Gemini's `videoMetadata.fps` AND drives the transcode fps (a cached `<videoId>-<fps>fps.mp4` at fps>=request is reused; otherwise a fresh transcode is produced)
 - `reportFindings(findings)` — Report which watched ranges are worth using and why. It stores nothing: the prose is the tool call argument, which stays in the conversation after the video files it describes have been evicted, and the TUI prints it as assistant text rather than as a tool call

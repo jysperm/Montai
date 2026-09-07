@@ -82,7 +82,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
     parameters: Type.Object({
       name: Type.Optional(Type.String({ description: 'Short kebab-case identifier (e.g. "lantern-festival"). Required on first call to create the story; omit on subsequent calls to keep the existing name' })),
       title: Type.Optional(Type.String({ description: `Neutral story label that names the main subject and activity, in ${ctx.languageName}. Required on first call; omit on subsequent calls to keep the existing title.` })),
-      brief: Type.String({ description: `Free-form markdown for the storyline, capturing user requirements, creative direction, and current edit structure, in ${ctx.languageName}` }),
+      brief: Type.String({ description: `Free-form markdown for the storyline, in ${ctx.languageName}: user requirements, creative direction, and the narrative structure — what each part covers and in what order. Which shots it uses, where they come from, and how long they run belong in the timeline rather than here, unless the user asked for those details.` }),
     }),
     async execute(
       _toolCallId: string,
