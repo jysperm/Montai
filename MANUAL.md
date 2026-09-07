@@ -106,7 +106,7 @@ Inside the story session, use `/preview` to start Remotion Studio to preview the
 
 ```text
 > /preview
-Auto preview: on
+Auto preview: on — Remotion Studio starting in background
 Remotion Studio: http://localhost:3000
 
 > /export
@@ -163,6 +163,8 @@ my-vlog-project/
 
 `montai.db`, `.montai/`, `generated-music/`, `generated-voiceover/`, `fcpxml/`, `output/`, and `archived/` will be automatically created relative to the project directory.
 
+When Montai opens an existing project, it automatically applies any pending database migrations to `montai.db`.
+
 ### Configuration
 
 The example below shows every option with its default and accepted values. Only `assets.videos` is required; all other keys can be omitted.
@@ -215,13 +217,13 @@ effects:
 # You can also disable features that you will not use to reduce context.
 featureFlags:
   # Enable music related features.
-  # Default: true.
+  # Default: enabled when music files exist or models.musicGeneration is configured.
   music: false
   # Enable music generation.
-  # Default: true.
+  # Default: derived from models.musicGeneration.
   musicGeneration: false
   # Enable voiceover related features.
-  # Default: true.
+  # Default: enabled when voiceover files exist.
   voiceover: false
   # Enable AI (TTS) voiceover generation.
   # Default: derived from models.voiceoverGeneration.
@@ -388,13 +390,13 @@ Stories
   chiang-mai-flower-festival  Chiang Mai Flower Festival  [1m18s, 18 clips, 6 overlays]  2 hours ago
 
 Videos
-  34 files, 1h 12m, 28.4 GB
+  34 files, 1h12m, 28.4 GB
   28× 4K 50p HDR
    6× 1080p 50p
 
 Music
-  Library: 5 files, 14m 20s, 42 MB
-  Generated: 2 tracks, 1m 0s, 11 MB
+  Library: 5 files, 14m20s, 42 MB
+  Generated: 2 tracks, 1m, 11 MB
 
 Settings
   Output: 1080p 50fps
@@ -697,7 +699,10 @@ montai export --davinci
 
 First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
 
-If your source footage is HDR, make sure the library uses Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR) before importing the .fcpxml.
+If your source footage is HDR, configure both the library and the project before importing the `.fcpxml`:
+
+- Set the library to Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR).
+- Set the project's color space to Rec. 2020 or Rec. 2020 HLG
 
 ![Imported to Final Cut Pro](docs/assets/fcp-timeline.png)
 

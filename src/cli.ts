@@ -66,13 +66,13 @@ program
 program
   .command('analyze')
   .description(
-    'Transcode, upload and analyze videos'
+    'Transcode, upload and analyze videos, music and voiceovers'
   )
   .option('--refresh [filename]', 'Re-analyze the named file, or every analysis whose model or prompt no longer matches the current one')
   .option('--all', 'With --refresh, re-analyze everything rather than only outdated analyses')
   .option('-f, --force', 'Skip the confirmation prompt for --refresh --all')
-  .option('--show <filename>', 'Show the stored summary for a video or music file')
-  .option('--list', 'List all videos and music files with analysis status')
+  .option('--show <filename>', 'Show the stored analysis for a video, music or voiceover file')
+  .option('--list', 'List all videos, music and voiceover files with analysis status')
   .action(analyzeCommand);
 
 program

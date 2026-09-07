@@ -90,7 +90,7 @@ export const ProjectConfigSchema = z.preprocess(
   },
   z.object({
     assets: AssetsSchema,
-    language: z.enum(['zh', 'en']).default('en'),
+    language: z.string().regex(/^[a-z]{2}$/, 'must be an ISO 639-1 language code').default('en'),
     output: OutputSchema.default(() => OutputSchema.parse({})),
     models: ModelsSchema.default(() => ModelsSchema.parse({})),
     effects: EffectsSchema.default(() => EffectsSchema.parse({})),

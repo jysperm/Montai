@@ -29,7 +29,7 @@ assets:
   videos: .                       # String or array; directories and files supported
   music: ./musics/                # Optional background music files
   voiceover: ./voiceover/         # Optional narration recordings
-language: zh                     # Language for LLM-generated text (zh | en)
+language: zh                     # Language for LLM-generated text (any ISO 639-1 code)
 output:
   resolution: 1080p             # landscape 720p|1080p|1440p|2160p|4k; vertical 720v|1080v|1440v; square 720s|1080s|1440s
   fps: 50
@@ -45,7 +45,7 @@ featureFlags:                    # Optional overrides (see Feature Flags)
   music: false
 ```
 
-`language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. Supports `zh` (Chinese) or `en` (English), defaults to `en`. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text. A third language axis, `effects.voiceLanguage`, sets the spoken language for AI-generated (TTS) voiceover narration; it is a single language and defaults to the first `effects.languages` entry (then `language`) when unset.
+`language` controls the language used for all internal text: video analyses, project overview, storylines, and story titles. It accepts any ISO 639-1 language code and defaults to `en`. The code is passed through to the model; common codes are expanded to a language name when available. This is separate from `effects.languages`, which controls the language(s) of overlay text in the final video. If multiple languages are specified (e.g. `[zh, en]`), each overlay should include bilingual text. A third language axis, `effects.voiceLanguage`, sets the spoken language for AI-generated (TTS) voiceover narration; it is a single language and defaults to the first `effects.languages` entry (then `language`) when unset.
 
 `assets.videos`, `assets.music`, and `assets.voiceover` accept either a single string path or an array of string paths. Video entries can be directories (scanned for mp4/mov/avi/mkv files) or individual file paths. Music and voiceover entries can be directories (scanned for mp3/wav/flac/m4a/aac/ogg files) or individual file paths. Paths support `.`, `~` expansion, and absolute paths. A common pattern is placing `montai.yaml` alongside the video files and using `.` to reference the current directory.
 

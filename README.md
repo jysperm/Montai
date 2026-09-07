@@ -97,7 +97,7 @@ Inside the story session, use `/preview` to start Remotion Studio to preview the
 
 ```text
 > /preview
-Auto preview: on
+Auto preview: on — Remotion Studio starting in background
 Remotion Studio: http://localhost:3000
 
 > /export
