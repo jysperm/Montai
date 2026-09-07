@@ -94,6 +94,12 @@ function getTextStyle(style: TextOverlay['style'], s: number) {
   }
 }
 
+// Studio timeline label: the overlay's own text, collapsed to one short line.
+function overlayName(text: string) {
+  const oneLine = text.replace(/\s+/g, ' ').trim();
+  return oneLine.length > 24 ? `${oneLine.slice(0, 24)}…` : oneLine;
+}
+
 function OverlayContent({
   overlay,
   scale,
@@ -415,7 +421,7 @@ export function calculateTotalFrames(spec: TimelineProps): number {
   return Math.max(total, 1);
 }
 
-function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number }) {
+function AudioTrackComponent({ track, fps, name }: { track: AudioTrack; fps: number; name: string }) {
   const startFrame = Math.round(track.timelineStartSeconds * fps);
   const durationFrames = Math.round(
     (track.timelineEndSeconds - track.timelineStartSeconds) * fps,
@@ -442,7 +448,7 @@ function AudioTrackComponent({ track, fps }: { track: AudioTrack; fps: number })
   );
 
   return (
-    <Sequence from={startFrame} durationInFrames={durationFrames}>
+    <Sequence from={startFrame} durationInFrames={durationFrames} name={name}>
       <Audio
         src={getSourcePath(track.sourceFile)}
         startFrom={startFromFrame}
@@ -488,6 +494,7 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
             ) : null,
             <TransitionSeries.Sequence
               key={clip.clipId}
+              name={`v${clip.videoId}`}
               durationInFrames={durationFrames}
             >
               <ClipVideo
@@ -510,7 +517,12 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
         );
 
         return (
-          <Sequence key={i} from={startFrame} durationInFrames={durationFrames}>
+          <Sequence
+            key={i}
+            from={startFrame}
+            durationInFrames={durationFrames}
+            name={overlayName(overlay.text)}
+          >
             <OverlayContent
               overlay={overlay}
               scale={scale}
@@ -522,11 +534,11 @@ export const MontaiVideo: React.FC<TimelineProps> = (props) => {
       })}
 
       {(audioTracks ?? []).map((track, i) => (
-        <AudioTrackComponent key={`audio-${i}`} track={track} fps={fps} />
+        <AudioTrackComponent key={`audio-${i}`} track={track} fps={fps} name={`music ${i + 1}`} />
       ))}
 
       {(voiceoverTracks ?? []).map((track, i) => (
-        <AudioTrackComponent key={`voiceover-${i}`} track={track} fps={fps} />
+        <AudioTrackComponent key={`voiceover-${i}`} track={track} fps={fps} name={`vo${i + 1}`} />
       ))}
     </AbsoluteFill>
   );

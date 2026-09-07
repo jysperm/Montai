@@ -214,7 +214,7 @@ Loads Timeline(s) from the database (by name, or all if omitted), prepares a pub
 
 ### 4. Preview (`montai preview [name]`)
 
-Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files and a `timelines.json` index, then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Root.tsx dynamically registers one Composition per timeline, so all stories appear in the Studio sidebar. Root.tsx uses `watchStaticFile` to monitor `timelines.json` for changes and automatically re-fetches it, enabling live updates when the story TUI's auto-preview mode rewrites the file.
+Loads Timeline(s) from the database (by name, or all if omitted), prepares a public directory with hard links to video files and a `timelines.json` index, then runs `npx remotion studio` against Montai's built-in static Remotion project with `--public-dir`. Root.tsx dynamically registers one Composition per timeline, so all stories appear in the Studio sidebar. Root.tsx uses `watchStaticFile` to monitor `timelines.json` for changes and automatically re-fetches it, enabling live updates when the story TUI's auto-preview mode rewrites the file. Every Sequence carries a `name`, so the Studio timeline rows read like the TUI timeline: `v<videoId>` per clip, the overlay's own text, `music N` and `voN` for audio tracks.
 
 ### 5. Export (`montai export [name]`)
 
