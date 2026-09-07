@@ -24,11 +24,11 @@ if [ -n "$(git status --porcelain)" ]; then
   exit 1
 fi
 
-echo "Publishing montai@$VERSION to npm..."
+echo "Publishing montai-cli@$VERSION to npm..."
 npm publish
 
 echo "Creating and pushing tag $TAG..."
 git tag "$TAG"
 git push origin "$TAG"
 
-echo "Released montai@$VERSION"
+echo "Released montai-cli@$VERSION"

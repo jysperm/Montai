@@ -71,6 +71,15 @@ execFileSync('npx', ['drizzle-kit', 'generate', '--name', `v${version}`], { cwd:
 
 const squashed = readJournal();
 const latest = squashed.entries[squashed.entries.length - 1];
+
+// The rename question reappears here once the pending migrations that answered it are gone, and
+// without a terminal drizzle-kit prints it, generates nothing and still exits 0. Restoring is what
+// keeps that from leaving the deleted migrations gone and a released entry's `when` rewritten.
+if (!latest.tag.endsWith(`_v${version}`)) {
+  execFileSync('git', ['checkout', '--', 'drizzle'], { cwd: root });
+  console.error('Error: drizzle-kit generated nothing, run `npm run db:squash` in a terminal so it can ask about renames');
+  process.exit(1);
+}
 latest.when = when;
 writeJournal(squashed);
 
