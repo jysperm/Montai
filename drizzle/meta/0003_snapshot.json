@@ -1,6 +1,8 @@
 {
   "version": "6",
   "dialect": "sqlite",
+  "id": "55732ded-122e-47be-82aa-6c840d031b29",
+  "prevId": "c1d7d660-1e6e-406f-8628-ed3e9148aeda",
   "tables": {
     "gemini_files": {
       "name": "gemini_files",
@@ -525,13 +527,6 @@
           "notNull": true,
           "autoincrement": false
         },
-        "highlights": {
-          "name": "highlights",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true,
-          "autoincrement": false
-        },
         "technical_notes": {
           "name": "technical_notes",
           "type": "text",
@@ -891,12 +886,11 @@
   "views": {},
   "enums": {},
   "_meta": {
+    "schemas": {},
     "tables": {},
     "columns": {}
   },
   "internal": {
     "indexes": {}
-  },
-  "id": "5aef7cde-2e06-49b1-a933-c8812992d068",
-  "prevId": "c1d7d660-1e6e-406f-8628-ed3e9148aeda"
+  }
 }
