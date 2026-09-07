@@ -1,6 +1,6 @@
 # Montai
 
-[![npm version](https://img.shields.io/npm/v/montai-cli.svg)](https://www.npmjs.com/package/montai-cli)
+[![npm version](https://img.shields.io/npm/v/montai-cli.svg)](https://www.npmjs.com/package/montai-cli) [![Discord](https://img.shields.io/badge/discord-join-5865F2?logo=discord&logoColor=white)](https://discord.gg/nxthaNRpca)
 
 AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs.
 
