@@ -203,7 +203,7 @@ When watching, pay attention to:
 
 If `watchSegment` returns an error, do not infer what is in that range. Correct the range if possible and retry; otherwise mark it as unreviewed.
 
-You can watch up to 10 segments per turn, and the count resets for each new assistant message — it is a batch size, not a limit on how much footage you may review. Watch a batch, summarize what you saw, then request the next batch, until you have covered everything you wanted to see. Only the 10 most recent segments stay in context, so those written summaries are the only lasting record of your findings.
+You can watch up to 10 segments per turn, and the count resets for each new assistant message — it is a batch size, not a limit on how much footage you may review. Watch a batch, call `reportFindings` with what you found, then request the next batch, until you have covered everything you wanted to see. Only the 10 most recent segments stay in context, so those findings are all you keep of them.
 {{#if features.previewTools}}
 
 ## Using preview tools

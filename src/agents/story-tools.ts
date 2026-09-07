@@ -328,6 +328,26 @@ export function getStoryTools(ctx: StoryToolsContext) {
     },
   };
 
+  // The report is a tool call because Gemini emits no prose next to tool calls:
+  // asked in the system prompt, in a tool description or in a tool result, it
+  // returned an empty text part at every batch boundary. Nothing is stored — the
+  // findings stay in the conversation, and the UI prints them as the agent's own words.
+  const reportFindingsTool = {
+    name: 'reportFindings',
+    label: 'Report Findings',
+    description: 'Report what you found in the segments you just watched: which ranges are worth putting in the edit and why, which ones you are ruling out, and how takes of the same subject compare. Refer to each segment by video ID and timestamp range. Call it after each batch of watchSegment calls, before watching more — only the 10 most recent segments stay in context, so this is what you keep of them. Write it as you would say it to the user.',
+    parameters: Type.Object({
+      findings: Type.String({ description: 'What you found, in prose.' }),
+    }),
+    async execute() {
+      const textContent: TextContent = {
+        type: 'text' as const,
+        text: 'Noted.',
+      };
+      return { content: [textContent], details: {} };
+    },
+  };
+
   const previewFrameTool = {
     name: 'previewFrame',
     label: 'Preview Frame',
@@ -755,7 +775,7 @@ export function getStoryTools(ctx: StoryToolsContext) {
   };
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, getVideoAnalysisTool, loadSkillTool];
+  const tools: any[] = [updateStorylineTool, updateTimelineTool, watchSegmentTool, reportFindingsTool, getVideoAnalysisTool, loadSkillTool];
   if (ctx.features.multiStory) {
     tools.push(listStoriesTool, switchStoryTool);
   }

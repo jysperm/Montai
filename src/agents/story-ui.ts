@@ -293,6 +293,25 @@ export function printToolCall(toolName: string, args: Record<string, unknown>, e
         break;
       }
     }
+    // Printed as prose rather than as a tool call: the findings are what the
+    // agent would have said in a text message if it wrote one alongside tool calls.
+    case 'reportFindings': {
+      const findings = typeof args.findings === 'string' ? args.findings : '';
+      if (!error) {
+        if (findings) {
+          // Leading blank line: the preceding watchSegment lines are printed compactly.
+          console.log('');
+          // List numbers sit right next to the video IDs and read as part of them.
+          // No wording in the tool description reliably stops the model from
+          // producing them, so normalize to plain bullets at print time.
+          console.log(formatAssistantText(findings.replace(/^(\s*)\d+[.、)]\s+/gm, '$1- ')));
+          console.log('');
+        }
+        return;
+      } else {
+        break;
+      }
+    }
     case 'updateTimeline': {
       if (!error) {
         const deleteCount = args.deleteCount as number;
