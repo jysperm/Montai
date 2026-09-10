@@ -12,5 +12,7 @@
   {"type":"overlay","text":"Pop Subtitle","startClip":1,"startOffset":0,"endClip":1,"endOffset":0,"position":"top-right","style":"subtitle","animation":"pop"},
   {"type":"overlay","text":"Fade BL","startClip":1,"startOffset":0,"endClip":1,"endOffset":0,"position":"bottom-left","style":"subtitle","animation":"fade"},
   {"type":"overlay","text":"Slide BC","startClip":1,"startOffset":0,"endClip":1,"endOffset":0,"position":"bottom-center","style":"caption","animation":"slide"},
-  {"type":"overlay","text":"Pop BR","startClip":1,"startOffset":0,"endClip":1,"endOffset":0,"position":"bottom-right","style":"subtitle","animation":"pop"}
+  {"type":"overlay","text":"Pop BR","startClip":1,"startOffset":0,"endClip":1,"endOffset":0,"position":"bottom-right","style":"subtitle","animation":"pop"},
+  {"type":"clip","videoId":3,"playbackRate":1,"volume":1,"startTime":"00:10","endTime":"00:15"},
+  {"type":"overlay","text":"This deliberately long vertical subtitle should use most of the available frame width, wrap automatically across several lines, remain left-aligned, and preserve the intended margins along both adjacent edges.","startClip":2,"startOffset":0,"endClip":2,"endOffset":0,"position":"bottom-left","style":"subtitle"}
 ]

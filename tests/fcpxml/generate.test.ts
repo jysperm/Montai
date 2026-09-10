@@ -28,9 +28,9 @@ describe('transition-test', () => {
 });
 
 describe('overlay-test', () => {
-  // Overlay Position params are derived from the sequence shape (see
-  // fcpTitlePositionValues / buildTitleLayout), so each output shape is its own
-  // pinned timeline: 1080p uses landscape footage, 1080v/1080s portrait footage.
+  // Subtitle paragraph bounds and published X/Y offsets are derived from the
+  // sequence shape, so each output shape is its own pinned timeline: 1080p uses
+  // landscape footage, while 1080v/1080s use portrait footage.
   const cases = [
     { name: 'overlay-test.1080p', resolution: '1080p' },
     { name: 'overlay-test.1080v', resolution: '1080v' },

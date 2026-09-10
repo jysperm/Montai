@@ -657,7 +657,7 @@ Montai supports several render mechanisms, however every mechanism has its own l
 | Color depth | Passthrough 8/10-bit | Passthrough 8/10-bit | 8-bit only |
 | Color space | SDR and HDR | SDR and HDR | SDR only |
 | Transitions | Full | Fade only | Full |
-| Text overlays & animations | Full with known issues | Centered only, no animations | Full |
+| Text overlays & animations | Full | Centered only, no animations | Full |
 | Ken Burns | Yes, not working with rotated | Fallback to static crop | Yes |
 | Mixed aspect ratios | Yes | Known issues | Yes |
 | Audio fades | Yes | No | Yes |
@@ -709,7 +709,6 @@ If your source footage is HDR, configure both the library and the project before
 Known Issues:
 
 - **FCP "The item is not on an edit frame boundary" warning.** Triggered when source footage has embedded timecode and a frame rate different from the sequence (e.g. 59.94fps footage in a 50fps project). Safe to dismiss — titles and audio still land in the correct positions.
-- **Corner text can be clipped in vertical or square projects.** Long text in a left or right corner may be cut off at the frame edge. Shorten the text, or move the overlay to a centered position.
 - **Ken Burns on a rotated clip falls back to a static crop.** The clip keeps its final framing, but the pan and zoom animation is lost.
 
 ### Render with DaVinci Resolve

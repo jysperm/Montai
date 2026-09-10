@@ -66,25 +66,42 @@ export interface TimelineProps {
   voiceoverTracks?: AudioTrack[];
 }
 
-function getPositionStyle(position: TextOverlay['position'], s: number) {
-  const margin = Math.round(40 * s);
+const OVERLAY_FONT_PX = { title: 80, subtitle: 48, caption: 32 } as const;
+
+function getPositionStyle(position: TextOverlay['position'], style: TextOverlay['style'], s: number) {
+  const margin = Math.round(OVERLAY_FONT_PX[style] * s);
+  // For plain text, CSS positions the line box rather than the visible glyphs.
+  // Compensate its roughly quarter-em vertical inset; captions are positioned
+  // by their visible background box and need the full margin.
+  const verticalMargin = style === 'caption' ? margin : Math.round(margin * 0.75);
   switch (position) {
-    case 'top-left': return { top: margin, left: margin, textAlign: 'left' as const };
-    case 'top-right': return { top: margin, right: margin, textAlign: 'right' as const };
+    case 'top-left': return { top: verticalMargin, left: margin, textAlign: 'left' as const };
+    case 'top-right': return { top: verticalMargin, right: margin, textAlign: 'right' as const };
     case 'center': return { top: '50%' as const, left: 0, right: 0, transform: 'translateY(-50%)', textAlign: 'center' as const };
-    case 'bottom-left': return { bottom: margin, left: margin, textAlign: 'left' as const };
-    case 'bottom-center': return { bottom: margin, left: 0, right: 0, textAlign: 'center' as const };
-    case 'bottom-right': return { bottom: margin, right: margin, textAlign: 'right' as const };
+    case 'bottom-left': return { bottom: verticalMargin, left: margin, textAlign: 'left' as const };
+    case 'bottom-center': return { bottom: verticalMargin, left: 0, right: 0, textAlign: 'center' as const };
+    case 'bottom-right': return { bottom: verticalMargin, right: margin, textAlign: 'right' as const };
+  }
+}
+
+function getPopTransformOrigin(position: TextOverlay['position']) {
+  switch (position) {
+    case 'top-left': return 'left top';
+    case 'top-right': return 'right top';
+    case 'bottom-left': return 'left bottom';
+    case 'bottom-center': return 'center bottom';
+    case 'bottom-right': return 'right bottom';
+    case 'center': return 'center center';
   }
 }
 
 function getTextStyle(style: TextOverlay['style'], s: number) {
   const textShadow = `0 ${Math.round(2 * s)}px ${Math.round(8 * s)}px rgba(0,0,0,0.8), 0 0 ${Math.round(2 * s)}px rgba(0,0,0,0.9)`;
   switch (style) {
-    case 'title': return { fontSize: Math.round(80 * s), fontWeight: 'bold' as const, textShadow };
-    case 'subtitle': return { fontSize: Math.round(48 * s), fontWeight: 500 as const, textShadow };
+    case 'title': return { fontSize: Math.round(OVERLAY_FONT_PX.title * s), fontWeight: 'bold' as const, textShadow };
+    case 'subtitle': return { fontSize: Math.round(OVERLAY_FONT_PX.subtitle * s), fontWeight: 500 as const, textShadow };
     case 'caption': return {
-      fontSize: Math.round(32 * s),
+      fontSize: Math.round(OVERLAY_FONT_PX.caption * s),
       fontWeight: 'normal' as const,
       background: 'rgba(0,0,0,0.6)',
       padding: `${Math.round(4 * s)}px ${Math.round(12 * s)}px`,
@@ -112,7 +129,7 @@ function OverlayContent({
   durationFrames: number;
 }) {
   const frame = useCurrentFrame();
-  const pos = getPositionStyle(overlay.position, scale);
+  const pos = getPositionStyle(overlay.position, overlay.style, scale);
   const textStyle = getTextStyle(overlay.style, scale);
 
   const anim = overlay.animation;
@@ -122,6 +139,7 @@ function OverlayContent({
 
   let opacity = 1;
   let extraTransform = '';
+  let transformOrigin: string | undefined;
 
   if (anim && animFrames > 0) {
     const enterEnd = animFrames;
@@ -137,8 +155,8 @@ function OverlayContent({
       const isTop = overlay.position.startsWith('top');
       const direction = isTop ? -1 : 1;
 
-      // Positional motion only — no opacity fade. Text starts off-screen and slides in,
-      // so opacity isn't needed and combining it would halve the visible animation duration.
+      // Positional motion only: combining it with a fade would halve the fully
+      // visible portion of this short animation.
       const slideOffset = interpolate(
         frame,
         [0, enterEnd, exitStart, durationFrames],
@@ -161,6 +179,7 @@ function OverlayContent({
       });
 
       extraTransform = `scale(${scaleVal})`;
+      transformOrigin = getPopTransformOrigin(overlay.position);
     }
   }
 
@@ -177,6 +196,7 @@ function OverlayContent({
         ...pos,
         opacity,
         transform: combinedTransform,
+        transformOrigin,
       }}
     >
       <div style={{ ...textStyle, whiteSpace: 'pre-line' }}>{overlay.text}</div>

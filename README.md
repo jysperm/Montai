@@ -166,7 +166,7 @@ After archiving, use `--from-archived` on `render`, `preview`, or `export` to wo
 | Color depth | Passthrough 8/10-bit | Passthrough 8/10-bit | 8-bit only |
 | Color space | SDR and HDR | SDR and HDR | SDR only |
 | Transitions | Fade, slide, wipe | Fade only | Fade, slide, wipe |
-| Text overlays & animations | Full with known issues | Centered only, no animations | Full |
+| Text overlays & animations | Full | Centered only, no animations | Full |
 | Ken Burns | Yes, not working with rotated | Fallback to static crop | Yes |
 | Mixed aspect ratios | Yes | Known issues | Yes |
 | Audio fades | Yes | No | Yes |

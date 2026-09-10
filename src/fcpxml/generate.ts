@@ -1,7 +1,7 @@
 import { basename } from 'path';
 import type { ResolvedTimeline, ResolvedClip } from '../schemas/timeline.js';
 import { escapeXml, fcpName, framesToRational, round4, toRational } from './utils.js';
-import { buildTitleLayout, makeTitleXml, titleEffectLines, titleEffectRef, titleEffectsNeeded } from './overlays.js';
+import { buildTitleLayout, makeTitleXml, subtitleEffectLine } from './overlays.js';
 
 export interface VideoFormatInfo {
   width: number;
@@ -45,11 +45,8 @@ export function generateFcpxml(
   audioMeta?: Map<string, AudioFormatInfo>,
   voiceoverMeta?: Map<string, AudioFormatInfo>,
 ): string {
-  // FCP vs DaVinci: if a feature is silently ignored by DaVinci (no import
-  // error), we don't branch on target — same output for both. We only branch
-  // when DaVinci would produce wrong results, e.g. font size scaling: FCP needs
-  // 2× (Essential Title template canvas is 3840×2160), DaVinci needs 1× (reads
-  // text-style fontSize directly).
+  // DaVinci ignores Motion title layout but reads embedded text size directly,
+  // so only FCP receives the template-specific font-size compensation.
   const target = options?.target ?? 'fcp';
 
   // FCP built-in effect UIDs (title template UIDs live in overlays.ts)
@@ -74,11 +71,7 @@ export function generateFcpxml(
 
   // Dynamic resource ID allocation: r1 = sequence format, then effects, then per-source formats
   let nextResourceId = 2;
-  // Allocate a resource id per title template the overlays require (see overlays.ts)
-  const titleNeeds = titleEffectsNeeded(spec.textOverlays);
-  const titleEffectId = titleNeeds.essential ? `r${nextResourceId++}` : null;
-  const titleFadeId = titleNeeds.fade ? `r${nextResourceId++}` : null;
-  const titleScaleId = titleNeeds.scale ? `r${nextResourceId++}` : null;
+  const titleEffectId = spec.textOverlays.length > 0 ? `r${nextResourceId++}` : null;
   // Determine which transition effects are used.
   // DaVinci only reliably imports Cross Dissolve, so map all transitions to fade.
   const usedTransitionTypes = new Set<string>();
@@ -764,13 +757,7 @@ export function generateFcpxml(
 
         const overlayDurationSeconds = overlaySeqEnd - overlaySeqStart;
         const titleDuration = toRational(overlayDurationSeconds, fps);
-        // KNOWN ISSUE (pop/slide/static long corner text in narrow frames): the
-        // narrow-frame scale path renders text at the template's default size
-        // then shrinks it with <adjust-transform scale>, so long left/right-
-        // aligned text overflows the frame and is clipped before the down-scale.
-        // Affects all templates. Tracked in drafts/fcp-overlay-narrow-frame-clipping.md.
-        const effectRef = titleEffectRef(overlay, { essentialId: titleEffectId, fadeId: titleFadeId, scaleId: titleScaleId });
-        spine.push(makeTitleXml(overlay.text, nextTs(), titleOffset, titleDuration, II, effectRef, overlay.position, overlay.style, titleLayout, oi + 1, overlay.animation, overlayDurationSeconds, fps));
+        spine.push(makeTitleXml(overlay.text, nextTs(), titleOffset, titleDuration, II, titleEffectId!, overlay.position, overlay.style, titleLayout, oi + 1, overlay.animation, overlayDurationSeconds, fps));
       }
 
       // Audio anchor items attached to this clip
@@ -785,7 +772,7 @@ export function generateFcpxml(
 
   const sequenceColorSpaceAttr = detectedHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
   const effectLines: string[] = [];
-  effectLines.push(...titleEffectLines({ essentialId: titleEffectId, fadeId: titleFadeId, scaleId: titleScaleId }));
+  if (titleEffectId) effectLines.push(subtitleEffectLine(titleEffectId));
   if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
   if (slideId) effectLines.push(`        <effect id="${slideId}" name="Slide" uid="${SLIDE_UID}" />`);
   if (wipeId) effectLines.push(`        <effect id="${wipeId}" name="Wipe" uid="${WIPE_UID}" />`);
