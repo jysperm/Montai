@@ -94,17 +94,20 @@ export function generateFcpxml(
   const audioCrossfadeId = (usedTransitionTypes.size > 0 || hasAudioLoops) ? `r${nextResourceId++}` : null;
   let formatIndex = nextResourceId;
 
-  let detectedHdr = false;
+  // Choose the first HDR source in timeline order; keep each source's own
+  // color space even when its dimensions and frame rate match the sequence.
+  const hdrColorSpace = spec.clips.map(clip => {
+    const meta = videoMeta?.get(basename(clip.sourceFile));
+    return meta ? mapFcpxmlColorSpace(meta) : null;
+  }).find(color => color?.includes('HLG') || color?.includes('PQ'));
+  const sequenceColorSpace = hdrColorSpace ?? '1-1-1 (Rec. 709)';
 
   function getOrCreateFormat(meta: VideoFormatInfo): string {
     const colorSpace = mapFcpxmlColorSpace(meta);
     const key = `${meta.width}x${meta.height}@${meta.fpsNum}/${meta.fpsDen}:${colorSpace ?? ''}`;
-    const fpsApprox = Math.round(meta.fpsNum / meta.fpsDen);
-
-    if (colorSpace && (colorSpace.includes('HLG') || colorSpace.includes('PQ'))) detectedHdr = true;
 
     // If it matches the sequence format, use r1
-    if (meta.width === width && meta.height === height && meta.fpsNum === fps && meta.fpsDen === 1) {
+    if (meta.width === width && meta.height === height && meta.fpsNum === fps && meta.fpsDen === 1 && colorSpace === sequenceColorSpace) {
       return 'r1';
     }
     if (formatMap.has(key)) return formatMap.get(key)!;
@@ -113,7 +116,7 @@ export function generateFcpxml(
     formatMap.set(key, id);
     const colorSpaceAttr = colorSpace ? ` colorSpace="${colorSpace}"` : '';
     formatLines.push(
-      `        <format id="${id}" name="FFVideoFormat${meta.height}p${fpsApprox}" frameDuration="${meta.fpsDen}/${meta.fpsNum}s" width="${meta.width}" height="${meta.height}"${colorSpaceAttr} />`
+      `        <format id="${id}" frameDuration="${meta.fpsDen}/${meta.fpsNum}s" width="${meta.width}" height="${meta.height}"${colorSpaceAttr} />`
     );
     return id;
   }
@@ -179,14 +182,24 @@ export function generateFcpxml(
   // When a clip can't satisfy both sides, the smaller deficit is prioritized.
   // Titles are nested inside clips as connected anchor items (lane=1).
   const spine: string[] = [];
-  let seqOffset = 0;
+  let seqFrames = 0;
   const I = '                    '; // base indent for spine children
   const II = I + '    '; // indent for items inside a clip
 
   // Pre-compute clip durations
   const clipDurations: number[] = [];
-  for (const clip of spec.clips) {
-    clipDurations.push((clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate);
+  const rawClipDurations = spec.clips.map(clip =>
+    (clip.endTimeSeconds - clip.startTimeSeconds) / clip.playbackRate);
+  const clipFrameCounts: number[] = [];
+  let elapsed = 0;
+  let previousBoundary = 0;
+  for (const duration of rawClipDurations) {
+    elapsed += duration;
+    const boundary = Math.round(elapsed * fps);
+    const frames = boundary - previousBoundary;
+    clipFrameCounts.push(frames);
+    clipDurations.push(frames / fps);
+    previousBoundary = boundary;
   }
 
   // The ResolvedTimeline uses an "overlap model" (clips overlap by transition duration,
@@ -208,7 +221,7 @@ export function generateFcpxml(
       }
       clipOverlapStarts.push(sOverlap);
       clipSeqStarts.push(sSeq);
-      sOverlap += clipDurations[i];
+      sOverlap += rawClipDurations[i];
       sSeq += clipDurations[i];
     }
   }
@@ -554,6 +567,7 @@ export function generateFcpxml(
   for (let i = 0; i < spec.clips.length; i++) {
     const clip = spec.clips[i];
     const clipDuration = clipDurations[i];
+    const seqOffset = seqFrames / fps;
     const assetId = getAssetId(clip, spec.clips);
 
     // Emit centered transition if both sides have sufficient handles after shifts
@@ -766,11 +780,11 @@ export function generateFcpxml(
       spine.push(`${I}</asset-clip>`);
     }
 
-    seqOffset += clipDuration;
+    seqFrames += clipFrameCounts[i];
   }
-  const totalDuration = toRational(seqOffset, fps);
+  const totalDuration = `${seqFrames}/${fps}s`;
 
-  const sequenceColorSpaceAttr = detectedHdr ? '' : ' colorSpace="1-1-1 (Rec. 709)"';
+  const sequenceColorSpaceAttr = ` colorSpace="${sequenceColorSpace}"`;
   const effectLines: string[] = [];
   if (titleEffectId) effectLines.push(subtitleEffectLine(titleEffectId));
   if (crossDissolveId) effectLines.push(`        <effect id="${crossDissolveId}" name="Cross Dissolve" uid="${CROSS_DISSOLVE_UID}" />`);
@@ -779,7 +793,7 @@ export function generateFcpxml(
   if (audioCrossfadeId) effectLines.push(`        <effect id="${audioCrossfadeId}" name="Audio Cross Fade" uid="${AUDIO_CROSSFADE_UID}" />`);
 
   const allFormatLines = [
-    `        <format id="r1" name="FFVideoFormat${height}p${Math.round(fps)}" frameDuration="1/${fps}s" width="${width}" height="${height}"${sequenceColorSpaceAttr} />`,
+    `        <format id="r1" frameDuration="1/${fps}s" width="${width}" height="${height}"${sequenceColorSpaceAttr} />`,
     ...formatLines,
   ];
 
@@ -790,7 +804,7 @@ export function generateFcpxml(
 ${allFormatLines.join('\n')}${effectLines.length > 0 ? '\n' + effectLines.join('\n') : ''}
 ${assetLines.join('\n')}
     </resources>
-    <library>
+    <library${hdrColorSpace ? ' colorProcessing="wide-hdr"' : ''}>
         <event name="${fcpName(options?.eventName ?? 'Montai Export')}">
             <project name="${fcpName(options?.projectTitle ?? spec.name)}">
                 <sequence format="r1" duration="${totalDuration}" tcStart="0/1s" tcFormat="NDF">
