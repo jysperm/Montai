@@ -5,7 +5,7 @@ exports[`crop-test > DaVinci snapshot (crop + Ken Burns via adjust-transform) 1`
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
@@ -158,7 +158,7 @@ exports[`crop-test > FCP snapshot (crop + Ken Burns via pan mode) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
@@ -319,7 +319,7 @@ exports[`music-test > DaVinci snapshot (auto-loop alternating lanes) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
@@ -499,7 +499,7 @@ exports[`music-test > FCP snapshot (volume, fades, auto-loop spine) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Audio Cross Fade" uid="FFAudioTransition" />
@@ -680,7 +680,7 @@ exports[`overlay-test > DaVinci snapshot (1x font size) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
@@ -1111,7 +1111,7 @@ exports[`overlay-test > FCP snapshot (positions + animations, 1080p) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
@@ -1542,8 +1542,8 @@ exports[`overlay-test > FCP snapshot (positions + animations, 1080s) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <format id="r3" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
             <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
@@ -1977,7 +1977,7 @@ exports[`overlay-test > FCP snapshot (positions + animations, 1080v) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/portrait.mp4" />
@@ -2424,8 +2424,8 @@ exports[`spatial-conform-test > FCP snapshot (1080p) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <format id="r3" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
@@ -2654,9 +2654,9 @@ exports[`spatial-conform-test > FCP snapshot (1080s) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <format id="r3" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
-        <format id="r4" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1080" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r4" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
@@ -2892,8 +2892,8 @@ exports[`spatial-conform-test > FCP snapshot (1080v) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1920p30" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
-        <format id="r3" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1080" height="1920" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r3" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r3">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />
@@ -3136,7 +3136,7 @@ exports[`transition-test > FCP snapshot 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <effect id="r3" name="Cross Dissolve" uid="FxPlug:4731E73A-8DAC-4113-9A30-AE85B1761265" />
         <effect id="r4" name="Slide" uid="FxPlug:6AAB0D54-FCD8-4EBD-A62D-D352A5ED1648" />
@@ -3426,7 +3426,7 @@ exports[`voiceover-test > FCP snapshot (voiceover + background music) 1`] = `
 <!DOCTYPE fcpxml>
 <fcpxml version="1.11">
     <resources>
-        <format id="r1" name="FFVideoFormat1080p30" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
+        <format id="r1" frameDuration="1/30s" width="1920" height="1080" colorSpace="1-1-1 (Rec. 709)" />
         <effect id="r2" name="Subtitle" uid=".../Titles.localized/Subtitles.localized/Subtitle.localized/Subtitle.moti" />
         <asset id="asset-1" start="0/1s" duration="900/30s" hasVideo="1" hasAudio="1" audioSources="1" audioChannels="2" audioRate="48000" format="r1">
             <media-rep kind="original-media" src="file:///fixtures/output/landscape.mp4" />

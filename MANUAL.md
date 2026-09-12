@@ -699,10 +699,7 @@ montai export --davinci
 
 First import your video files into Final Cut Pro, then use File → Import → XML to import the `.fcpxml` file. FCP will automatically link the media.
 
-If your source footage is HDR, configure both the library and the project before importing the `.fcpxml`:
-
-- Set the library to Wide Gamut HDR color processing (Library Inspector → Modify → Wide Gamut HDR).
-- Set the project's color space to Rec. 2020 or Rec. 2020 HLG
+Montai preserves source color spaces and sets the exported project to the first HDR clip's Rec. 2020 HLG or PQ color space, or Rec. 709 for SDR footage. HDR exports declare Wide Gamut HDR processing. When importing into an existing library, ensure its color processing is Wide Gamut HDR (Library Inspector → Modify). This applies at every output resolution, including 4K.
 
 ![Imported to Final Cut Pro](docs/assets/fcp-timeline.png)
 

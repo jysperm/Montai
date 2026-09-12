@@ -100,3 +100,47 @@ describe('voiceover-test', () => {
     expect(generateTestFcpxml(timeline, videoMeta, { target: 'fcp' }, audioMeta, voiceoverMeta)).toMatchSnapshot();
   });
 });
+
+describe('format and frame boundary regressions', () => {
+  function makeTimeline() {
+    const { timeline } = expand(loadTimeline('transition-test'), 'regression');
+    return { ...timeline, width: 3840, height: 2160, fps: 50,
+      textOverlays: [], audioTracks: [], voiceoverTracks: [],
+      clips: [0, 1, 2].map(i => ({ ...timeline.clips[0],
+        clipId: `clip-${i}`, sourceFile: `/media/${i}.mp4`,
+        startTimeSeconds: 3, endTimeSeconds: 8, playbackRate: 1.2,
+        transition: i ? { type: 'fade' as const, durationSeconds: 0.5 } : undefined,
+      })),
+    };
+  }
+
+  it.each(['hlg', 'pq'])('preserves %s at matching 4K 50fps and in mixed footage', transfer => {
+    const timeline = makeTimeline();
+    const meta = new Map(timeline.clips.map((clip, i) => [`${i}.mp4`, {
+      width: 3840, height: 2160, fpsNum: 50, fpsDen: 1,
+      colorPrimaries: i === 1 ? 'bt709' : 'bt2020',
+      colorTransfer: i === 1 ? 'bt709' : transfer,
+    }]));
+    const xml = generateFcpxml(timeline, meta);
+    const color = transfer === 'hlg' ? '9-18-9 (Rec. 2020 HLG)' : '9-16-9 (Rec. 2020 PQ)';
+    expect(xml).toContain(`<format id="r1" frameDuration="1/50s" width="3840" height="2160" colorSpace="${color}"`);
+    expect(xml).toContain('colorSpace="1-1-1 (Rec. 709)"');
+    expect(xml).toContain('<library colorProcessing="wide-hdr">');
+    expect(xml).not.toContain('FFVideoFormat');
+    const assets = [...xml.matchAll(/<asset id="asset-\d+"[^>]* format="([^"]+)"/g)];
+    expect(assets.map(a => a[1])).toEqual(['r1', expect.not.stringMatching(/^r1$/), 'r1']);
+  });
+
+  it('keeps retimed clips contiguous and transitions centered on the shared frame', () => {
+    const xml = generateFcpxml(makeTimeline());
+    const clips = [...xml.matchAll(/<asset-clip[^>]* offset="(\d+)\/50s" duration="(\d+)\/50s"/g)];
+    expect(clips).toHaveLength(3);
+    for (let i = 1; i < clips.length; i++) {
+      expect(Number(clips[i][1])).toBe(Number(clips[i - 1][1]) + Number(clips[i - 1][2]));
+    }
+    const transitions = [...xml.matchAll(/<transition offset="(\d+)\/50s" duration="(\d+)\/50s"/g)];
+    expect(transitions).toHaveLength(2);
+    transitions.forEach((t, i) => expect(Number(t[1]) + Number(t[2]) / 2).toBe(Number(clips[i + 1][1])));
+    expect(xml).toContain('<sequence format="r1" duration="625/50s"');
+  });
+});

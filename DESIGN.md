@@ -387,6 +387,8 @@ Montai includes a static Remotion project at `remotion/`. This project is **neve
 
 Generates FCPXML 1.11 format XML. Maps clips to `<asset-clip>`, transitions to `<transition>`, and text overlays to `<title>` using Final Cut's built-in Subtitle template. Times are expressed as rational numbers (e.g., `1001/30000s`). Each Timeline outputs to `fcpxml/<name>.fcpxml`.
 
+Formats use explicit dimensions and frame duration without a preset name, including 4K, vertical, and square output. The sequence uses the first HDR source's color space in timeline order (HLG or PQ), or Rec. 709 when no HDR source is present; HDR exports declare wide-hdr library processing. Source formats retain their own color spaces and only reuse the sequence format when color space, dimensions, and frame rate all match. Primary storyline boundaries are rounded once to integer sequence frames; clip durations are differences of these boundaries, keeping retimed clips contiguous and transitions centered without cumulative rounding gaps.
+
 Transition types map to FCP FxPlug effects: fade → Cross Dissolve, slide → Slide, wipe → Wipe. DaVinci Resolve only reliably imports Cross Dissolve; Slide and Wipe fall back to dissolve.
 
 Text overlays use Final Cut's responsive Subtitle template for automatic wrapping, alignment, and caption backgrounds. FCP and Remotion share the same short-edge-scaled typography, one-em corner margins, and title/subtitle/caption styles across landscape, square, and portrait output. Static placement is handled by the template rather than `<adjust-transform>` so text wraps before rendering; the exporter compensates for the template's aspect-dependent layout internally.
