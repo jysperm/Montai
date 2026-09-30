@@ -3,6 +3,7 @@ import chalk from 'chalk';
 import { Command } from 'commander';
 import updateNotifier from 'update-notifier';
 import { loadGlobalEnv } from './utils/global-env.js';
+import { configureProxy } from './utils/proxy.js';
 import { analyzeCommand } from './commands/analyze.js';
 import { montaiVersion } from './utils/version.js';
 import { storyCommand } from './commands/story.js';
@@ -15,6 +16,7 @@ import { cleanCommand } from './commands/clean.js';
 import { skillsCommand } from './commands/skills.js';
 
 loadGlobalEnv();
+configureProxy();
 
 function printFullHelp(program: Command) {
   console.log(`${chalk.bold('montai')} — AI-powered video editing tool that extracts storylines from unscripted footage and generates edited vlogs\n`);

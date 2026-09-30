@@ -25,7 +25,7 @@ npm ci && npm link
 
 Prerequisites:
 
-- Node.js >= 22 (v20 has a [readline bug](https://github.com/nodejs/node/issues/60446) with CJK input)
+- Node.js >= 22.21.0
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing, [Lyria 3](https://ai.google.dev/gemini-api/docs/music-generation) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 
@@ -75,10 +75,11 @@ models:
   musicGeneration: lyria-3-clip-preview # Optional but recommended
 ```
 
-2. Write your credentials to `~/.config/montai/env`:
+2. Write your credentials and optional proxy settings to `~/.config/montai/env`:
 
 ```dotenv
 GEMINI_API_KEY=...
+# HTTPS_PROXY=http://127.0.0.1:7890
 ```
 
 3. Analyze the source media:

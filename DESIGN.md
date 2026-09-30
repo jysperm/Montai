@@ -55,6 +55,8 @@ All generated files (`montai.db`, `.montai/`, `output/`, `fcpxml/`) are located 
 
 Secrets and account-level environment variables are not stored in `montai.yaml`. On CLI startup, Montai loads dotenv-compatible variables from `~/.config/montai/env` and only fills keys that are missing from the current runtime environment. Shell-provided environment variables therefore remain the highest-priority source.
 
+After loading the global env file, the CLI configures Node's global fetch dispatcher from `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` (including lowercase variants). This routes Gemini model calls, File API uploads, music generation, voiceover generation, and other fetch-based outbound requests through the configured HTTP proxy without requiring user-supplied Node startup flags. It also enables Node's startup proxy support for child processes such as the update notifier. In the absence of `NO_PROXY`, loopback hosts are excluded from proxying. Node 22.21.0 or newer is required for child-process proxy support.
+
 ## Feature Flags
 
 A `FeatureFlags` object (variable name `features` in code, type `FeatureFlags` in `src/feature-flags.ts`) gates optional capabilities across the LLM prompt and tool surface. Each flag resolves to a boolean at runtime: a computed default based on project context, optionally overridden by the `featureFlags` section in `montai.yaml`. The same resolved `features` object is passed into both the prompt templates (Handlebars `{{#if features.X}}`) and the tool list assembly.

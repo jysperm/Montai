@@ -58,7 +58,7 @@ npm ci && npm link
 
 Prerequisites:
 
-- Node.js >= 22
+- Node.js >= 22.21.0
 - `ffmpeg` and `ffprobe` on PATH (`brew install ffmpeg`)
 - [Gemini](https://ai.google.dev/gemini-api/docs/gemini-3) for video analysis and editing (required) — set `GEMINI_API_KEY` from [Google AI Studio](https://aistudio.google.com/api-keys)
 - [Lyria 3](https://ai.google.dev/gemini-api/docs/music-generation) for music generation and [Gemini TTS](https://ai.google.dev/gemini-api/docs/speech-generation) for voiceover generation (both are optional) — no extra credentials, they use the same `GEMINI_API_KEY`
@@ -84,10 +84,12 @@ models:
   musicGeneration: lyria-3-clip-preview # Optional but recommended
 ```
 
-2. Write your credentials to `~/.config/montai/env`:
+2. Write your credentials and optional proxy settings to `~/.config/montai/env`:
 
 ```dotenv
 GEMINI_API_KEY=...
+# HTTPS_PROXY=http://127.0.0.1:7890
+# HTTP_PROXY=http://127.0.0.1:7890
 ```
 
 3. Analyze the source media:
@@ -266,7 +268,7 @@ If `montai.yaml` is missing, `montai analyze` can create a minimal default confi
 
 ### Environment Variables
 
-Montai reads environment variables first, and also loads dotenv-compatible variables from `~/.config/montai/env` on startup, values from this global file are only used when environment variables are not set.
+Montai reads environment variables first, and also loads dotenv-compatible variables from `~/.config/montai/env` on startup. Values from this global file are only used when environment variables are not set. Proxy settings also work from either source.
 
 Montai reads the following environment variables:
 
@@ -274,7 +276,15 @@ Montai reads the following environment variables:
 # Gemini API key, used for analysis, story editing, music generation (Lyria)
 # and voiceover generation (Gemini TTS).
 GEMINI_API_KEY=...
+# Optional HTTP proxy for outbound HTTP(S) requests, including Gemini model
+# calls, file uploads, music generation, and voiceover generation.
+HTTPS_PROXY=http://127.0.0.1:7890
+HTTP_PROXY=http://127.0.0.1:7890
+# Optional: exclude specific hosts. Localhost is excluded by default.
+NO_PROXY=localhost,127.0.0.1,::1,example.internal
 ```
+
+Current outbound API and update-check requests use HTTPS, so `HTTPS_PROXY` alone covers them. `HTTP_PROXY` applies to HTTP requests. Lowercase `https_proxy`, `http_proxy`, and `no_proxy` are also accepted. Shell variables take precedence over entries with the same name in the global env file. Montai forwards proxy settings to its child Node processes.
 
 ### Agent Instructions
 
